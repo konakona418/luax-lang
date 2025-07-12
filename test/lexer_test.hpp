@@ -258,6 +258,30 @@ inline void test_invalid_character() {
     assert(caught_exception);
 }
 
+inline void test_abnormal_float_numeric() { 
+    luaxc::Lexer lexer("x = 1.2faabc;");
+    bool caught_exception = false;
+    try {
+        std::vector<luaxc::Token> tokens = lexer.lex();
+    } catch (const luaxc::error::LexerError& e) {
+        caught_exception = true;
+        test_helper::dbg_print(e.what());
+    }
+    assert(caught_exception);
+}
+
+inline void test_abnormal_int_numeric() { 
+    luaxc::Lexer lexer("x = 1u32abc;");
+    bool caught_exception = false;
+    try {
+        std::vector<luaxc::Token> tokens = lexer.lex();
+    } catch (const luaxc::error::LexerError& e) {
+        caught_exception = true;
+        test_helper::dbg_print(e.what());
+    }
+    assert(caught_exception);
+}
+
 inline void run_lexer_test() {
     begin_test("lexer") {
         test(test_basic_expr)
@@ -282,5 +306,7 @@ inline void run_lexer_test() {
         test(test_simple_string)
         test(test_string_with_escapes)
         test(test_empty_string)
+        test(test_abnormal_float_numeric)
+        test(test_abnormal_int_numeric)
     } end_test();
 }

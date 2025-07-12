@@ -9,19 +9,18 @@ namespace luaxc {
     namespace error {
         class LexerError : public std::exception {
         public:
-            LexerError(std::string message, int line, int column) : message(message), line(line), column(column) {}
+            LexerError(std::string message, int line, int column) : line(line), column(column) {
+                std::stringstream ss;
+                ss << "LexerError: " << message << " at line " << line << ", column " << column;
+                this->message = ss.str();
+            }
+
             std::string message;
             int line;
             int column;
 
             const char* what() const noexcept override { 
-                return "Lexer encountered an error when lexing the input";
-            }
-
-            std::string to_string() const {
-                std::stringstream ss;
-                ss << "LexerError: " << message << " at line " << line << ", column " << column;
-                return ss.str().c_str();
+                return message.c_str();
             }
         };
     }
@@ -44,7 +43,6 @@ namespace luaxc {
         BITWISE_XOR, // symbol: ^
         BITWISE_NOT, // symbol: ~
 
-        // todo: implement this group
         EQUAL, // symbol: ==
         NOT_EQUAL, // symbol: !=
         LESS_THAN_EQUAL, // symbol: <=
@@ -59,7 +57,6 @@ namespace luaxc {
         LOGICAL_OR, // symbol: ||
         LOGICAL_NOT, // symbol: !
 
-        // todo: implement this group
         KEYWORD_LET,
         KEYWORD_CONST,
         KEYWORD_IF,
@@ -111,6 +108,9 @@ namespace luaxc {
 
         std::vector<Token> lex();
 
+        Token next();
+
+        std::pair<size_t, size_t> get_line_and_column() const { return {statistics.line, statistics.column}; }
     private:
         std::string input;
         size_t pos;

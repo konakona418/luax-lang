@@ -10,6 +10,8 @@
 #define LUAXC_LEXER_IS_IDENTIFIER(x) (x >= 'a' && x <= 'z' || x >= 'A' && x <= 'Z' || x == '_' || x >= '0' && x <= '9')
 #define LUAXC_LEXER_PERHAPS_STRING_LITERAL(x) (x == '"' || x == '\'')
 #define LUAXC_LEXER_IS_VALID_ESCAPE_SEQUENCE(_peek) (_peek == '\\' || _peek == '0' || _peek == 'n' || _peek == 't' || _peek == 'r' || _peek == '"' || _peek == '\'')
+#define LUAXC_LEXER_IS_ALNUM(x) (LUAXC_LEXER_IS_IDENTIFIER(x) || x >= '0' && x <= '9')
+#define LUAXC_LEXER_IS_ALNUM_OR_UNDERSCORE(x) (LUAXC_LEXER_IS_IDENTIFIER(x) || x == '_')
 
 #define LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS(_first, _second, _type, _current, _peek) \
     if (_first == _current && _second == _peek) { \
@@ -94,16 +96,22 @@ namespace luaxc {
         if (current_char() == '.') {
             is_floating_point = true;
             advance();
+            
             while (LUAXC_LEXER_IS_DIGIT(current_char())) {
                 advance();
             }
+        }
 
-        } else if (current_char() == 'e' || current_char() == 'E') {
+        if (current_char() == 'e' || current_char() == 'E') {
+            is_floating_point = true;
+
             advance();
-            if (current_char() == '+' || current_char() == '-') {
+            if (current_char() == '-') {
                 advance();
-            } else {
-                throw error::LexerError("Expected + or - after exponent", 
+            }
+
+            if (!LUAXC_LEXER_IS_DIGIT(current_char())) {
+                throw error::LexerError("Expected digit after exponent", 
                     statistics.line, statistics.column);
             }
 
@@ -112,6 +120,12 @@ namespace luaxc {
             }
         } else if (current_char() == 'f') {
             advance();
+
+            if (LUAXC_LEXER_IS_ALNUM_OR_UNDERSCORE(current_char())) {
+                throw error::LexerError("Unexpected character '" 
+                    + std::string(1, current_char()) + "' after float literal",
+                    statistics.line, statistics.column);
+            }
         } else if (current_char() == 'u' || current_char() == 'i') {
             if (is_floating_point) {
                 throw error::LexerError("Floating point number cannot have u or i suffix", 
@@ -119,8 +133,19 @@ namespace luaxc {
             }
             advance();
 
+            if (!LUAXC_LEXER_IS_DIGIT(current_char())) {
+                throw error::LexerError("Expected digit (size in bytes) after u or i suffix",
+                    statistics.line, pos - begin_offset);
+            }
+
             while (LUAXC_LEXER_IS_DIGIT(current_char())) {
                 advance();
+            }
+
+            if (LUAXC_LEXER_IS_ALNUM_OR_UNDERSCORE(current_char())) {
+                throw error::LexerError("Unexpected character '" 
+                    + std::string(1, current_char()) + "' after interger literal",
+                    statistics.line, pos - begin_offset);
             }
         }
 
@@ -405,5 +430,13 @@ namespace luaxc {
             tokens.push_back(token);
         }
         return tokens;
+    }
+
+    Token Lexer::next() {
+        auto token = get_next_token();
+        if (token.type == TokenType::INVALID) {
+            throw error::LexerError("Invalid token", statistics.line, statistics.column);
+        }
+        return token;
     }
 }
