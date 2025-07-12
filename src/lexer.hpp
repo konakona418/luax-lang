@@ -127,6 +127,8 @@ namespace luaxc {
 
         bool is_eof() { return pos >= len; }
 
+        bool is_peek_eof() { return pos + 1 >= len; }
+
         char current_char() { assert(pos <= len); return input[pos]; }
 
         char peek() { assert(pos + 1 <= len); return input[pos + 1]; }
@@ -137,10 +139,14 @@ namespace luaxc {
 
         Token get_digit();
 
-        Token get_identifier();
+        Token get_identifier_or_keyword();
 
         Token get_string_literal();
 
         Token get_next_token();
+
+        bool is_keyword(const std::string& candidate);
+
+        TokenType keyword_type(const std::string& candidate);
     };
 }

@@ -1,13 +1,22 @@
+#include <unordered_set>
+
 #include "lexer.hpp"
 #include "test_helper.hpp"
 
 #define LUAXC_LEXER_IS_WHITESPACE(x) std::isspace(x)
 #define LUAXC_LEXER_PERHAPS_COMMENT(_cur, _peek) ((_cur == '/' && _peek == '/') || (_cur == '/' && _peek == '*'))
 #define LUAXC_LEXER_IS_DIGIT(x) (x >= '0' && x <= '9')
-#define LUAXC_LEXER_PERHAPS_IDENTIFIER(x) (x >= 'a' && x <= 'z' || x >= 'A' && x <= 'Z' || x == '_')
+#define LUAXC_LEXER_PERHAPS_IDENTIFIER_OR_KEYWORD(x) (x >= 'a' && x <= 'z' || x >= 'A' && x <= 'Z' || x == '_')
 #define LUAXC_LEXER_IS_IDENTIFIER(x) (x >= 'a' && x <= 'z' || x >= 'A' && x <= 'Z' || x == '_' || x >= '0' && x <= '9')
 #define LUAXC_LEXER_PERHAPS_STRING_LITERAL(x) (x == '"' || x == '\'')
 #define LUAXC_LEXER_IS_VALID_ESCAPE_SEQUENCE(_peek) (_peek == '\\' || _peek == '0' || _peek == 'n' || _peek == 't' || _peek == 'r' || _peek == '"' || _peek == '\'')
+
+#define LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS(_first, _second, _type, _current, _peek) \
+    if (_first == _current && _second == _peek) { \
+        advance(); \
+        advance(); \
+        return Token{ _type, std::string{ _first, _second } }; \
+    }
 
 namespace luaxc {
 
@@ -118,7 +127,7 @@ namespace luaxc {
         return Token{TokenType::NUMBER, input.substr(begin_offset, pos - begin_offset)};
     }
 
-    Token Lexer::get_identifier() { 
+    Token Lexer::get_identifier_or_keyword() { 
         test_helper::dbg_print("Get identifier");
 
         auto begin_offset = pos;
@@ -127,7 +136,13 @@ namespace luaxc {
             advance();
         }
 
-        return Token{TokenType::IDENTIFIER, input.substr(begin_offset, pos - begin_offset)};
+        auto str = input.substr(begin_offset, pos - begin_offset);
+
+        if (is_keyword(str)) {
+            return Token{keyword_type(str), str};
+        }
+
+        return Token{TokenType::IDENTIFIER, str};
     }
 
     Token Lexer::get_string_literal() { 
@@ -214,12 +229,39 @@ namespace luaxc {
             return get_digit();
         }
 
-        if (LUAXC_LEXER_PERHAPS_IDENTIFIER(current_char())) { 
-            return get_identifier();
+        if (LUAXC_LEXER_PERHAPS_IDENTIFIER_OR_KEYWORD(current_char())) { 
+            return get_identifier_or_keyword();
         }
 
         if (LUAXC_LEXER_PERHAPS_STRING_LITERAL(current_char())) {
             return get_string_literal();
+        }
+
+        if (!is_peek_eof()) {
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('=', '=', 
+                TokenType::EQUAL, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('!', '=', 
+                TokenType::NOT_EQUAL, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('<', '=', 
+                TokenType::LESS_THAN_EQUAL, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('>', '=', 
+                TokenType::GREATER_THAN_EQUAL, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('+', '+', 
+                TokenType::INCREMENT, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('-', '-', 
+                TokenType::DECREMENT, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('+', '=', 
+                TokenType::INCREMENT_BY, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('-', '=', 
+                TokenType::DECREMENT_BY, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('<', '<', 
+                TokenType::BITWISE_SHIFT_LEFT, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('>', '>', 
+                TokenType::BITWISE_SHIFT_RIGHT, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('&', '&', 
+                TokenType::LOGICAL_AND, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('|', '|', 
+                TokenType::LOGICAL_OR, current_char(), peek())
         }
 
         switch (current_char()) { 
@@ -301,6 +343,54 @@ namespace luaxc {
                     return invalid_token;
                 }
         }
+    }
+
+    bool Lexer::is_keyword(const std::string& candidate) {
+        const static std::unordered_set<std::string> keywords = {
+            "let", "const", 
+            "func", 
+            "if", "else", "elif", 
+            "for", "while", "do", 
+            "break", "continue", 
+            "return"};
+        return keywords.find(candidate) != keywords.end();
+    }
+
+    TokenType Lexer::keyword_type(const std::string& candidate) { 
+        switch (candidate[0]) {
+            case 'b':
+                if (candidate == "break") return TokenType::KEYWORD_BREAK;
+                break;
+            case 'c': 
+                if (candidate == "const") return TokenType::KEYWORD_CONST;
+                if (candidate == "continue") return TokenType::KEYWORD_CONTINUE;
+                break;
+            case 'd':
+                return TokenType::KEYWORD_DO;
+                break;
+            case 'e':
+                if (candidate == "elif") return TokenType::KEYWORD_ELIF;
+                if (candidate == "else") return TokenType::KEYWORD_ELSE;
+                break;
+            case 'f':
+                if (candidate == "for") return TokenType::KEYWORD_FOR;
+                if (candidate == "func") return TokenType::KEYWORD_FUNC;
+                break;
+            case 'i':
+                return TokenType::KEYWORD_IF;
+                break;
+            case 'l':
+                if (candidate == "let") return TokenType::KEYWORD_LET;
+                break;
+            case 'r':
+                if (candidate == "return") return TokenType::KEYWORD_RETURN;
+                break;
+            case 'w':
+                if (candidate == "while") return TokenType::KEYWORD_WHILE;
+            default:
+                break;
+        }
+        throw error::LexerError("Invalid keyword", statistics.line, statistics.column);
     }
 
     std::vector<Token> Lexer::lex() { 
