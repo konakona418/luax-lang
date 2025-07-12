@@ -1,7 +1,6 @@
 #include <unordered_set>
 
 #include "lexer.hpp"
-#include "test_helper.hpp"
 
 #define LUAXC_LEXER_IS_WHITESPACE(x) std::isspace(x)
 #define LUAXC_LEXER_PERHAPS_COMMENT(_cur, _peek) ((_cur == '/' && _peek == '/') || (_cur == '/' && _peek == '*'))
@@ -33,8 +32,6 @@ namespace luaxc {
     }
 
     void Lexer::skip_whitespace() { 
-        test_helper::dbg_print("Skipping whitespace");
-
         while (LUAXC_LEXER_IS_WHITESPACE(current_char())) {
             if (current_char() == '\n') {
                 set_statistics_next_line();
@@ -44,8 +41,6 @@ namespace luaxc {
     }
 
     void Lexer::skip_comment() { 
-        test_helper::dbg_print("Skip comment");
-
         if (current_char() == '/' && peek() == '/') { 
             while (current_char() != '\n' && !is_eof()) {
                 advance();
@@ -75,8 +70,6 @@ namespace luaxc {
     }
 
     Token Lexer::get_digit() { 
-        test_helper::dbg_print("Getting digit");
-
         auto begin_offset = pos;
 
         while (LUAXC_LEXER_IS_DIGIT(current_char())) {
@@ -153,8 +146,6 @@ namespace luaxc {
     }
 
     Token Lexer::get_identifier_or_keyword() { 
-        test_helper::dbg_print("Get identifier");
-
         auto begin_offset = pos;
 
         while (LUAXC_LEXER_IS_IDENTIFIER(current_char())) {
