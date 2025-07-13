@@ -42,6 +42,12 @@ namespace luaxc {
                 return parse_block_statement();
             case TokenType::KEYWORD_IF:
                 return parse_if_statement();
+            case TokenType::KEYWORD_WHILE:
+                return parse_while_statement();
+            case TokenType::KEYWORD_BREAK:
+                return parse_break_statement();
+            case TokenType::KEYWORD_CONTINUE:
+                return parse_continue_statement();
             default:
                 return parse_expression();
         }
@@ -264,7 +270,6 @@ namespace luaxc {
         auto condition = parse_expression();
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' after while condition");
-        consume(TokenType::L_CURLY_BRACKET, "Expected '{' after while condition");
 
         auto body = parse_statement();
 

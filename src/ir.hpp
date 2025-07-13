@@ -31,7 +31,10 @@ namespace luaxc {
 
     using IRPrimValue = std::variant<int32_t, double>;
     using IRLoadConstParam = IRPrimValue;
-    using IRLoadIdentifierParam = std::string;
+    
+    struct IRLoadIdentifierParam { 
+        std::string identifier;
+    };
 
     struct IRStoreIdentifierParam { 
         std::string identifier;
@@ -76,9 +79,13 @@ namespace luaxc {
         InstructionType type;
 
         IRInstruction(InstructionType type, IRParam param) : param(param), type(type) {}
+
+        std::string dump() const;
     };
 
     using ByteCode = std::vector<IRInstruction>;
+
+    std::string dump_bytecode(const ByteCode& bytecode);
 
     class IRGenerator {
     public:
@@ -87,21 +94,40 @@ namespace luaxc {
         ByteCode generate();
 
     private:
+        struct WhileLoopGenerationContext { 
+            std::vector<size_t> break_instructions;
+            std::vector<size_t> continue_instructions;
+            // note: do not use pointer to the ast node here,
+            // for that reallocations can happen in vectors.
+            
+            void register_break_instruction(size_t instruction) { break_instructions.push_back(instruction); }
+
+            void register_continue_instruction(size_t instruction) { continue_instructions.push_back(instruction); }
+        };
+
         std::unique_ptr<luaxc::AstNode> ast;
 
-        void generate_program_or_block(const AstNode* node, ByteCode& byte_code);
+        void generate_program_or_block(const AstNode* node, ByteCode& byte_code, void* ctx);
 
-        void generate_statement(const StatementNode* statement, ByteCode& byte_code);
+        void generate_statement(const StatementNode* statement, ByteCode& byte_code, void* ctx);
 
-        void generate_expression(const AstNode* expression, ByteCode& byte_code);
+        void generate_expression(const AstNode* expression, ByteCode& byte_code, void* ctx);
 
-        void generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
+        void generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code, void* ctx);
 
-        void generate_declaration_statement(const DeclarationStmtNode* statement, ByteCode& byte_code);
+        void generate_declaration_statement(const DeclarationStmtNode* statement, ByteCode& byte_code, void* ctx);
 
-        void generate_assignment_statement(const AssignmentStmtNode* statement, ByteCode& byte_code);
+        void generate_assignment_statement(const AssignmentStmtNode* statement, ByteCode& byte_code, void* ctx);
 
-        void generate_if_statement(const IfNode* statement, ByteCode& byte_code);
+        void generate_if_statement(const IfNode* statement, ByteCode& byte_code, void* ctx);
+
+        void generate_while_statement(const WhileNode* statement, ByteCode& byte_code, void* ctx);
+
+        void generate_conditional_comparision_bytecode(const AstNode* node, ByteCode& byte_code, void* ctx);
+
+        void generate_break_statement(ByteCode& byte_code, WhileLoopGenerationContext* ctx);
+
+        void generate_continue_statement(ByteCode& byte_code, WhileLoopGenerationContext* ctx);
     };
 
     class IRInterpreter { 
@@ -126,7 +152,7 @@ namespace luaxc {
 
         void handle_binary_op(IRInstruction::InstructionType op);
 
-        void handle_jump(IRInstruction::InstructionType op, IRJumpParam param);
+        bool handle_jump(IRInstruction::InstructionType op, IRJumpParam param);
 
         template <typename T>
         void handle_binary_op(IRInstruction::InstructionType op, T lhs, T rhs) {

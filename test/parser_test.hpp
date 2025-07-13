@@ -11,6 +11,7 @@ namespace parser_test {
         auto program = parser.parse_program();
         auto ir_generator = luaxc::IRGenerator(std::move(program));
         auto byte_code = ir_generator.generate();
+        std::cout << luaxc::dump_bytecode(byte_code) << std::endl;
 
         auto ir_interpreter = luaxc::IRInterpreter(std::move(byte_code));
         ir_interpreter.run();
@@ -54,6 +55,7 @@ namespace parser_test {
     inline void test_if_statement_with_else() {
         auto ir_interpreter = 
             compile_run("let a = 1; if (a < 0) { let b = 2; } else { let c = 3; }");
+        assert(ir_interpreter.has_identifier("b") == false);
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("c")) == 3);
     }
 
@@ -78,6 +80,76 @@ namespace parser_test {
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 1);
     }
 
+    inline void test_while_statement() { 
+        auto ir_interpreter = 
+            compile_run("let a = 0; while (a < 10) { a = a + 1; }");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 10);
+    }
+
+    inline void test_while_statement_break() { 
+        auto ir_interpreter = 
+            compile_run("let a = 0; while (a < 10) { a = a + 1; if (a == 5) { break; } }");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 5);
+    }
+
+    inline void test_while_statement_continue() { 
+        auto ir_interpreter = 
+            compile_run("let a = 0; while (a < 10) { a = a + 1; if (a == 5) { continue; } }");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 10);
+    }
+
+    inline void test_while_statement_mixed() {
+        auto ir_interpreter = 
+            compile_run(
+                "let a = 0; let b = 0; "
+                "while (a < 10) { "
+                "if (a == 5) { a = a + 1; continue; } "
+                "a = a + 1; b = b + 2; "
+                "if (a == 7) { break;} "
+                "}");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 7);
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("b")) == 12);
+    }
+
+    inline void test_while_statement_nested() {
+        std::string input = R"(
+        let a = 0;
+        let b = 0;
+        let sum = 0;
+        while (a < 10) {
+            b = 0;
+            while (b < 5) {
+                sum = sum + 1;
+                b = b + 1;
+            }
+            a = a + 1;
+        })";
+
+        auto ir_interpreter = compile_run(input);
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("sum")) == 50);
+    }
+
+    inline void test_while_statement_nested_break() {
+        std::string input = R"(
+        let a = 0;
+        let b = 0;
+        let sum = 0;
+        while (a < 10) {
+            b = 0;
+            while (b < 5) {
+                if (b == 3) {
+                    break;
+                }
+                sum = sum + 1;
+                b = b + 1;
+            }
+            a = a + 1;
+        })";
+
+    auto ir_interpreter = compile_run(input);
+    assert(std::get<int32_t>(ir_interpreter.retrieve_value("sum")) == 30);
+}
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -93,6 +165,15 @@ namespace parser_test {
             test(test_if_statement_else_if);
             test(test_if_statement_const_condition);
             test(test_if_statement_const_expr_condition);
+        } end_test()
+
+        begin_test("parser-while stmt") {
+            test(test_while_statement);
+            test(test_while_statement_break);
+            test(test_while_statement_continue);
+            test(test_while_statement_mixed);
+            test(test_while_statement_nested);
+            test(test_while_statement_nested_break);
         } end_test()
     }
 }
