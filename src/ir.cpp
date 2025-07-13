@@ -48,6 +48,14 @@ namespace luaxc {
                     IRInstruction(IRInstruction::InstructionType::PUSH_STACK, 
                     {std::monostate()}));
                 break;
+            case AstNodeType::Identifier:
+                byte_code.push_back(
+                    IRInstruction(IRInstruction::InstructionType::LOAD_IDENTIFIER, 
+                    {IRLoadIdentifierParam(static_cast<const IdentifierNode *>(node)->get_name())}));
+                byte_code.push_back(
+                    IRInstruction(IRInstruction::InstructionType::PUSH_STACK, 
+                    {std::monostate()}));
+                break;
             default:
                 throw IRGeneratorException("Unsupported expression type");
         }
@@ -57,7 +65,16 @@ namespace luaxc {
         auto expr = static_cast<const StatementNode *>(node->get_value_or_initializer());
         auto identifier = static_cast<const IdentifierNode *>(node->get_identifier().get());
 
-        // todo: the initializer value can be non-present
+        // expr not present
+        if (expr == nullptr) {
+            // by this time, the value of the identifier is not certain
+            byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::STORE_IDENTIFIER, 
+                IRStoreIdentifierParam{identifier->get_name()}));
+
+            return;
+        }
+
         generate_expression(expr, byte_code);
 
         byte_code.push_back(IRInstruction(
@@ -90,28 +107,8 @@ namespace luaxc {
         const auto& left = node->get_left();
         const auto& right = node->get_right();
 
-        // todo: this does not handle when an operand is an identifier
-        if (left->get_type() == AstNodeType::NumericLiteral) {
-            byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::LOAD_CONST,
-                {IRLoadConstParam(static_cast<const NumericLiteralNode *>(left.get())->get_value())}));
-            byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::PUSH_STACK,
-                {std::monostate()}));
-        } else {
-            generate_binary_expression_statement(static_cast<const BinaryExpressionNode *>(left.get()), byte_code);
-        }
-
-        if (right->get_type() == AstNodeType::NumericLiteral) {
-            byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::LOAD_CONST,
-                {IRLoadConstParam(static_cast<const NumericLiteralNode *>(right.get())->get_value())}));
-            byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::PUSH_STACK,
-                {std::monostate()}));
-        } else {
-            generate_binary_expression_statement(static_cast<const BinaryExpressionNode *>(right.get()), byte_code);
-        }
+        generate_expression(left.get(), byte_code);
+        generate_expression(right.get(), byte_code);
 
         IRInstruction::InstructionType op_type;
         switch (node->get_op()) {
@@ -208,5 +205,9 @@ namespace luaxc {
         } else {
             throw IRInterpreterException("Identifier not found: " + identifier);
         }
+    }
+
+    bool IRInterpreter::has_identifier(const std::string& identifier) const {
+        return variables.find(identifier) != variables.end();
     }
 }

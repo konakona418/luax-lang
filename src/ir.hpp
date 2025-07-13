@@ -98,6 +98,8 @@ namespace luaxc {
         void run();
         
         IRPrimValue retrieve_value(const std::string& identifier);
+        
+        bool has_identifier(const std::string& identifier) const;
 
     private:
         ByteCode byte_code;

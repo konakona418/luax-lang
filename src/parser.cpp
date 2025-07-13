@@ -143,10 +143,16 @@ namespace luaxc {
                     NumericLiteralNode::NumericLiteralType::Integer, current_token.value);
             }
             consume(TokenType::NUMBER);
+        } else if (current_token.type == TokenType::IDENTIFIER) {
+            node = std::make_unique<IdentifierNode>(current_token.value);
+            consume(TokenType::IDENTIFIER);
         } else if (current_token.type == TokenType::L_PARENTHESIS) {
             consume(TokenType::L_PARENTHESIS);
             node = parse_expression();
             consume(TokenType::R_PARENTHESIS);
+        } else if (current_token.type == TokenType::STRING_LITERAL) {
+            // todo: string literal
+            LUAXC_PARSER_THROW_NOT_IMPLEMENTED("String literals are not implemented yet.")
         }
         return node;
     }
