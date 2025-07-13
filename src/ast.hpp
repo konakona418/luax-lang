@@ -51,6 +51,9 @@ namespace luaxc {
             UnaryExprStmt,
             BlockStmt,
             IfStmt,
+            WhileStmt,
+            BreakStmt,
+            ContinueStmt,
         };
 
         explicit StatementNode(StatementType statement_type) 
@@ -226,5 +229,29 @@ namespace luaxc {
         std::unique_ptr<AstNode> condition;
         std::unique_ptr<AstNode> body;
         std::unique_ptr<AstNode> else_body;
+    };
+
+    class WhileNode : public StatementNode {
+    public:
+        explicit WhileNode(std::unique_ptr<AstNode> condition, std::unique_ptr<AstNode> body)
+            : StatementNode(StatementType::WhileStmt), condition(std::move(condition)), body(std::move(body)) {};
+
+        const std::unique_ptr<AstNode>& get_condition() const { return condition; }
+
+        const std::unique_ptr<AstNode>& get_body() const { return body; }
+
+    private:
+        std::unique_ptr<AstNode> condition;
+        std::unique_ptr<AstNode> body;
+    };
+
+    class BreakNode : public StatementNode {
+    public:
+        BreakNode() : StatementNode(StatementType::BreakStmt) {}
+    };
+
+    class ContinueNode : public StatementNode {
+    public:
+        ContinueNode() : StatementNode(StatementType::ContinueStmt) {}
     };
 }

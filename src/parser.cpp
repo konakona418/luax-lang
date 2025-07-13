@@ -145,11 +145,9 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_comparison_expression() {
-        auto node = parse_additive_expression();
+        auto node = parse_relational_expression();
 
-        while (current_token.type == TokenType::EQUAL || current_token.type == TokenType::NOT_EQUAL || 
-            current_token.type == TokenType::GREATER_THAN || current_token.type == TokenType::GREATER_THAN_EQUAL || 
-            current_token.type == TokenType::LESS_THAN || current_token.type == TokenType::LESS_THAN_EQUAL) {
+        while (current_token.type == TokenType::EQUAL || current_token.type == TokenType::NOT_EQUAL) {
             BinaryExpressionNode::BinaryOperator op;
 
             switch (current_token.type) {
@@ -159,6 +157,25 @@ namespace luaxc {
                 case TokenType::NOT_EQUAL:
                     op = BinaryExpressionNode::BinaryOperator::NotEqual;
                     break;
+                default:
+                    break;
+            }
+            next_token();
+            auto right = parse_relational_expression();
+            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), op);
+        }
+
+        return node;
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_relational_expression() { 
+        std::unique_ptr<AstNode> node = parse_additive_expression();
+
+        while (current_token.type == TokenType::GREATER_THAN || current_token.type == TokenType::GREATER_THAN_EQUAL || 
+            current_token.type == TokenType::LESS_THAN || current_token.type == TokenType::LESS_THAN_EQUAL) {
+            BinaryExpressionNode::BinaryOperator op;
+
+            switch (current_token.type) {
                 case TokenType::GREATER_THAN:
                     op = BinaryExpressionNode::BinaryOperator::GreaterThan;
                     break;
@@ -178,7 +195,6 @@ namespace luaxc {
             auto right = parse_additive_expression();
             node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), op);
         }
-
         return node;
     }
 
@@ -239,5 +255,31 @@ namespace luaxc {
         }
         return std::make_unique<IfNode>(
             std::move(condition), std::move(body), std::move(else_body));
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_while_statement() {
+        consume(TokenType::KEYWORD_WHILE, "Expected 'while' keyword");
+        consume(TokenType::L_PARENTHESIS, "Expected '(' after 'while' keyword");
+
+        auto condition = parse_expression();
+
+        consume(TokenType::R_PARENTHESIS, "Expected ')' after while condition");
+        consume(TokenType::L_CURLY_BRACKET, "Expected '{' after while condition");
+
+        auto body = parse_statement();
+
+        return std::make_unique<WhileNode>(std::move(condition), std::move(body));
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_break_statement() {
+        consume(TokenType::KEYWORD_BREAK, "Expected 'break' keyword");
+        consume(TokenType::SEMICOLON, "Expected ';' after 'break'");
+        return std::make_unique<BreakNode>();
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_continue_statement() {
+        consume(TokenType::KEYWORD_CONTINUE, "Expected 'continue' keyword");
+        consume(TokenType::SEMICOLON, "Expected ';' after 'continue'");
+        return std::make_unique<ContinueNode>();
     }
 }
