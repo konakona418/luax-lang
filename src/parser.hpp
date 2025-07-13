@@ -59,8 +59,6 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> parse_comparison_expression();
 
-        std::unique_ptr<AstNode> parse_term();
-
         std::unique_ptr<AstNode> parse_block_statement();
 
         std::unique_ptr<AstNode> parse_if_statement();

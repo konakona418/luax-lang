@@ -137,7 +137,7 @@ namespace luaxc {
                 consume(TokenType::MOD);
                 op = BinaryExpressionNode::BinaryOperator::Modulo;
             }
-            auto right = parse_term();
+            auto right = parse_factor();
             node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), op);
         }
         
@@ -179,28 +179,6 @@ namespace luaxc {
             node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), op);
         }
 
-        return node;
-    }
-
-    std::unique_ptr<AstNode> Parser::parse_term() { 
-        auto node = parse_factor();
-        
-        while (current_token.type == TokenType::MUL || current_token.type == TokenType::DIV || 
-            current_token.type == TokenType::MOD) {
-            BinaryExpressionNode::BinaryOperator op;
-            if (current_token.type == TokenType::MUL) {
-                consume(TokenType::MUL);
-                op = BinaryExpressionNode::BinaryOperator::Multiply;
-            } else if (current_token.type == TokenType::DIV) {
-                consume(TokenType::DIV);
-                op = BinaryExpressionNode::BinaryOperator::Divide;
-            } else {
-                consume(TokenType::MOD);
-                op = BinaryExpressionNode::BinaryOperator::Modulo;
-            }
-            auto right = parse_term();
-            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), op);
-        }
         return node;
     }
 

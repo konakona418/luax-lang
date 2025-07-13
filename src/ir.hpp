@@ -52,8 +52,8 @@ namespace luaxc {
             MOD,
 
             CMP, // compare two values on stack, 
-            JMP,
-            JE,
+            JMP, // jump to an address unconditionally
+            JE, // jump to an address, based on the value in the output register
             JNE,
             JG,
             JL,

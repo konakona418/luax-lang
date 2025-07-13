@@ -66,6 +66,18 @@ namespace parser_test {
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("c")) == 3);
     }
 
+    inline void test_if_statement_const_condition() { 
+        auto ir_interpreter = 
+            compile_run("if (1) { let a = 1; }");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 1);
+    }
+
+    inline void test_if_statement_const_expr_condition() { 
+        auto ir_interpreter = 
+            compile_run("if (1 + 2) { let a = 1; }");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 1);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -79,6 +91,8 @@ namespace parser_test {
             test(test_if_statement_false);
             test(test_if_statement_with_else);
             test(test_if_statement_else_if);
+            test(test_if_statement_const_condition);
+            test(test_if_statement_const_expr_condition);
         } end_test()
     }
 }

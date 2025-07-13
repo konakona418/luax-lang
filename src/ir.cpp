@@ -200,7 +200,7 @@ namespace luaxc {
                         break;
                     default:
                         // when the value is not 0
-                        jmp_op = IRInstruction::InstructionType::JNE;
+                        jmp_op = IRInstruction::InstructionType::JE;
                         //throw IRGeneratorException("Invalid binary operator");
                         break;
                 }
