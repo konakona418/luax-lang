@@ -146,9 +146,9 @@ namespace parser_test {
             a = a + 1;
         })";
 
-    auto ir_interpreter = compile_run(input);
-    assert(std::get<int32_t>(ir_interpreter.retrieve_value("sum")) == 30);
-}
+        auto ir_interpreter = compile_run(input);
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("sum")) == 30);
+    }
 
     inline void run_parser_test() {
         begin_test("parser-basics") {

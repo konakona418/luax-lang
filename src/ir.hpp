@@ -107,27 +107,29 @@ namespace luaxc {
 
         std::unique_ptr<luaxc::AstNode> ast;
 
-        void generate_program_or_block(const AstNode* node, ByteCode& byte_code, void* ctx);
+        std::stack<WhileLoopGenerationContext> while_loop_generation_stack;
 
-        void generate_statement(const StatementNode* statement, ByteCode& byte_code, void* ctx);
+        void generate_program_or_block(const AstNode* node, ByteCode& byte_code);
 
-        void generate_expression(const AstNode* expression, ByteCode& byte_code, void* ctx);
+        void generate_statement(const StatementNode* statement, ByteCode& byte_code);
 
-        void generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code, void* ctx);
+        void generate_expression(const AstNode* expression, ByteCode& byte_code);
 
-        void generate_declaration_statement(const DeclarationStmtNode* statement, ByteCode& byte_code, void* ctx);
+        void generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
 
-        void generate_assignment_statement(const AssignmentStmtNode* statement, ByteCode& byte_code, void* ctx);
+        void generate_declaration_statement(const DeclarationStmtNode* statement, ByteCode& byte_code);
 
-        void generate_if_statement(const IfNode* statement, ByteCode& byte_code, void* ctx);
+        void generate_assignment_statement(const AssignmentStmtNode* statement, ByteCode& byte_code);
 
-        void generate_while_statement(const WhileNode* statement, ByteCode& byte_code, void* ctx);
+        void generate_if_statement(const IfNode* statement, ByteCode& byte_code);
 
-        void generate_conditional_comparision_bytecode(const AstNode* node, ByteCode& byte_code, void* ctx);
+        void generate_while_statement(const WhileNode* statement, ByteCode& byte_code);
 
-        void generate_break_statement(ByteCode& byte_code, WhileLoopGenerationContext* ctx);
+        void generate_conditional_comparision_bytecode(const AstNode* node, ByteCode& byte_code);
 
-        void generate_continue_statement(ByteCode& byte_code, WhileLoopGenerationContext* ctx);
+        void generate_break_statement(ByteCode& byte_code);
+
+        void generate_continue_statement(ByteCode& byte_code);
     };
 
     class IRInterpreter { 

@@ -103,16 +103,16 @@ namespace luaxc {
     ByteCode IRGenerator::generate() {
         ByteCode byte_code;
 
-        generate_program_or_block(ast.get(), byte_code, nullptr);
+        generate_program_or_block(ast.get(), byte_code);
 
         return byte_code;
     }
 
-    void IRGenerator::generate_program_or_block(const AstNode* node, ByteCode& byte_code, void* ctx) {
+    void IRGenerator::generate_program_or_block(const AstNode* node, ByteCode& byte_code) {
         if (node->get_type() == AstNodeType::Program) { 
             for (const auto& statement : static_cast<const ProgramNode *>(node)->get_statements()) {
                 auto statement_node = static_cast<const StatementNode *>(statement.get());
-                generate_statement(statement_node, byte_code, ctx);
+                generate_statement(statement_node, byte_code);
             }
         } else if (node->get_type() == AstNodeType::Stmt) { 
             auto stmt = static_cast<const StatementNode *>(node);
@@ -122,49 +122,49 @@ namespace luaxc {
 
             for (const auto& statement : static_cast<const BlockNode *>(node)->get_statements()) {
                 auto statement_node = static_cast<const StatementNode *>(statement.get());
-                generate_statement(statement_node, byte_code, ctx);
+                generate_statement(statement_node, byte_code);
             }
         } else {
             throw IRGeneratorException("generate_program_or_block requires either a program or block statement");
         }
     }
 
-    void IRGenerator::generate_statement(const StatementNode* statement_node, ByteCode& byte_code, void* ctx) { 
+    void IRGenerator::generate_statement(const StatementNode* statement_node, ByteCode& byte_code) { 
         switch (statement_node->get_statement_type()) {
             case StatementNode::StatementType::DeclarationStmt:
                 generate_declaration_statement(
-                    static_cast<const DeclarationStmtNode*>(statement_node), byte_code, ctx);
+                    static_cast<const DeclarationStmtNode*>(statement_node), byte_code);
                 break;
             case StatementNode::StatementType::AssignmentStmt:
                 generate_assignment_statement(
-                    static_cast<const AssignmentStmtNode*>(statement_node), byte_code, ctx);
+                    static_cast<const AssignmentStmtNode*>(statement_node), byte_code);
                 break;
             case StatementNode::StatementType::BinaryExprStmt:
                 return generate_binary_expression_statement(
-                    static_cast<const BinaryExpressionNode *>(statement_node), byte_code, ctx);
+                    static_cast<const BinaryExpressionNode *>(statement_node), byte_code);
                 break;
             case StatementNode::StatementType::UnaryExprStmt: 
                 throw IRGeneratorException("Unsupported statement type");
                 break;
             case StatementNode::StatementType::BlockStmt:
-                return generate_program_or_block(statement_node, byte_code, ctx);
+                return generate_program_or_block(statement_node, byte_code);
             case StatementNode::StatementType::IfStmt:
-                return generate_if_statement(static_cast<const IfNode *>(statement_node), byte_code, ctx);
+                return generate_if_statement(static_cast<const IfNode *>(statement_node), byte_code);
             case StatementNode::StatementType::WhileStmt:
-                return generate_while_statement(static_cast<const WhileNode *>(statement_node), byte_code, ctx);
+                return generate_while_statement(static_cast<const WhileNode *>(statement_node), byte_code);
             case StatementNode::StatementType::BreakStmt:
-                return generate_break_statement(byte_code, static_cast<WhileLoopGenerationContext *>(ctx));
+                return generate_break_statement(byte_code);
             case StatementNode::StatementType::ContinueStmt:
-                return generate_continue_statement(byte_code, static_cast<WhileLoopGenerationContext *>(ctx));
+                return generate_continue_statement(byte_code);
             default:
                 throw IRGeneratorException("Unsupported statement type");
         }
     }
 
-    void IRGenerator::generate_expression(const AstNode* node, ByteCode& byte_code, void* ctx) {
+    void IRGenerator::generate_expression(const AstNode* node, ByteCode& byte_code) {
         switch (node->get_type()) {
             case AstNodeType::Stmt:
-                generate_statement(static_cast<const StatementNode *>(node), byte_code, ctx);
+                generate_statement(static_cast<const StatementNode *>(node), byte_code);
                 break;
             case AstNodeType::NumericLiteral: 
                 byte_code.push_back(
@@ -187,7 +187,7 @@ namespace luaxc {
         }
     }
 
-    void IRGenerator::generate_declaration_statement(const DeclarationStmtNode* node, ByteCode& byte_code, void* ctx) {
+    void IRGenerator::generate_declaration_statement(const DeclarationStmtNode* node, ByteCode& byte_code) {
         auto expr = static_cast<const StatementNode *>(node->get_value_or_initializer());
         auto identifier = static_cast<const IdentifierNode *>(node->get_identifier().get());
 
@@ -201,7 +201,7 @@ namespace luaxc {
             return;
         }
 
-        generate_expression(expr, byte_code, ctx);
+        generate_expression(expr, byte_code);
 
         byte_code.push_back(IRInstruction(
             IRInstruction::InstructionType::POP_STACK,
@@ -213,11 +213,11 @@ namespace luaxc {
             IRStoreIdentifierParam{identifier->get_name()}));
     }
 
-    void IRGenerator::generate_assignment_statement(const AssignmentStmtNode* node, ByteCode& byte_code, void* ctx) { 
+    void IRGenerator::generate_assignment_statement(const AssignmentStmtNode* node, ByteCode& byte_code) { 
         auto expr = static_cast<const StatementNode *>(node->get_value().get());
         auto identifier = static_cast<const IdentifierNode *>(node->get_identifier().get());
         
-        generate_expression(expr, byte_code, ctx);
+        generate_expression(expr, byte_code);
 
         byte_code.push_back(IRInstruction(
             IRInstruction::InstructionType::POP_STACK,
@@ -229,12 +229,12 @@ namespace luaxc {
             IRStoreIdentifierParam{identifier->get_name()}));
     }
 
-    void IRGenerator::generate_binary_expression_statement(const BinaryExpressionNode* node, ByteCode& byte_code, void* ctx) {
+    void IRGenerator::generate_binary_expression_statement(const BinaryExpressionNode* node, ByteCode& byte_code) {
         const auto& left = node->get_left();
         const auto& right = node->get_right();
 
-        generate_expression(left.get(), byte_code, ctx);
-        generate_expression(right.get(), byte_code, ctx);
+        generate_expression(left.get(), byte_code);
+        generate_expression(right.get(), byte_code);
 
         IRInstruction::InstructionType op_type;
         switch (node->get_op()) {
@@ -271,12 +271,12 @@ namespace luaxc {
         ));
     }
 
-    void IRGenerator::generate_if_statement(const IfNode* statement, ByteCode& byte_code, void* ctx) {
+    void IRGenerator::generate_if_statement(const IfNode* statement, ByteCode& byte_code) {
         auto* expr = statement->get_condition().get();
 
-        generate_expression(expr, byte_code, ctx);
+        generate_expression(expr, byte_code);
 
-        generate_conditional_comparision_bytecode(expr, byte_code, ctx);
+        generate_conditional_comparision_bytecode(expr, byte_code);
         
         bool has_else_clause = statement->get_else_body().get() != nullptr;
 
@@ -284,7 +284,7 @@ namespace luaxc {
         size_t if_end_index = 0;
         size_t else_clause_index = 0;
 
-        generate_statement(static_cast<StatementNode *>(statement->get_body().get()), byte_code, ctx);
+        generate_statement(static_cast<StatementNode *>(statement->get_body().get()), byte_code);
         if_end_index = byte_code.size();
 
         if (has_else_clause) {
@@ -293,7 +293,7 @@ namespace luaxc {
             byte_code[zero_index].param = IRJumpParam(if_end_index + 1);
 
             byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP, IRJumpParam(0)));
-            generate_statement(static_cast<StatementNode *>(statement->get_else_body().get()), byte_code, ctx);
+            generate_statement(static_cast<StatementNode *>(statement->get_else_body().get()), byte_code);
             else_clause_index = byte_code.size();
             byte_code[if_end_index].param = IRJumpParam(else_clause_index);
         } else {
@@ -301,21 +301,22 @@ namespace luaxc {
         }
     }
 
-    void IRGenerator::generate_while_statement(const WhileNode* statement, ByteCode& byte_code, void* ctx) {
+    void IRGenerator::generate_while_statement(const WhileNode* statement, ByteCode& byte_code) {
         auto* expr = statement->get_condition().get();
 
         size_t while_start_index, while_end_index, while_start_jmp_index;
         while_start_index = byte_code.size();
 
-        generate_expression(expr, byte_code, ctx);
+        generate_expression(expr, byte_code);
 
-        generate_conditional_comparision_bytecode(expr, byte_code, ctx);
+        generate_conditional_comparision_bytecode(expr, byte_code);
         while_start_jmp_index = byte_code.size() - 1;
         
-        WhileLoopGenerationContext generationCtx;
+        while_loop_generation_stack.push(WhileLoopGenerationContext {});
+
         generate_statement(
             static_cast<StatementNode *>(statement->get_body().get()), 
-            byte_code, &generationCtx);
+            byte_code);
 
         byte_code.push_back(IRInstruction(
             IRInstruction::InstructionType::JMP, 
@@ -327,31 +328,35 @@ namespace luaxc {
         // fill in jump target for unmet condition
         byte_code[while_start_jmp_index].param = IRJumpParam(while_end_index);
 
+        auto generation_ctx = while_loop_generation_stack.top();
+        while_loop_generation_stack.pop();
         // fill in jump targets of breaks
-        for (auto break_instruction : generationCtx.break_instructions) {
+        for (auto break_instruction : generation_ctx.break_instructions) {
             byte_code[break_instruction].param = IRJumpParam(while_end_index);
         }
 
         // fill in jump targets of continues
-        for (auto continue_instruction : generationCtx.continue_instructions) {
+        for (auto continue_instruction : generation_ctx.continue_instructions) {
             byte_code[continue_instruction].param = IRJumpParam(while_start_index);
         }
     }
 
-    void IRGenerator::generate_break_statement(ByteCode& byte_code, WhileLoopGenerationContext* ctx) {
-        assert(ctx != nullptr);
+    void IRGenerator::generate_break_statement(ByteCode& byte_code) {
+        assert(while_loop_generation_stack.size() > 0);
 
+        auto& ctx = while_loop_generation_stack.top();
         byte_code.push_back(IRInstruction(
             IRInstruction::InstructionType::JMP, IRJumpParam(0)));
-        ctx->register_break_instruction(byte_code.size() - 1);
+        ctx.register_break_instruction(byte_code.size() - 1);
     }
 
-    void IRGenerator::generate_continue_statement(ByteCode& byte_code, WhileLoopGenerationContext* ctx) {
-        assert(ctx != nullptr);
+    void IRGenerator::generate_continue_statement(ByteCode& byte_code) {
+        assert(while_loop_generation_stack.size() > 0);
 
+        auto& ctx = while_loop_generation_stack.top();
         byte_code.push_back(IRInstruction(
             IRInstruction::InstructionType::JMP, IRJumpParam(0)));
-        ctx->register_continue_instruction(byte_code.size() - 1);
+        ctx.register_continue_instruction(byte_code.size() - 1);
     }
 
     void IRInterpreter::run() {
@@ -465,7 +470,7 @@ namespace luaxc {
         return false;
     }
 
-    void IRGenerator::generate_conditional_comparision_bytecode(const AstNode* node, ByteCode& byte_code, void* ctx) {
+    void IRGenerator::generate_conditional_comparision_bytecode(const AstNode* node, ByteCode& byte_code) {
         if (node->get_type() == AstNodeType::Stmt) {
             auto* stmt = dynamic_cast<const StatementNode*>(node);
             if (stmt->get_statement_type() == StatementNode::StatementType::BinaryExprStmt) {
