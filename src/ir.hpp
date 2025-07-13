@@ -37,6 +37,8 @@ namespace luaxc {
         std::string identifier;
     };
 
+    using IRJumpParam = size_t;
+
     class IRInstruction { 
     public:
         enum class InstructionType {
@@ -49,6 +51,15 @@ namespace luaxc {
             DIV,
             MOD,
 
+            CMP, // compare two values on stack, 
+            JMP,
+            JE,
+            JNE,
+            JG,
+            JL,
+            JGE,
+            JLE,
+
             PUSH_STACK, // push output to stack
             POP_STACK, // pop value from stack
         };
@@ -57,7 +68,8 @@ namespace luaxc {
             std::monostate,
             IRLoadConstParam,
             IRLoadIdentifierParam,
-            IRStoreIdentifierParam
+            IRStoreIdentifierParam,
+            IRJumpParam
         >;
 
         IRParam param;
@@ -77,6 +89,8 @@ namespace luaxc {
     private:
         std::unique_ptr<luaxc::AstNode> ast;
 
+        void generate_program_or_block(const AstNode* node, ByteCode& byte_code);
+
         void generate_statement(const StatementNode* statement, ByteCode& byte_code);
 
         void generate_expression(const AstNode* expression, ByteCode& byte_code);
@@ -86,6 +100,8 @@ namespace luaxc {
         void generate_declaration_statement(const DeclarationStmtNode* statement, ByteCode& byte_code);
 
         void generate_assignment_statement(const AssignmentStmtNode* statement, ByteCode& byte_code);
+
+        void generate_if_statement(const IfNode* statement, ByteCode& byte_code);
     };
 
     class IRInterpreter { 
@@ -110,6 +126,8 @@ namespace luaxc {
 
         void handle_binary_op(IRInstruction::InstructionType op);
 
+        void handle_jump(IRInstruction::InstructionType op, IRJumpParam param);
+
         template <typename T>
         void handle_binary_op(IRInstruction::InstructionType op, T lhs, T rhs) {
             switch (op) {
@@ -131,6 +149,15 @@ namespace luaxc {
                     } else {
                         stack.push(std::fmod(lhs, rhs));
                     }
+                case IRInstruction::InstructionType::CMP:
+                    if (lhs > rhs) {
+                        stack.push(1);
+                    } else if (lhs < rhs) {
+                        stack.push(-1);
+                    } else {
+                        stack.push(0);
+                    }
+                    break;
                 default:
                     throw IRInterpreterException("Invalid instruction type");
                     return;

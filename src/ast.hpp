@@ -28,6 +28,7 @@ namespace luaxc {
         AstNodeType type;
     };
 
+    // program -> stmt*
     class ProgramNode : public AstNode {
     public:
         ProgramNode() : AstNode(AstNodeType::Program) {}
@@ -40,6 +41,7 @@ namespace luaxc {
         std::vector<std::unique_ptr<AstNode>> statements;
     };
 
+    // stmt -> expr | decl | assign | ...
     class StatementNode : public AstNode {
     public:
         enum class StatementType {
@@ -47,17 +49,20 @@ namespace luaxc {
             AssignmentStmt,
             BinaryExprStmt,
             UnaryExprStmt,
+            BlockStmt,
+            IfStmt,
         };
 
         explicit StatementNode(StatementType statement_type) 
             : AstNode(AstNodeType::Stmt), statement_type(statement_type) {}
         
-        StatementType get_type() const { return statement_type; }
+        StatementType get_statement_type() const { return statement_type; }
 
     private:
         StatementType statement_type;
     };
 
+    // decl -> ('let' identifier '=' expr ';') | ('let' identifier ';')
     class DeclarationStmtNode : public StatementNode { 
     public:
         explicit DeclarationStmtNode(std::unique_ptr<AstNode> identifier, std::unique_ptr<AstNode> value) 
@@ -72,6 +77,7 @@ namespace luaxc {
         std::unique_ptr<AstNode> value_or_initializer;
     };
 
+    // assign -> identifier = expr ';'
     class AssignmentStmtNode : public StatementNode { 
     public:
         explicit AssignmentStmtNode(std::unique_ptr<AstNode> identifier, std::unique_ptr<AstNode> value) 
@@ -85,6 +91,7 @@ namespace luaxc {
         std::unique_ptr<AstNode> value;
     };
 
+    // numeric -> numeric_literal
     class NumericLiteralNode : public AstNode { 
     public:
         using NumericVariant = std::variant<int32_t, double>;
@@ -122,6 +129,16 @@ namespace luaxc {
         std::string value;
     };
 
+    class IdentifierNode : public AstNode {
+    public:
+        explicit IdentifierNode(std::string name) : AstNode(AstNodeType::Identifier), name(std::move(name)) {}
+
+        const std::string& get_name() const { return name; }
+    private:
+        std::string name;
+    };
+
+    // binary expr -> expr op expr
     class BinaryExpressionNode : public StatementNode { 
     public:
         enum class BinaryOperator {
@@ -163,6 +180,7 @@ namespace luaxc {
         BinaryOperator op;
     };
 
+    // unary expr -> (op) expr
     class UnaryExpressionNode : public StatementNode {
     public:
         enum class UnaryOperator {
@@ -180,13 +198,33 @@ namespace luaxc {
         UnaryOperator op;
         std::unique_ptr<AstNode> operand;
     };
-    
-    class IdentifierNode : public AstNode {
-    public:
-        explicit IdentifierNode(std::string name) : AstNode(AstNodeType::Identifier), name(std::move(name)) {}
 
-        const std::string& get_name() const { return name; }
+    // block -> '{' stmt* '}'
+    class BlockNode : public StatementNode {
+    public:
+        explicit BlockNode(std::vector<std::unique_ptr<AstNode>> statements) 
+            : StatementNode(StatementNode::StatementType::BlockStmt), statements(std::move(statements)) {}
+
+        const std::vector<std::unique_ptr<AstNode>>& get_statements() const { return statements; }
     private:
-        std::string name;
+        std::vector<std::unique_ptr<AstNode>> statements;
+    };
+
+    // if -> 'if' '(' expr ')' (block | stmt) (('elif' '(' expr ')' (block | stmt))*)? ('else' (block | stmt))?
+    class IfNode : public StatementNode { 
+    public:
+        explicit IfNode(std::unique_ptr<AstNode> condition, std::unique_ptr<AstNode> body, std::unique_ptr<AstNode> else_body) 
+            : StatementNode(StatementNode::StatementType::IfStmt), condition(std::move(condition)), body(std::move(body)), else_body(std::move(else_body)) {}
+
+        const std::unique_ptr<AstNode>& get_condition() const { return condition; }
+
+        const std::unique_ptr<AstNode>& get_body() const { return body; }
+
+        const std::unique_ptr<AstNode>& get_else_body() const { return else_body; }
+
+    private:
+        std::unique_ptr<AstNode> condition;
+        std::unique_ptr<AstNode> body;
+        std::unique_ptr<AstNode> else_body;
     };
 }

@@ -41,12 +41,44 @@ namespace parser_test {
         assert(value == 1 + 2);
     }
 
+    inline void test_if_statement() {
+        auto ir_interpreter = compile_run("let a = 1; if (a > 0) { let b = 2; }");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("b")) == 2);
+    }
+
+    inline void test_if_statement_false() {
+        auto ir_interpreter = compile_run("let a = 1; if (a < 0) { let b = 2; }");
+        assert(ir_interpreter.has_identifier("b") == false);
+    }
+
+    inline void test_if_statement_with_else() {
+        auto ir_interpreter = 
+            compile_run("let a = 1; if (a < 0) { let b = 2; } else { let c = 3; }");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("c")) == 3);
+    }
+
+    inline void test_if_statement_else_if() {
+        auto ir_interpreter = 
+            compile_run("let a = 1; if (a < 0) { let b = 2; } "
+                "else if (a > 0) { let c = 3; } else { let d = 4; }");
+        assert(ir_interpreter.has_identifier("b") == false);
+        assert(ir_interpreter.has_identifier("d") == false);
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("c")) == 3);
+    }
+
     inline void run_parser_test() {
-        begin_test("parser") {
+        begin_test("parser-basics") {
             test(test_declaration);
             test(test_declaration_no_initializer)
             test(test_assignment);
             test(test_arithmetic_with_identifier);
+        } end_test()
+
+        begin_test("parser-if stmt") {
+            test(test_if_statement);
+            test(test_if_statement_false);
+            test(test_if_statement_with_else);
+            test(test_if_statement_else_if);
         } end_test()
     }
 }
