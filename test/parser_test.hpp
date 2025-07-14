@@ -74,10 +74,22 @@ namespace parser_test {
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 1);
     }
 
+    inline void test_if_statement_const_false_condition() { 
+        auto ir_interpreter = 
+            compile_run("if (0) { let a = 1; }");
+        assert(ir_interpreter.has_identifier("a") == false);
+    }
+
     inline void test_if_statement_const_expr_condition() { 
         auto ir_interpreter = 
             compile_run("if (1 + 2) { let a = 1; }");
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 1);
+    }
+
+    inline void test_if_statement_const_expr_false_condition() { 
+        auto ir_interpreter = 
+            compile_run("if (1 - 1) { let a = 1; } else { let a = 0; }");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 0);
     }
 
     inline void test_while_statement() { 
@@ -150,12 +162,39 @@ namespace parser_test {
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("sum")) == 30);
     }
 
+    inline void test_logical_operators() {
+        std::string input = R"(
+        let a = 1;
+        let b = 0;
+        if (a && b) {
+            let c = 1;
+        } else {
+            let c = 0;
+        }
+        if (a == 1 && b == 0) {
+            let d = 1;
+        } else {
+            let d = 0;
+        }
+        if (a == 1 || b) { 
+            let e = 1;
+        } else { 
+            let e = 0;
+        }
+        )";
+        auto ir_interpreter = compile_run(input);
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("c")) == 0);
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("d")) == 1);
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("e")) == 1);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
-            test(test_declaration_no_initializer)
+            test(test_declaration_no_initializer);
             test(test_assignment);
             test(test_arithmetic_with_identifier);
+            test(test_logical_operators);
         } end_test()
 
         begin_test("parser-if stmt") {
@@ -164,7 +203,9 @@ namespace parser_test {
             test(test_if_statement_with_else);
             test(test_if_statement_else_if);
             test(test_if_statement_const_condition);
+            test(test_if_statement_const_false_condition);
             test(test_if_statement_const_expr_condition);
+            test(test_if_statement_const_expr_false_condition);
         } end_test()
 
         begin_test("parser-while stmt") {

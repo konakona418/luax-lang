@@ -54,14 +54,23 @@ namespace luaxc {
             DIV,
             MOD,
 
-            CMP, // compare two values on stack, 
-            JMP, // jump to an address unconditionally
-            JE, // jump to an address, based on the value in the output register
-            JNE,
-            JG,
-            JL,
-            JGE,
-            JLE,
+            AND,
+            OR,
+            NOT,
+            XOR,
+            SHL,
+            SHR,
+
+            CMP_EQ,
+            CMP_NE,
+            CMP_LT,
+            CMP_GT,
+            CMP_LE,
+            CMP_GE,
+            TO_BOOL,
+
+            JMP,
+            JMP_IF_FALSE,
 
             PUSH_STACK, // push output to stack
             POP_STACK, // pop value from stack
@@ -125,8 +134,6 @@ namespace luaxc {
 
         void generate_while_statement(const WhileNode* statement, ByteCode& byte_code);
 
-        void generate_conditional_comparision_bytecode(const AstNode* node, ByteCode& byte_code);
-
         void generate_break_statement(ByteCode& byte_code);
 
         void generate_continue_statement(ByteCode& byte_code);
@@ -156,6 +163,8 @@ namespace luaxc {
 
         bool handle_jump(IRInstruction::InstructionType op, IRJumpParam param);
 
+        void handle_to_bool();
+
         template <typename T>
         void handle_binary_op(IRInstruction::InstructionType op, T lhs, T rhs) {
             switch (op) {
@@ -177,14 +186,49 @@ namespace luaxc {
                     } else {
                         stack.push(std::fmod(lhs, rhs));
                     }
-                case IRInstruction::InstructionType::CMP:
-                    if (lhs > rhs) {
-                        stack.push(1);
-                    } else if (lhs < rhs) {
-                        stack.push(-1);
-                    } else {
-                        stack.push(0);
+                    break;
+                case IRInstruction::InstructionType::AND:
+                    if constexpr (std::is_integral_v<T>) {
+                        stack.push(lhs & rhs);
                     }
+                    break;
+                case IRInstruction::InstructionType::OR:
+                    if constexpr (std::is_integral_v<T>) {
+                        stack.push(lhs | rhs);
+                    }
+                    break;
+                case IRInstruction::InstructionType::XOR:
+                    if constexpr (std::is_integral_v<T>) {
+                        stack.push(lhs ^ rhs);
+                    }
+                    break;
+                case IRInstruction::InstructionType::SHL:
+                    if constexpr (std::is_integral_v<T>) {
+                        stack.push(lhs << rhs);
+                    }
+                    break;
+                case IRInstruction::InstructionType::SHR:
+                    if constexpr (std::is_integral_v<T>) {
+                        stack.push(lhs >> rhs);
+                    }
+                    break;
+                case IRInstruction::InstructionType::CMP_EQ:
+                    stack.push(lhs == rhs);
+                    break;
+                case IRInstruction::InstructionType::CMP_NE:
+                    stack.push(lhs != rhs);
+                    break;
+                case IRInstruction::InstructionType::CMP_LT:
+                    stack.push(lhs < rhs);
+                    break;
+                case IRInstruction::InstructionType::CMP_LE:
+                    stack.push(lhs <= rhs);
+                    break;
+                case IRInstruction::InstructionType::CMP_GT:
+                    stack.push(lhs > rhs);
+                    break;
+                case IRInstruction::InstructionType::CMP_GE:
+                    stack.push(lhs >= rhs);
                     break;
                 default:
                     throw IRInterpreterException("Invalid instruction type");

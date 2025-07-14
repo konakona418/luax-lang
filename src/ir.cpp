@@ -46,42 +46,52 @@ namespace luaxc {
             case IRInstruction::InstructionType::MOD:
                 out = "MOD";
                 break;
+            case IRInstruction::InstructionType::AND:
+                out = "AND";
+                break;
+            case IRInstruction::InstructionType::OR:
+                out = "OR";
+                break;
+            case IRInstruction::InstructionType::NOT:
+                out = "NOT";
+                break;
+            case IRInstruction::InstructionType::XOR:
+                out = "XOR";
+                break;
             case IRInstruction::InstructionType::PUSH_STACK:
                 out = "PUSH_STACK";
                 break;
             case IRInstruction::InstructionType::POP_STACK:
                 out = "POP_STACK";
                 break;
-            case IRInstruction::InstructionType::CMP:
-                out = "CMP";
+            case IRInstruction::InstructionType::CMP_EQ:
+                out = "CMP_EQ";
+                break;
+            case IRInstruction::InstructionType::CMP_NE:
+                out = "CMP_NE";
+                break;
+            case IRInstruction::InstructionType::CMP_LT:
+                out = "CMP_LT";
+                break;
+            case IRInstruction::InstructionType::CMP_GT:
+                out = "CMP_GT";
+                break;
+            case IRInstruction::InstructionType::CMP_LE:
+                out = "CMP_LE";
+                break;
+            case IRInstruction::InstructionType::CMP_GE:
+                out = "CMP_GE";
                 break;
             case IRInstruction::InstructionType::JMP:
                 out = "JMP";
                 out += " " + std::to_string(std::get<IRJumpParam>(param));
                 break;
-            case IRInstruction::InstructionType::JE:
-                out = "JE";
+            case IRInstruction::InstructionType::JMP_IF_FALSE:
+                out = "JMP_IF_FALSE";
                 out += " " + std::to_string(std::get<IRJumpParam>(param));
                 break;
-            case IRInstruction::InstructionType::JNE:
-                out = "JNE";
-                out += " " + std::to_string(std::get<IRJumpParam>(param));
-                break;
-            case IRInstruction::InstructionType::JG:
-                out = "JG";
-                out += " " + std::to_string(std::get<IRJumpParam>(param));
-                break;
-            case IRInstruction::InstructionType::JL:
-                out = "JL";
-                out += " " + std::to_string(std::get<IRJumpParam>(param));
-                break;
-            case IRInstruction::InstructionType::JGE:
-                out = "JGE";
-                out += " " + std::to_string(std::get<IRJumpParam>(param));
-                break;
-            case IRInstruction::InstructionType::JLE:
-                out = "JLE";
-                out += " " + std::to_string(std::get<IRJumpParam>(param));
+            case IRInstruction::InstructionType::TO_BOOL:
+                out = "TO_BOOL";
                 break;
             default:
                 out = "UNKNOWN";
@@ -253,13 +263,45 @@ namespace luaxc {
             case BinaryExpressionNode::BinaryOperator::Modulo:
                 op_type = IRInstruction::InstructionType::MOD;
                 break;
+            case BinaryExpressionNode::BinaryOperator::LogicalAnd:
+            case BinaryExpressionNode::BinaryOperator::BitwiseAnd:
+                op_type = IRInstruction::InstructionType::AND;
+                break;
+            case BinaryExpressionNode::BinaryOperator::LogicalOr:
+            case BinaryExpressionNode::BinaryOperator::BitwiseOr:
+                op_type = IRInstruction::InstructionType::OR;
+                break;
+            case BinaryExpressionNode::BinaryOperator::BitwiseXor:
+                op_type = IRInstruction::InstructionType::XOR;
+                break;
+            case BinaryExpressionNode::BinaryOperator::LogicalNot:
+            case BinaryExpressionNode::BinaryOperator::BitwiseNot:
+                op_type = IRInstruction::InstructionType::NOT;
+                break;
+            case BinaryExpressionNode::BinaryOperator::BitwiseShiftLeft:
+                op_type = IRInstruction::InstructionType::SHL;
+                break;
+            case BinaryExpressionNode::BinaryOperator::BitwiseShiftRight:
+                op_type = IRInstruction::InstructionType::SHR;
+                break;
+            
             case BinaryExpressionNode::BinaryOperator::Equal:
+                op_type = IRInstruction::InstructionType::CMP_EQ;
+                break;
             case BinaryExpressionNode::BinaryOperator::NotEqual:
+                op_type = IRInstruction::InstructionType::CMP_NE;
+                break;
             case BinaryExpressionNode::BinaryOperator::LessThan:
+                op_type = IRInstruction::InstructionType::CMP_LT;
+                break;
             case BinaryExpressionNode::BinaryOperator::LessThanEqual:
+                op_type = IRInstruction::InstructionType::CMP_LE;
+                break;
             case BinaryExpressionNode::BinaryOperator::GreaterThan:
+                op_type = IRInstruction::InstructionType::CMP_GT;
+                break;
             case BinaryExpressionNode::BinaryOperator::GreaterThanEqual:
-                op_type = IRInstruction::InstructionType::CMP;
+                op_type = IRInstruction::InstructionType::CMP_GE;
                 break;
             default:
                 throw IRGeneratorException("Unsupported binary operator");
@@ -276,7 +318,9 @@ namespace luaxc {
 
         generate_expression(expr, byte_code);
 
-        generate_conditional_comparision_bytecode(expr, byte_code);
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE, {std::monostate()}));
         
         bool has_else_clause = statement->get_else_body().get() != nullptr;
 
@@ -309,7 +353,10 @@ namespace luaxc {
 
         generate_expression(expr, byte_code);
 
-        generate_conditional_comparision_bytecode(expr, byte_code);
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE, {std::monostate()}));
+
         while_start_jmp_index = byte_code.size() - 1;
         
         while_loop_generation_stack.push(WhileLoopGenerationContext {});
@@ -392,23 +439,35 @@ namespace luaxc {
                         stack.pop();
                         break;
                     }
+
+                case IRInstruction::InstructionType::TO_BOOL: 
+                    handle_to_bool();
+                    break;
+
                 case IRInstruction::InstructionType::ADD: 
                 case IRInstruction::InstructionType::SUB:
                 case IRInstruction::InstructionType::MUL:
                 case IRInstruction::InstructionType::DIV:
                 case IRInstruction::InstructionType::MOD:
 
-                case IRInstruction::InstructionType::CMP:
+                case IRInstruction::InstructionType::AND:
+                case IRInstruction::InstructionType::OR:
+                case IRInstruction::InstructionType::XOR:
+                case IRInstruction::InstructionType::NOT:
+                case IRInstruction::InstructionType::SHL:
+                case IRInstruction::InstructionType::SHR:
+
+                case IRInstruction::InstructionType::CMP_EQ:
+                case IRInstruction::InstructionType::CMP_NE:
+                case IRInstruction::InstructionType::CMP_LT:
+                case IRInstruction::InstructionType::CMP_LE:
+                case IRInstruction::InstructionType::CMP_GT:
+                case IRInstruction::InstructionType::CMP_GE:
                     handle_binary_op(instruction.type);
                     break;
 
-                case IRInstruction::InstructionType::JE:
-                case IRInstruction::InstructionType::JNE:
-                case IRInstruction::InstructionType::JL:
-                case IRInstruction::InstructionType::JLE:
-                case IRInstruction::InstructionType::JG:
-                case IRInstruction::InstructionType::JGE:
                 case IRInstruction::InstructionType::JMP:
+                case IRInstruction::InstructionType::JMP_IF_FALSE:
                     jumped = handle_jump(instruction.type, std::get<IRJumpParam>(instruction.param));
                     break;
                 
@@ -423,93 +482,32 @@ namespace luaxc {
     }
 
     bool IRInterpreter::handle_jump(IRInstruction::InstructionType op, IRJumpParam param) {
-        auto cmp = std::get<int32_t>(output);
         switch (op) {
             case IRInstruction::InstructionType::JMP:
                 pc = param;
                 return true;
-            case IRInstruction::InstructionType::JE:
-                if (cmp == 0) {
+            case IRInstruction::InstructionType::JMP_IF_FALSE: {
+                auto cond = std::get<int32_t>(output);
+                if (!cond) {
                     pc = param;
                     return true;
                 }
                 break;
-            case IRInstruction::InstructionType::JNE: 
-                if (cmp != 0) {
-                    pc = param;
-                    return true;
-                }
-                break;
-            case IRInstruction::InstructionType::JL:
-                if (cmp < 0) {
-                    pc = param;
-                    return true;
-                }
-                break;
-            case IRInstruction::InstructionType::JLE:
-                if (cmp <= 0) {
-                    pc = param;
-                    return true;
-                }
-                break;
-            case IRInstruction::InstructionType::JG:
-                if (cmp > 0) {
-                    pc = param;
-                    return true;
-                }
-                break;
-            case IRInstruction::InstructionType::JGE:
-                if (cmp >= 0) {
-                    pc = param;
-                    return true;
-                }
-                break;
+            }
             default:
                 throw IRInterpreterException("Unknown instruction type");
         }
         return false;
     }
 
-    void IRGenerator::generate_conditional_comparision_bytecode(const AstNode* node, ByteCode& byte_code) {
-        if (node->get_type() == AstNodeType::Stmt) {
-            auto* stmt = dynamic_cast<const StatementNode*>(node);
-            if (stmt->get_statement_type() == StatementNode::StatementType::BinaryExprStmt) {
-                IRInstruction::InstructionType jmp_op;
-                auto* binary_expr = 
-                    dynamic_cast<const BinaryExpressionNode*>(stmt);
-
-                // we want to jump when the result of the expression is false,
-                // so the ir operator is the opposite of the binary operator
-                switch (binary_expr->get_op()) {
-                    case BinaryExpressionNode::BinaryOperator::Equal:
-                        jmp_op = IRInstruction::InstructionType::JNE;
-                        break;
-                    case BinaryExpressionNode::BinaryOperator::NotEqual:
-                        jmp_op = IRInstruction::InstructionType::JE;
-                        break;
-                    case BinaryExpressionNode::BinaryOperator::LessThan:
-                        jmp_op = IRInstruction::InstructionType::JGE;
-                        break;
-                    case BinaryExpressionNode::BinaryOperator::LessThanEqual:
-                        jmp_op = IRInstruction::InstructionType::JG;
-                        break;
-                    case BinaryExpressionNode::BinaryOperator::GreaterThan:
-                        jmp_op = IRInstruction::InstructionType::JLE;
-                        break;
-                    case BinaryExpressionNode::BinaryOperator::GreaterThanEqual:
-                        jmp_op = IRInstruction::InstructionType::JL;
-                        break;
-                    default:
-                        // when the value is not 0
-                        jmp_op = IRInstruction::InstructionType::JE;
-                        //throw IRGeneratorException("Invalid binary operator");
-                        break;
-                }
-                // pop a value from stack,
-                // get ready to compare and jump
-                byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
-                byte_code.push_back(IRInstruction(jmp_op, {std::monostate()}));
-            }
+    void IRInterpreter::handle_to_bool() {
+        auto& top = stack.top();
+        if (std::holds_alternative<int32_t>(top)) {
+            stack.top() = std::get<int32_t>(top) != 0;
+        } else if (std::holds_alternative<double>(top)) {
+            stack.top() = std::get<double>(top) != 0.0;
+        } else {
+            throw IRInterpreterException("Cannot convert to bool or not implemented yet");
         }
     }
 

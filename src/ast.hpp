@@ -156,6 +156,7 @@ namespace luaxc {
             BitwiseAnd,
             BitwiseOr,
             BitwiseXor,
+            BitwiseNot,
             BitwiseShiftLeft,
             BitwiseShiftRight,
             Equal,
@@ -166,6 +167,7 @@ namespace luaxc {
             GreaterThanEqual,
             LogicalAnd,
             LogicalOr,
+            LogicalNot,
         };
 
         BinaryExpressionNode(std::unique_ptr<AstNode> left, std::unique_ptr<AstNode> right, BinaryOperator op) 

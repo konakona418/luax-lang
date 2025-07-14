@@ -105,7 +105,7 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_expression() { 
-        return parse_comparison_expression();
+        return parse_logical_or_expression();
     }
 
     std::unique_ptr<AstNode> Parser::parse_additive_expression() {
@@ -202,6 +202,36 @@ namespace luaxc {
             node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), op);
         }
         return node;
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_logical_and_expression() {
+        // todo: testing and ir generation
+        auto node = parse_comparison_expression();
+
+        while (current_token.type == TokenType::LOGICAL_AND) { 
+            next_token();
+            auto right = parse_comparison_expression();
+            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), 
+                BinaryExpressionNode::BinaryOperator::LogicalAnd);
+        }
+        return node;
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_logical_or_expression() {
+        // todo: testing and ir generation
+        auto node = parse_logical_and_expression();
+        while (current_token.type == TokenType::LOGICAL_OR) {
+            next_token();
+            auto right = parse_logical_and_expression();
+            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), 
+                BinaryExpressionNode::BinaryOperator::LogicalOr);
+        }
+        return node;
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_unary_expression() {
+        // todo
+        LUAXC_PARSER_THROW_NOT_IMPLEMENTED("unary expression parsing");
     }
 
     std::unique_ptr<AstNode> Parser::parse_factor() { 

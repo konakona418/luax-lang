@@ -61,6 +61,12 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> parse_relational_expression();
 
+        std::unique_ptr<AstNode> parse_logical_and_expression();
+
+        std::unique_ptr<AstNode> parse_logical_or_expression();
+
+        std::unique_ptr<AstNode> parse_unary_expression();
+
         std::unique_ptr<AstNode> parse_factor();
 
         std::unique_ptr<AstNode> parse_block_statement();
