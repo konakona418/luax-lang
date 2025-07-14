@@ -74,7 +74,7 @@ namespace luaxc {
             case TokenType::KEYWORD_CONTINUE:
                 return parse_continue_statement();
             default:
-                return begin_parse_expression();
+                return parse_expression();
         }
     }
 
@@ -121,7 +121,7 @@ namespace luaxc {
             LUAXC_PARSER_THROW_NOT_IMPLEMENTED("Assigning strings");
             // todo
         } else {
-            value = parse_normal_expression();
+            value = parse_simple_expression();
         }
 
         if (consume_semicolon) {
@@ -137,7 +137,7 @@ namespace luaxc {
         return identifier;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_assignment_statement(std::unique_ptr<AstNode> identifier, bool consume_semicolon) { 
+    std::unique_ptr<AstNode> Parser::parse_basic_assignment_expression(std::unique_ptr<AstNode> identifier, bool consume_semicolon) { 
         /*
         assignment_statement:
             identifier = expression;
@@ -150,7 +150,7 @@ namespace luaxc {
         if (current_token.type == TokenType::STRING_LITERAL) {
             LUAXC_PARSER_THROW_NOT_IMPLEMENTED("Assigning strings")
         } else {
-            value = parse_normal_expression();
+            value = parse_simple_expression();
         }
 
         if (consume_semicolon) {
@@ -160,11 +160,11 @@ namespace luaxc {
         return std::make_unique<AssignmentStmtNode>(std::move(identifier), std::move(value));
     }
 
-    std::unique_ptr<AstNode> Parser::begin_parse_expression(bool consume_semicolon) { 
+    std::unique_ptr<AstNode> Parser::parse_expression(bool consume_semicolon) { 
         // this is used for parsing a broad expression,
         // including declarations and assignments,
         // to parse a 'simple' expression,
-        // use parse_normal_expression() instead
+        // use parse_simple_expression() instead
 
         if (current_token.type == TokenType::IDENTIFIER) {
             auto identifier = parse_identifier();
@@ -176,7 +176,7 @@ namespace luaxc {
 
             if (current_token.type == TokenType::ASSIGN) { 
                 auto assignment_stmt = 
-                    parse_assignment_statement(std::move(identifier), consume_semicolon);
+                    parse_basic_assignment_expression(std::move(identifier), consume_semicolon);
                 return assignment_stmt;
             } else if (current_token.type == TokenType::INCREMENT_BY || 
                 current_token.type == TokenType::DECREMENT_BY) {
@@ -189,10 +189,10 @@ namespace luaxc {
                 }
             }
         }
-        return parse_normal_expression();
+        return parse_simple_expression();
     }
 
-    std::unique_ptr<AstNode> Parser::parse_normal_expression() {
+    std::unique_ptr<AstNode> Parser::parse_simple_expression() {
         return parse_logical_and_expression();
     }
 
@@ -207,7 +207,7 @@ namespace luaxc {
             }
 
             next_token();
-            auto right = parse_normal_expression();
+            auto right = parse_simple_expression();
 
             if (consume_semicolon) {
                 consume(TokenType::SEMICOLON, "Expected semicolon after assignment statement");
@@ -432,7 +432,7 @@ namespace luaxc {
             consume(TokenType::IDENTIFIER);
         } else if (current_token.type == TokenType::L_PARENTHESIS) {
             consume(TokenType::L_PARENTHESIS);
-            node = parse_normal_expression();
+            node = parse_simple_expression();
             consume(TokenType::R_PARENTHESIS);
         } else if (current_token.type == TokenType::STRING_LITERAL) {
             // todo: string literal
@@ -466,7 +466,7 @@ namespace luaxc {
         consume(TokenType::KEYWORD_IF, "Expected 'if' keyword");
         consume(TokenType::L_PARENTHESIS, "Expected '(' after 'if' keyword");
 
-        auto condition = parse_normal_expression();
+        auto condition = parse_simple_expression();
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' after condition");
 
@@ -503,14 +503,14 @@ namespace luaxc {
         if (current_token.type == TokenType::KEYWORD_LET) {
             initializer = parse_declaration_statement(false);
         } else {
-            initializer = parse_assignment_statement(parse_identifier(), false);
+            initializer = parse_basic_assignment_expression(parse_identifier(), false);
         }
         consume(TokenType::SEMICOLON, "Expected ';' after iterator initializer"); // consume semicolon.
 
-        std::unique_ptr<AstNode> condition = parse_normal_expression();
+        std::unique_ptr<AstNode> condition = parse_simple_expression();
         consume(TokenType::SEMICOLON, "Expected ';' after iterator condition");
 
-        std::unique_ptr<AstNode> update = begin_parse_expression(false);
+        std::unique_ptr<AstNode> update = parse_expression(false);
 
         consume(TokenType::R_PARENTHESIS, "Expected an ')' enclosing the for-loop statements");
 
@@ -527,7 +527,7 @@ namespace luaxc {
         consume(TokenType::L_PARENTHESIS, "Expected '(' after 'while' keyword");
 
         // currently I don't want while condition to support complex assignment or declarations
-        auto condition = parse_normal_expression();
+        auto condition = parse_simple_expression();
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' after while condition");
 
