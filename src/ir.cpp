@@ -264,11 +264,21 @@ namespace luaxc {
             op == BinaryExpressionNode::BinaryOperator::LogicalOr);
     }
 
+    bool IRGenerator::is_combinative_assignment_operator(BinaryExpressionNode::BinaryOperator op) {
+        return (op == BinaryExpressionNode::BinaryOperator::IncrementBy ||
+            op == BinaryExpressionNode::BinaryOperator::DecrementBy);
+    }
+
     void IRGenerator::generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code) {
+        auto node_op = statement->get_op();
+
+        if (is_combinative_assignment_operator(node_op)) {
+            generate_combinative_assignment_statement(statement, byte_code);
+            return;
+        }
+
         const auto& left = statement->get_left();
         const auto& right = statement->get_right();
-
-        auto node_op = statement->get_op();
 
         generate_expression(left.get(), byte_code);
         if (is_binary_logical_operator(node_op)) {
@@ -348,6 +358,44 @@ namespace luaxc {
             op_type, 
             { std::monostate() }
         ));
+    }
+
+    void IRGenerator::generate_combinative_assignment_statement(const BinaryExpressionNode* statement, ByteCode& byte_code) {
+        const auto& left = statement->get_left();
+        const auto& right = statement->get_right();
+        // todo: check if 'left' is a left-value
+        // this requires left to be a left-value,
+        // however I haven't figured out how to implement this checking stuff yet.
+
+        generate_expression(right.get(), byte_code);
+
+        auto& left_identifier = dynamic_cast<IdentifierNode *>(left.get())->get_name();
+
+        // load the identifier and push onto the stack
+        byte_code.push_back(IRInstruction(
+            IRInstruction::InstructionType::LOAD_IDENTIFIER, 
+            IRLoadIdentifierParam{left_identifier}));
+        byte_code.push_back(IRInstruction(
+            IRInstruction::InstructionType::PUSH_STACK,
+            {std::monostate()}));
+        
+        // load the operator
+        auto op = statement->get_op();
+        IRInstruction::InstructionType instruction_type;
+        if (op == BinaryExpressionNode::BinaryOperator::IncrementBy) {
+            instruction_type = IRInstruction::InstructionType::ADD;
+        } else if (op == BinaryExpressionNode::BinaryOperator::DecrementBy) {
+            instruction_type = IRInstruction::InstructionType::SUB;
+        } else {
+            throw IRGeneratorException("Unsupported combinative assignment operator");
+        }
+        byte_code.push_back(IRInstruction(instruction_type, {std::monostate()}));
+
+        // write back
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
+        byte_code.push_back(IRInstruction(
+            IRInstruction::InstructionType::STORE_IDENTIFIER, 
+            IRStoreIdentifierParam{left_identifier}));
     }
 
     void IRGenerator::generate_unary_expression_statement(const UnaryExpressionNode* statement, ByteCode& byte_code) {

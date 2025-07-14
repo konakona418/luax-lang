@@ -59,6 +59,11 @@ namespace parser_test {
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == -1);
     }
 
+    inline void test_combinative_assignment() { 
+        auto ir_interpreter = compile_run("let a = 1; a += 1;");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 2);
+    }
+
     inline void test_if_statement() {
         auto ir_interpreter = compile_run("let a = 1; if (a > 0) { let b = 2; }");
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("b")) == 2);
@@ -208,7 +213,7 @@ namespace parser_test {
     inline void test_for_loop() {
         std::string input = R"(
         let a = 0;
-        for (let i = 0; i < 10; i = i + 1) {
+        for (let i = 0; i < 10; i += 1) {
             a = a + i;
         }
         )";
@@ -226,6 +231,7 @@ namespace parser_test {
             test(test_logical_operators);
             test(test_unary_operator_logical_not);
             test(test_unary_operator_minus);
+            test(test_combinative_assignment);
         } end_test()
 
         begin_test("parser-if stmt") {

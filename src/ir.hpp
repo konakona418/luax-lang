@@ -126,6 +126,8 @@ namespace luaxc {
 
         bool is_binary_logical_operator(BinaryExpressionNode::BinaryOperator op);
 
+        bool is_combinative_assignment_operator(BinaryExpressionNode::BinaryOperator op);
+
         void generate_program_or_block(const AstNode* node, ByteCode& byte_code);
 
         void generate_statement(const StatementNode* statement, ByteCode& byte_code);
@@ -133,6 +135,8 @@ namespace luaxc {
         void generate_expression(const AstNode* expression, ByteCode& byte_code);
 
         void generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
+
+        void generate_combinative_assignment_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
 
         void generate_unary_expression_statement(const UnaryExpressionNode* statement, ByteCode& byte_code);
 
