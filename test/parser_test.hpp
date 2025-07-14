@@ -30,6 +30,13 @@ namespace parser_test {
         assert(ir_interpreter.has_identifier("a"));
     }
 
+    inline void test_multiple_declarations() {
+        auto ir_interpreter = compile_run("let a, b, c;");
+        assert(ir_interpreter.has_identifier("a"));
+        assert(ir_interpreter.has_identifier("b"));
+        assert(ir_interpreter.has_identifier("c"));
+    }
+
     inline void test_assignment() {
         auto ir_interpreter = compile_run("let a = 1; a = 1 + 2 * (3 + 4);");
         auto value = std::get<int32_t>(ir_interpreter.retrieve_value("a"));
@@ -202,6 +209,7 @@ namespace parser_test {
         begin_test("parser-basics") {
             test(test_declaration);
             test(test_declaration_no_initializer);
+            test(test_multiple_declarations);
             test(test_assignment);
             test(test_arithmetic_with_identifier);
             test(test_logical_operators);

@@ -61,12 +61,28 @@ namespace luaxc {
         */
         consume(TokenType::KEYWORD_LET);
 
-        auto identifier = std::make_unique<IdentifierNode>(current_token.value);
+        auto identifiers = std::vector<std::unique_ptr<AstNode>>();
+
+        identifiers.push_back(std::make_unique<IdentifierNode>(current_token.value));
         consume(TokenType::IDENTIFIER, "Expected identifier after 'let' keyword");
 
+        // 'let' identifier ';'
         if (current_token.type == TokenType::SEMICOLON) {
             consume(TokenType::SEMICOLON, "Expected semicolon after declaration identifier");
-            return std::make_unique<DeclarationStmtNode>(std::move(identifier), nullptr);
+            return std::make_unique<DeclarationStmtNode>(std::move(identifiers), nullptr);
+        }
+
+        // 'let' identifier1 ',' identifier2 ';'
+        bool is_multi_declaration = current_token.type == TokenType::COMMA;
+        while (current_token.type == TokenType::COMMA) {
+            consume(TokenType::COMMA, "Expected comma after declaration identifier");
+            identifiers.push_back(std::make_unique<IdentifierNode>(current_token.value));
+            consume(TokenType::IDENTIFIER, "Expected identifier after comma in declaration statement");
+        }
+
+        if (is_multi_declaration) {
+            consume(TokenType::SEMICOLON, "Expected a semicolon after multi declaration");
+            return std::make_unique<DeclarationStmtNode>(std::move(identifiers), nullptr);
         }
         
         consume(TokenType::ASSIGN, "Expected '=' after identifier in declaration statement");;
@@ -81,7 +97,7 @@ namespace luaxc {
         }
         consume(TokenType::SEMICOLON, "Expected ';' after assignment");
 
-        return std::make_unique<DeclarationStmtNode>(std::move(identifier), std::move(value));
+        return std::make_unique<DeclarationStmtNode>(std::move(identifiers), std::move(value));
     }
 
     std::unique_ptr<AstNode> Parser::parse_assignment_statement() { 

@@ -212,19 +212,24 @@ namespace luaxc {
 
     void IRGenerator::generate_declaration_statement(const DeclarationStmtNode* node, ByteCode& byte_code) {
         auto expr = static_cast<const StatementNode *>(node->get_value_or_initializer());
-        auto identifier = static_cast<const IdentifierNode *>(node->get_identifier().get());
+        auto& identifiers = node->get_identifiers();
 
-        // expr not present
-        if (expr == nullptr) {
-            // by this time, the value of the identifier is not certain
-            byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::STORE_IDENTIFIER, 
-                IRStoreIdentifierParam{identifier->get_name()}));
+        // expr not present or has multiple identifiers declared.
+        if (identifiers.size() > 1 || expr == nullptr) {
+            assert(expr == nullptr);
 
+            for (auto& identifier : identifiers) {
+                auto* identifier_node = static_cast<IdentifierNode *>(identifier.get());
+                byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::STORE_IDENTIFIER, 
+                    IRStoreIdentifierParam{identifier_node->get_name()}));
+            }
             return;
         }
 
         generate_expression(expr, byte_code);
+
+        auto* identifier_node = static_cast<IdentifierNode *>(identifiers[0].get());
 
         byte_code.push_back(IRInstruction(
             IRInstruction::InstructionType::POP_STACK,
@@ -233,7 +238,7 @@ namespace luaxc {
         
         byte_code.push_back(IRInstruction(
             IRInstruction::InstructionType::STORE_IDENTIFIER, 
-            IRStoreIdentifierParam{identifier->get_name()}));
+            IRStoreIdentifierParam{identifier_node->get_name()}));
     }
 
     void IRGenerator::generate_assignment_statement(const AssignmentStmtNode* node, ByteCode& byte_code) { 

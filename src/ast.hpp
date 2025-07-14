@@ -68,15 +68,15 @@ namespace luaxc {
     // decl -> ('let' identifier '=' expr ';') | ('let' identifier ';')
     class DeclarationStmtNode : public StatementNode { 
     public:
-        explicit DeclarationStmtNode(std::unique_ptr<AstNode> identifier, std::unique_ptr<AstNode> value) 
-            : StatementNode(StatementType::DeclarationStmt), identifier(std::move(identifier)), value_or_initializer(std::move(value)) {}
+        DeclarationStmtNode(std::vector<std::unique_ptr<AstNode>>&& identifiers, std::unique_ptr<AstNode> value) 
+            : StatementNode(StatementType::DeclarationStmt), identifiers(std::move(identifiers)), value_or_initializer(std::move(value)) {}
 
-        const std::unique_ptr<AstNode>& get_identifier() const { return identifier; }
+        const std::vector<std::unique_ptr<AstNode>>& get_identifiers() const { return identifiers; }
 
         const AstNode* get_value_or_initializer() const { return value_or_initializer.get(); }
 
     private:
-        std::unique_ptr<AstNode> identifier;
+        std::vector<std::unique_ptr<AstNode>> identifiers;
         std::unique_ptr<AstNode> value_or_initializer;
     };
 
