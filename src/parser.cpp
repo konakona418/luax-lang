@@ -105,7 +105,7 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_expression() { 
-        return parse_logical_or_expression();
+        return parse_logical_and_expression();
     }
 
     std::unique_ptr<AstNode> Parser::parse_additive_expression() {
@@ -128,7 +128,7 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_multiplicative_expression() {
-        auto node = parse_factor();
+        auto node = parse_unary_expression();
         
         while (current_token.type == TokenType::MUL || current_token.type == TokenType::DIV || 
             current_token.type == TokenType::MOD) {
@@ -143,7 +143,7 @@ namespace luaxc {
                 consume(TokenType::MOD);
                 op = BinaryExpressionNode::BinaryOperator::Modulo;
             }
-            auto right = parse_factor();
+            auto right = parse_unary_expression();
             node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), op);
         }
         
@@ -151,7 +151,7 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_comparison_expression() {
-        auto node = parse_relational_expression();
+        auto node = parse_bitwise_and_expression();
 
         while (current_token.type == TokenType::EQUAL || current_token.type == TokenType::NOT_EQUAL) {
             BinaryExpressionNode::BinaryOperator op;
@@ -167,7 +167,7 @@ namespace luaxc {
                     break;
             }
             next_token();
-            auto right = parse_relational_expression();
+            auto right = parse_bitwise_and_expression();
             node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), op);
         }
 
@@ -205,12 +205,11 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_logical_and_expression() {
-        // todo: testing and ir generation
-        auto node = parse_comparison_expression();
+        auto node = parse_logical_or_expression();
 
         while (current_token.type == TokenType::LOGICAL_AND) { 
             next_token();
-            auto right = parse_comparison_expression();
+            auto right = parse_logical_or_expression();
             node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), 
                 BinaryExpressionNode::BinaryOperator::LogicalAnd);
         }
@@ -218,23 +217,91 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_logical_or_expression() {
-        // todo: testing and ir generation
-        auto node = parse_logical_and_expression();
+        auto node = parse_comparison_expression();
         while (current_token.type == TokenType::LOGICAL_OR) {
             next_token();
-            auto right = parse_logical_and_expression();
+            auto right = parse_comparison_expression();
             node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), 
                 BinaryExpressionNode::BinaryOperator::LogicalOr);
         }
         return node;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_unary_expression() {
-        // todo
-        LUAXC_PARSER_THROW_NOT_IMPLEMENTED("unary expression parsing");
+    std::unique_ptr<AstNode> Parser::parse_bitwise_and_expression() { 
+        // todo: testing
+        auto node = parse_bitwise_or_expression();
+        while (current_token.type == TokenType::BITWISE_AND) {
+            next_token();
+            auto right = parse_bitwise_or_expression();
+            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), 
+                BinaryExpressionNode::BinaryOperator::BitwiseAnd); 
+        }
+        return node;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_factor() { 
+    std::unique_ptr<AstNode> Parser::parse_bitwise_or_expression() { 
+        // todo: testing
+        auto node = parse_bitwise_shift_expression();
+        while (current_token.type == TokenType::BITWISE_OR) {
+            next_token();
+            auto right = parse_bitwise_shift_expression();
+            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), 
+                BinaryExpressionNode::BinaryOperator::BitwiseOr);
+        }
+        return node;
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_bitwise_shift_expression() { 
+        // todo: testing
+        auto node = parse_relational_expression();
+        while (current_token.type == TokenType::BITWISE_SHIFT_LEFT
+            || current_token.type == TokenType::BITWISE_SHIFT_RIGHT) { 
+            BinaryExpressionNode::BinaryOperator op;
+            
+            if (current_token.type == TokenType::BITWISE_SHIFT_LEFT) { 
+                op = BinaryExpressionNode::BinaryOperator::BitwiseShiftLeft;
+            } else { 
+                op = BinaryExpressionNode::BinaryOperator::BitwiseShiftRight;
+            }
+
+            next_token();
+            auto right = parse_relational_expression();
+            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), op);
+        }
+        return node;
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_unary_expression() {
+        // todo: testing
+        // todo: other unary operators
+        if (current_token.type == TokenType::MINUS || current_token.type == TokenType::LOGICAL_NOT ||
+            current_token.type == TokenType::BITWISE_NOT || current_token.type == TokenType::PLUS) { 
+            UnaryExpressionNode::UnaryOperator op;
+            switch (current_token.type) { 
+                case TokenType::MINUS:
+                    op = UnaryExpressionNode::UnaryOperator::Minus;
+                    break;
+                case TokenType::BITWISE_NOT: 
+                    op = UnaryExpressionNode::UnaryOperator::BitwiseNot;
+                    break;
+                case TokenType::PLUS: 
+                    op = UnaryExpressionNode::UnaryOperator::Plus;
+                    break;
+                case TokenType::LOGICAL_NOT: 
+                    op = UnaryExpressionNode::UnaryOperator::LogicalNot;
+                    break;
+                default:
+                    LUAXC_PARSER_THROW_NOT_IMPLEMENTED("unary operator");
+                    break;
+            }
+            next_token();
+            auto operand = parse_unary_expression();
+            return std::make_unique<UnaryExpressionNode>(std::move(operand), op);
+        }
+        return parse_primary();
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_primary() { 
         std::unique_ptr<AstNode> node;
         if (current_token.type == TokenType::NUMBER) {
             if (current_token.value.find('.') != std::string::npos) {

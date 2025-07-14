@@ -156,7 +156,6 @@ namespace luaxc {
             BitwiseAnd,
             BitwiseOr,
             BitwiseXor,
-            BitwiseNot,
             BitwiseShiftLeft,
             BitwiseShiftRight,
             Equal,
@@ -167,7 +166,6 @@ namespace luaxc {
             GreaterThanEqual,
             LogicalAnd,
             LogicalOr,
-            LogicalNot,
         };
 
         BinaryExpressionNode(std::unique_ptr<AstNode> left, std::unique_ptr<AstNode> right, BinaryOperator op) 
@@ -199,6 +197,10 @@ namespace luaxc {
 
         UnaryExpressionNode(std::unique_ptr<AstNode> operand, UnaryOperator op) 
             : StatementNode(StatementNode::StatementType::UnaryExprStmt), operand(std::move(operand)), op(op) {}
+
+        UnaryOperator get_operator() const { return op; }
+
+        const std::unique_ptr<AstNode>& get_operand() const { return operand; }
     private:
         UnaryOperator op;
         std::unique_ptr<AstNode> operand;

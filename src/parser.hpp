@@ -65,9 +65,15 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> parse_logical_or_expression();
 
+        std::unique_ptr<AstNode> parse_bitwise_and_expression();
+
+        std::unique_ptr<AstNode> parse_bitwise_or_expression();
+
+        std::unique_ptr<AstNode> parse_bitwise_shift_expression();
+
         std::unique_ptr<AstNode> parse_unary_expression();
 
-        std::unique_ptr<AstNode> parse_factor();
+        std::unique_ptr<AstNode> parse_primary();
 
         std::unique_ptr<AstNode> parse_block_statement();
 

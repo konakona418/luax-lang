@@ -11,6 +11,8 @@
 
 namespace luaxc {
 
+    #define LUAXC_IR_RUNTIME_FORCE_BOOLEAN(_value) (!!(_value))
+
     class IRGeneratorException : public std::exception {
     public:
         std::string message;
@@ -53,10 +55,14 @@ namespace luaxc {
             MUL,
             DIV,
             MOD,
+            NEGATE,
 
             AND,
+            LOGICAL_AND,
             OR,
+            LOGICAL_OR,
             NOT,
+            LOGICAL_NOT,
             XOR,
             SHL,
             SHR,
@@ -118,6 +124,8 @@ namespace luaxc {
 
         std::stack<WhileLoopGenerationContext> while_loop_generation_stack;
 
+        bool is_binary_logical_operator(BinaryExpressionNode::BinaryOperator op);
+
         void generate_program_or_block(const AstNode* node, ByteCode& byte_code);
 
         void generate_statement(const StatementNode* statement, ByteCode& byte_code);
@@ -125,6 +133,8 @@ namespace luaxc {
         void generate_expression(const AstNode* expression, ByteCode& byte_code);
 
         void generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
+
+        void generate_unary_expression_statement(const UnaryExpressionNode* statement, ByteCode& byte_code);
 
         void generate_declaration_statement(const DeclarationStmtNode* statement, ByteCode& byte_code);
 
@@ -161,6 +171,8 @@ namespace luaxc {
 
         void handle_binary_op(IRInstruction::InstructionType op);
 
+        void handle_unary_op(IRInstruction::InstructionType op);
+
         bool handle_jump(IRInstruction::InstructionType op, IRJumpParam param);
 
         void handle_to_bool();
@@ -192,10 +204,17 @@ namespace luaxc {
                         stack.push(lhs & rhs);
                     }
                     break;
+                case IRInstruction::InstructionType::LOGICAL_AND: {
+                    stack.push(LUAXC_IR_RUNTIME_FORCE_BOOLEAN(lhs) && LUAXC_IR_RUNTIME_FORCE_BOOLEAN(rhs));
+                    break;
+                }
                 case IRInstruction::InstructionType::OR:
                     if constexpr (std::is_integral_v<T>) {
                         stack.push(lhs | rhs);
                     }
+                    break;
+                case IRInstruction::InstructionType::LOGICAL_OR:
+                    stack.push(LUAXC_IR_RUNTIME_FORCE_BOOLEAN(lhs) || LUAXC_IR_RUNTIME_FORCE_BOOLEAN(rhs));
                     break;
                 case IRInstruction::InstructionType::XOR:
                     if constexpr (std::is_integral_v<T>) {
@@ -233,6 +252,27 @@ namespace luaxc {
                 default:
                     throw IRInterpreterException("Invalid instruction type");
                     return;
+            }
+        }
+
+        template <typename T>
+        void handle_unary_op(IRInstruction::InstructionType op, T rhs) {
+            switch (op) {
+                case IRInstruction::InstructionType::NEGATE:
+                    stack.push(-rhs);
+                    break;
+                case IRInstruction::InstructionType::NOT: {
+                    if constexpr (std::is_integral_v<T>) { 
+                        stack.push(~rhs);
+                    }
+                    break;
+                }
+                case IRInstruction::InstructionType::LOGICAL_NOT: {
+                    stack.push(!LUAXC_IR_RUNTIME_FORCE_BOOLEAN(rhs));
+                    break;
+                }
+                default:
+                    throw IRInterpreterException("Invalid instruction type");
             }
         }
     };

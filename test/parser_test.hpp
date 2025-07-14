@@ -42,6 +42,16 @@ namespace parser_test {
         assert(value == 1 + 2);
     }
 
+    inline void test_unary_operator_logical_not() {
+        auto ir_interpreter = compile_run("let a = 1; if (!(a == 1)) { let b = 2; } else { let b = 3; }");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("b")) == 3);
+    }
+
+    inline void test_unary_operator_minus() {
+        auto ir_interpreter = compile_run("let a = -1;");
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == -1);
+    }
+
     inline void test_if_statement() {
         auto ir_interpreter = compile_run("let a = 1; if (a > 0) { let b = 2; }");
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("b")) == 2);
@@ -195,6 +205,8 @@ namespace parser_test {
             test(test_assignment);
             test(test_arithmetic_with_identifier);
             test(test_logical_operators);
+            test(test_unary_operator_logical_not);
+            test(test_unary_operator_minus);
         } end_test()
 
         begin_test("parser-if stmt") {

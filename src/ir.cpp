@@ -49,14 +49,26 @@ namespace luaxc {
             case IRInstruction::InstructionType::AND:
                 out = "AND";
                 break;
+            case IRInstruction::InstructionType::LOGICAL_AND:
+                out = "LOGICAL_AND";
+                break;
             case IRInstruction::InstructionType::OR:
                 out = "OR";
+                break;
+            case IRInstruction::InstructionType::LOGICAL_OR:
+                out = "LOGICAL_OR";
                 break;
             case IRInstruction::InstructionType::NOT:
                 out = "NOT";
                 break;
+            case IRInstruction::InstructionType::LOGICAL_NOT:
+                out = "LOGICAL_NOT";
+                break;
             case IRInstruction::InstructionType::XOR:
                 out = "XOR";
+                break;
+            case IRInstruction::InstructionType::NEGATE:
+                out = "NEGATE";
                 break;
             case IRInstruction::InstructionType::PUSH_STACK:
                 out = "PUSH_STACK";
@@ -154,7 +166,8 @@ namespace luaxc {
                     static_cast<const BinaryExpressionNode *>(statement_node), byte_code);
                 break;
             case StatementNode::StatementType::UnaryExprStmt: 
-                throw IRGeneratorException("Unsupported statement type");
+                return generate_unary_expression_statement(
+                    static_cast<const UnaryExpressionNode *>(statement_node), byte_code);
                 break;
             case StatementNode::StatementType::BlockStmt:
                 return generate_program_or_block(statement_node, byte_code);
@@ -239,15 +252,32 @@ namespace luaxc {
             IRStoreIdentifierParam{identifier->get_name()}));
     }
 
-    void IRGenerator::generate_binary_expression_statement(const BinaryExpressionNode* node, ByteCode& byte_code) {
-        const auto& left = node->get_left();
-        const auto& right = node->get_right();
+    bool IRGenerator::is_binary_logical_operator(BinaryExpressionNode::BinaryOperator op) {
+        return (op == BinaryExpressionNode::BinaryOperator::LogicalAnd || 
+            op == BinaryExpressionNode::BinaryOperator::LogicalOr);
+    }
+
+    void IRGenerator::generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code) {
+        const auto& left = statement->get_left();
+        const auto& right = statement->get_right();
+
+        auto node_op = statement->get_op();
 
         generate_expression(left.get(), byte_code);
+        if (is_binary_logical_operator(node_op)) {
+            // when the logical operator is used, we need to convert the lhs and rhs value to boolean
+            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
+        }
+        
         generate_expression(right.get(), byte_code);
+        if (is_binary_logical_operator(node_op)) {
+            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
+        }
 
         IRInstruction::InstructionType op_type;
-        switch (node->get_op()) {
+
+
+        switch (node_op) {
             case BinaryExpressionNode::BinaryOperator::Add:
                 op_type = IRInstruction::InstructionType::ADD;
                 break;
@@ -264,19 +294,19 @@ namespace luaxc {
                 op_type = IRInstruction::InstructionType::MOD;
                 break;
             case BinaryExpressionNode::BinaryOperator::LogicalAnd:
+                op_type = IRInstruction::InstructionType::LOGICAL_AND;
+                break;
             case BinaryExpressionNode::BinaryOperator::BitwiseAnd:
                 op_type = IRInstruction::InstructionType::AND;
                 break;
             case BinaryExpressionNode::BinaryOperator::LogicalOr:
+                op_type = IRInstruction::InstructionType::LOGICAL_OR;
+                break;
             case BinaryExpressionNode::BinaryOperator::BitwiseOr:
                 op_type = IRInstruction::InstructionType::OR;
                 break;
             case BinaryExpressionNode::BinaryOperator::BitwiseXor:
                 op_type = IRInstruction::InstructionType::XOR;
-                break;
-            case BinaryExpressionNode::BinaryOperator::LogicalNot:
-            case BinaryExpressionNode::BinaryOperator::BitwiseNot:
-                op_type = IRInstruction::InstructionType::NOT;
                 break;
             case BinaryExpressionNode::BinaryOperator::BitwiseShiftLeft:
                 op_type = IRInstruction::InstructionType::SHL;
@@ -311,6 +341,33 @@ namespace luaxc {
             op_type, 
             { std::monostate() }
         ));
+    }
+
+    void IRGenerator::generate_unary_expression_statement(const UnaryExpressionNode* statement, ByteCode& byte_code) {
+        const auto& operand = statement->get_operand();
+
+        generate_expression(operand.get(), byte_code);
+        if (statement->get_operator() == UnaryExpressionNode::UnaryOperator::BitwiseNot) {
+            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
+        }
+
+        IRInstruction::InstructionType op_type;
+        switch (statement->get_operator()) {
+            case UnaryExpressionNode::UnaryOperator::Minus:
+                op_type = IRInstruction::InstructionType::NEGATE;
+                break;
+            case UnaryExpressionNode::UnaryOperator::BitwiseNot:
+                op_type = IRInstruction::InstructionType::NOT;
+                break;
+            case UnaryExpressionNode::UnaryOperator::LogicalNot:
+                op_type = IRInstruction::InstructionType::LOGICAL_NOT;
+                break;
+            case UnaryExpressionNode::UnaryOperator::Plus:
+                break;
+            default:
+                throw IRGeneratorException("Unsupported unary operator");
+        }
+        byte_code.push_back(IRInstruction(op_type, {std::monostate()}));
     }
 
     void IRGenerator::generate_if_statement(const IfNode* statement, ByteCode& byte_code) {
@@ -453,9 +510,11 @@ namespace luaxc {
                 case IRInstruction::InstructionType::AND:
                 case IRInstruction::InstructionType::OR:
                 case IRInstruction::InstructionType::XOR:
-                case IRInstruction::InstructionType::NOT:
                 case IRInstruction::InstructionType::SHL:
                 case IRInstruction::InstructionType::SHR:
+
+                case IRInstruction::InstructionType::LOGICAL_AND:
+                case IRInstruction::InstructionType::LOGICAL_OR:
 
                 case IRInstruction::InstructionType::CMP_EQ:
                 case IRInstruction::InstructionType::CMP_NE:
@@ -464,6 +523,12 @@ namespace luaxc {
                 case IRInstruction::InstructionType::CMP_GT:
                 case IRInstruction::InstructionType::CMP_GE:
                     handle_binary_op(instruction.type);
+                    break;
+
+                case IRInstruction::InstructionType::NOT:
+                case IRInstruction::InstructionType::LOGICAL_NOT:
+                case IRInstruction::InstructionType::NEGATE:
+                    handle_unary_op(instruction.type);
                     break;
 
                 case IRInstruction::InstructionType::JMP:
@@ -488,7 +553,9 @@ namespace luaxc {
                 return true;
             case IRInstruction::InstructionType::JMP_IF_FALSE: {
                 auto cond = std::get<int32_t>(output);
-                if (!cond) {
+                if (!(cond & 1)) {
+                    // we only care about the first bit
+                    // as, if everything works fine, there should be a TO_BOOL before this.
                     pc = param;
                     return true;
                 }
@@ -539,6 +606,21 @@ namespace luaxc {
             }
 
             handle_binary_op(op, lhs_double, rhs_double);
+        }
+    }
+
+    void IRInterpreter::handle_unary_op(IRInstruction::InstructionType op) {
+        auto rhs_variant = stack.top();
+        stack.pop();
+
+        if (std::holds_alternative<double>(rhs_variant)) {
+            double rhs_double = std::get<double>(rhs_variant);
+            handle_unary_op(op, rhs_double);
+        } else if (std::holds_alternative<int32_t>(rhs_variant)) { 
+            int32_t rhs_int = std::get<int32_t>(rhs_variant);
+            handle_unary_op(op, rhs_int);
+        } else {
+            throw IRInterpreterException("Unary operation not supported for this type");
         }
     }
 
