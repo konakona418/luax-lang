@@ -52,6 +52,7 @@ namespace luaxc {
             BlockStmt,
             IfStmt,
             WhileStmt,
+            ForStmt,
             BreakStmt,
             ContinueStmt,
         };
@@ -257,5 +258,37 @@ namespace luaxc {
     class ContinueNode : public StatementNode {
     public:
         ContinueNode() : StatementNode(StatementType::ContinueStmt) {}
+    };
+
+    class ForNode : public StatementNode { 
+    public:
+        ForNode(
+            std::unique_ptr<AstNode> init_stmt, 
+            std::unique_ptr<AstNode> condition, 
+            std::unique_ptr<AstNode> update,
+            std::unique_ptr<AstNode> body) : 
+            StatementNode(StatementType::ForStmt),
+            init_stmt(std::move(init_stmt)), 
+            condition_expr(std::move(condition)), 
+            update_stmt(std::move(update)), 
+            body(std::move(body)) {}
+
+        const std::unique_ptr<AstNode>& get_init_stmt() const { return init_stmt; }
+
+        const std::unique_ptr<AstNode>& get_condition_expr() const { return condition_expr; }
+
+        const std::unique_ptr<AstNode>& get_update_stmt() const { return update_stmt; }
+
+        const std::unique_ptr<AstNode>& get_body() const { return body; }
+    private:
+        std::unique_ptr<AstNode> init_stmt;
+        std::unique_ptr<AstNode> condition_expr;
+        std::unique_ptr<AstNode> update_stmt;
+
+        std::unique_ptr<AstNode> body;
+    };
+
+    class RangeBasedForNode : public StatementNode { 
+        // todo
     };
 }

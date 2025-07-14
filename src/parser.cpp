@@ -44,6 +44,8 @@ namespace luaxc {
                 return parse_if_statement();
             case TokenType::KEYWORD_WHILE:
                 return parse_while_statement();
+            case TokenType::KEYWORD_FOR:
+                return parse_for_statement();
             case TokenType::KEYWORD_BREAK:
                 return parse_break_statement();
             case TokenType::KEYWORD_CONTINUE:
@@ -53,7 +55,7 @@ namespace luaxc {
         }
     }
 
-    std::unique_ptr<AstNode> Parser::parse_declaration_statement() { 
+    std::unique_ptr<AstNode> Parser::parse_declaration_statement(bool consume_semicolon) { 
         /*
         declaration_statement:
             let identifier = expression;
@@ -95,12 +97,15 @@ namespace luaxc {
         } else {
             value = parse_expression();
         }
-        consume(TokenType::SEMICOLON, "Expected ';' after assignment");
+
+        if (consume_semicolon) {
+            consume(TokenType::SEMICOLON, "Expected ';' after assignment");
+        }
 
         return std::make_unique<DeclarationStmtNode>(std::move(identifiers), std::move(value));
     }
 
-    std::unique_ptr<AstNode> Parser::parse_assignment_statement() { 
+    std::unique_ptr<AstNode> Parser::parse_assignment_statement(bool consume_semicolon) { 
         /*
         assignment_statement:
             identifier = expression;
@@ -116,7 +121,10 @@ namespace luaxc {
             value = parse_expression();
         }
 
-        consume(TokenType::SEMICOLON, "Expected ';' after assignment statement");
+        if (consume_semicolon) {
+            consume(TokenType::SEMICOLON, "Expected ';' after assignment statement");
+        }
+
         return std::make_unique<AssignmentStmtNode>(std::move(identifier), std::move(value));
     }
 
@@ -374,6 +382,35 @@ namespace luaxc {
         }
         return std::make_unique<IfNode>(
             std::move(condition), std::move(body), std::move(else_body));
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_for_statement() {
+        consume(TokenType::KEYWORD_FOR, "Expected 'for' keyword");
+        consume(TokenType::L_PARENTHESIS, "Expected '(' after 'for' keyword");
+
+        // parse initializer stmt.
+        // this can have two possible forms:
+        // a declaration statement or an assignment statement.
+
+        std::unique_ptr<AstNode> initializer;
+        if (current_token.type == TokenType::KEYWORD_LET) {
+            initializer = parse_declaration_statement(false);
+        } else {
+            initializer = parse_assignment_statement(false);
+        }
+        consume(TokenType::SEMICOLON, "Expected ';' after iterator initializer"); // consume semicolon.
+
+        std::unique_ptr<AstNode> condition = parse_expression();
+        consume(TokenType::SEMICOLON, "Expected ';' after iterator condition");
+
+        std::unique_ptr<AstNode> update = parse_assignment_statement(false);
+
+        consume(TokenType::R_PARENTHESIS, "Expected an ')' enclosing the for-loop statements");
+
+        std::unique_ptr<AstNode> body = parse_statement();
+
+        return std::make_unique<ForNode>(std::move(initializer), 
+            std::move(condition), std::move(update), std::move(body));
     }
 
     std::unique_ptr<AstNode> Parser::parse_while_statement() {

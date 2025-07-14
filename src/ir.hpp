@@ -144,6 +144,8 @@ namespace luaxc {
 
         void generate_while_statement(const WhileNode* statement, ByteCode& byte_code);
 
+        void generate_for_statement(const ForNode* statement, ByteCode& byte_code);
+
         void generate_break_statement(ByteCode& byte_code);
 
         void generate_continue_statement(ByteCode& byte_code);

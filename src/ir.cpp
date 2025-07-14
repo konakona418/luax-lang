@@ -175,6 +175,8 @@ namespace luaxc {
                 return generate_if_statement(static_cast<const IfNode *>(statement_node), byte_code);
             case StatementNode::StatementType::WhileStmt:
                 return generate_while_statement(static_cast<const WhileNode *>(statement_node), byte_code);
+            case StatementNode::StatementType::ForStmt:
+                return generate_for_statement(static_cast<const ForNode *>(statement_node), byte_code);
             case StatementNode::StatementType::BreakStmt:
                 return generate_break_statement(byte_code);
             case StatementNode::StatementType::ContinueStmt:
@@ -447,6 +449,49 @@ namespace luaxc {
         // fill in jump targets of continues
         for (auto continue_instruction : generation_ctx.continue_instructions) {
             byte_code[continue_instruction].param = IRJumpParam(while_start_index);
+        }
+    }
+
+    void IRGenerator::generate_for_statement(const ForNode* statement, ByteCode& byte_code) {
+        auto* init_stmt = static_cast<StatementNode *>(statement->get_init_stmt().get());
+        generate_statement(init_stmt, byte_code);
+
+        size_t update_and_condition_start_index = byte_code.size(); // the command after decl / assignment
+
+        auto* update_stmt = static_cast<StatementNode *>(statement->get_update_stmt().get());
+        generate_statement(update_stmt, byte_code);
+
+        auto* cond_expr = statement->get_condition_expr().get();
+        generate_expression(cond_expr, byte_code);
+
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE, {std::monostate()}));
+
+        size_t jump_to_end_of_loop = byte_code.size() - 1; // jmp_if_false
+
+        while_loop_generation_stack.push(WhileLoopGenerationContext {});
+
+        auto* body = static_cast<StatementNode *>(statement->get_body().get());
+        generate_statement(body, byte_code);
+
+        byte_code.push_back(IRInstruction(
+            IRInstruction::InstructionType::JMP, IRJumpParam(update_and_condition_start_index)));
+
+        size_t loop_end_index = byte_code.size();
+
+        byte_code[jump_to_end_of_loop].param = IRJumpParam(loop_end_index);
+
+        auto generation_context = while_loop_generation_stack.top();
+        while_loop_generation_stack.pop();
+
+        // similar to while loops
+        for (auto break_instruction : generation_context.break_instructions) {
+            byte_code[break_instruction].param = IRJumpParam(loop_end_index);
+        }
+
+        for (auto continue_instruction : generation_context.continue_instructions) {
+            byte_code[continue_instruction].param = IRJumpParam(update_and_condition_start_index);
         }
     }
 

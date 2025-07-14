@@ -205,6 +205,17 @@ namespace parser_test {
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("e")) == 1);
     }
 
+    inline void test_for_loop() {
+        std::string input = R"(
+        let a = 0;
+        for (let i = 0; i < 10; i = i + 1) {
+            a = a + i;
+        }
+        )";
+        auto ir_interpreter = compile_run(input);
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 45);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -235,6 +246,10 @@ namespace parser_test {
             test(test_while_statement_mixed);
             test(test_while_statement_nested);
             test(test_while_statement_nested_break);
+        } end_test()
+
+        begin_test("parser-for stmt") {
+            test(test_for_loop);
         } end_test()
     }
 }
