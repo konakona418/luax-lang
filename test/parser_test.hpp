@@ -221,6 +221,51 @@ namespace parser_test {
         assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 45);
     }
 
+    inline void test_for_loop_break() {
+        std::string input = R"(
+        let a = 0;
+        for (let i = 0; i < 10; i += 1) {
+            if (i == 5) {
+                break;
+            }
+            a = a + i;
+        }
+        )";
+        auto ir_interpreter = compile_run(input);
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 10);
+    }
+
+    inline void test_for_loop_continue() {
+        std::string input = R"(
+        let a = 0;
+        for (let i = 0; i < 10; i += 1) {
+            if (i == 5) {
+                continue;
+            }
+            a = a + i;
+        }
+        )";
+        auto ir_interpreter = compile_run(input);
+        assert(std::get<int32_t>(ir_interpreter.retrieve_value("a")) == 40);
+    }
+
+    inline void test_scopes_error_check() { 
+        std::string input = R"(
+        {
+            let a = 0;
+        }
+        a = 1;
+        )";
+        bool caught_error = false;
+        try {
+            compile_run(input);
+        } catch (std::exception& e) {
+            caught_error = true;
+            std::cout << e.what() << std::endl;
+        }
+        assert(caught_error);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -256,6 +301,12 @@ namespace parser_test {
 
         begin_test("parser-for stmt") {
             test(test_for_loop);
+            test(test_for_loop_break);
+            test(test_for_loop_continue);
+        } end_test()
+
+        begin_test("parser-scopes") {
+            test(test_scopes_error_check);
         } end_test()
     }
 }

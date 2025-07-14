@@ -24,11 +24,36 @@ namespace luaxc {
         current_token = lexer.next();
     }
 
+    void Parser::enter_scope() {
+        scopes.emplace_back();
+    }
+
+    void Parser::exit_scope() {
+        scopes.pop_back();
+    }
+
+    void Parser::declare_identifier(const std::string& identifier) {
+        scopes.back().insert(identifier);
+    }
+
+    bool Parser::is_identifier_declared(const std::string& identifier) const {
+        for (int i = static_cast<int>(scopes.size()) - 1; i >= 0; --i) {
+            if (scopes[i].find(identifier) != scopes[i].end()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     std::unique_ptr<AstNode> Parser::parse_program() { 
+        enter_scope();
+
         auto program = std::make_unique<ProgramNode>();
         while (current_token.type != TokenType::TERMINATOR) {
             program->add_statement(parse_statement());
         }
+        
+        exit_scope();
         return program;
     }
 
@@ -64,7 +89,10 @@ namespace luaxc {
         auto identifiers = std::vector<std::unique_ptr<AstNode>>();
 
         identifiers.push_back(std::make_unique<IdentifierNode>(current_token.value));
+        declare_identifier(current_token.value);
+        
         consume(TokenType::IDENTIFIER, "Expected identifier after 'let' keyword");
+
 
         // 'let' identifier ';'
         if (current_token.type == TokenType::SEMICOLON) {
@@ -141,6 +169,11 @@ namespace luaxc {
         if (current_token.type == TokenType::IDENTIFIER) {
             auto identifier = parse_identifier();
 
+            auto name =  static_cast<IdentifierNode *>(identifier.get())->get_name();
+            if (!is_identifier_declared(name)) {
+                LUAXC_PARSER_THROW_ERROR("Undeclared identifier '" + name + "'")
+            }
+
             if (current_token.type == TokenType::ASSIGN) { 
                 auto assignment_stmt = 
                     parse_assignment_statement(std::move(identifier), consume_semicolon);
@@ -150,6 +183,10 @@ namespace luaxc {
                 auto combinative_assignment_stmt = 
                     parse_combinative_assignment_expression(std::move(identifier), consume_semicolon);
                 return combinative_assignment_stmt;
+            } else {
+                if (consume_semicolon) {
+                    consume(TokenType::SEMICOLON, "Expected ';");
+                }
             }
         }
         return parse_normal_expression();
@@ -408,6 +445,9 @@ namespace luaxc {
         std::vector<std::unique_ptr<AstNode>> statements;
 
         consume(TokenType::L_CURLY_BRACKET, "Expected '{'");
+
+        enter_scope();
+
         while (current_token.type != TokenType::R_CURLY_BRACKET) {
             statements.push_back(parse_statement());
 
@@ -415,6 +455,9 @@ namespace luaxc {
                 consume(TokenType::R_CURLY_BRACKET, "Expected '}' but meet unexpected EOF");
             }
         }
+
+        exit_scope();
+
         consume(TokenType::R_CURLY_BRACKET, "Block statement not closed with '}'");
         return std::make_unique<BlockNode>(std::move(statements));
     }
@@ -427,12 +470,18 @@ namespace luaxc {
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' after condition");
 
+        enter_scope();
         std::unique_ptr<AstNode> body = parse_statement();
+        exit_scope();
+
         std::unique_ptr<AstNode> else_body = nullptr;
 
         if (current_token.type == TokenType::KEYWORD_ELSE) {
             consume(TokenType::KEYWORD_ELSE, "Expected 'else' keyword");
+
+            enter_scope();
             else_body = parse_statement();
+            exit_scope();
         }
         return std::make_unique<IfNode>(
             std::move(condition), std::move(body), std::move(else_body));
@@ -445,6 +494,10 @@ namespace luaxc {
         // parse initializer stmt.
         // this can have two possible forms:
         // a declaration statement or an assignment statement.
+
+        // the scope is entered before parsing the initializer statement,
+        // for that the iterator itself, if declared here, should be only visible to the loop body
+        enter_scope();
 
         std::unique_ptr<AstNode> initializer;
         if (current_token.type == TokenType::KEYWORD_LET) {
@@ -463,6 +516,8 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> body = parse_statement();
 
+        exit_scope();
+
         return std::make_unique<ForNode>(std::move(initializer), 
             std::move(condition), std::move(update), std::move(body));
     }
@@ -476,7 +531,9 @@ namespace luaxc {
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' after while condition");
 
+        enter_scope();
         auto body = parse_statement();
+        exit_scope();
 
         return std::make_unique<WhileNode>(std::move(condition), std::move(body));
     }

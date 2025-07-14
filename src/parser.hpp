@@ -1,8 +1,10 @@
 #pragma once
 
 #include <sstream>
-#include "ast.hpp"
+#include <unordered_set>
+#include <vector>
 
+#include "ast.hpp"
 #include "lexer.hpp"
 
 namespace luaxc {
@@ -39,12 +41,22 @@ namespace luaxc {
         Lexer& lexer;
         Token current_token;
 
+        std::vector<std::unordered_set<std::string>> scopes;
+
         void consume(TokenType expected);
 
         void consume(TokenType expected, const std::string& err_message);
 
         void next_token();
 
+        void enter_scope();
+
+        void exit_scope();
+
+        void declare_identifier(const std::string& identifier);
+
+        bool is_identifier_declared(const std::string& identifier) const;
+    
         std::unique_ptr<AstNode> parse_statement();
 
         std::unique_ptr<AstNode> parse_assignment_statement(std::unique_ptr<AstNode> identifier, bool consume_semicolon = true);
