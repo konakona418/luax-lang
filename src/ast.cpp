@@ -13,14 +13,14 @@ namespace luaxc {
 
             if (pos_of_u_mark != std::string::npos || pos_of_i_mark != std::string::npos) {
                 if (pos_of_u_mark != std::string::npos) {
-                    return std::stoi(value.substr(0, pos_of_u_mark));
+                    return PrimValue::from_i64(std::stoll(value.substr(0, pos_of_u_mark)));
                 } else {
-                    return std::stoi(value.substr(0, pos_of_i_mark));
+                    return PrimValue::from_i64(std::stoll(value.substr(0, pos_of_i_mark)));
                 }
             }
-            return std::stoi(value);
+            return PrimValue::from_i64(std::stoi(value));
         } else {
-            return std::stod(value);
+            return PrimValue::from_f64(std::stod(value));
         }
     }
 }

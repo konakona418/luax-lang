@@ -3,7 +3,8 @@
 #include <memory>
 #include <vector>
 #include <string>
-#include <variant>
+
+#include "gc.hpp"
 
 namespace luaxc {
     enum class AstNodeType {
@@ -98,7 +99,7 @@ namespace luaxc {
     // numeric -> numeric_literal
     class NumericLiteralNode : public AstNode { 
     public:
-        using NumericVariant = std::variant<int32_t, double>;
+        using NumericVariant = PrimValue;
 
         enum class NumericLiteralType { 
             Integer,

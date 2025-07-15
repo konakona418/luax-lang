@@ -8,13 +8,7 @@ namespace luaxc {
         std::string out;
 
         const auto cvt_numeric = [](IRPrimValue value) {
-            if (std::holds_alternative<int>(value)) {
-                return std::to_string(std::get<int32_t>(value));
-            } else if (std::holds_alternative<double>(value)) {
-                return std::to_string(std::get<double>(value));
-            } else {
-                throw IRInterpreterException("Invalid IRPrimValue type");
-            }
+            return value.to_string();
         };
 
         switch (type) {
@@ -650,7 +644,7 @@ namespace luaxc {
                 pc = param;
                 return true;
             case IRInstruction::InstructionType::JMP_IF_FALSE: {
-                auto cond = std::get<int32_t>(output);
+                auto cond = output.to_bool();
                 if (!(cond & 1)) {
                     // we only care about the first bit
                     // as, if everything works fine, there should be a TO_BOOL before this.
@@ -667,13 +661,7 @@ namespace luaxc {
 
     void IRInterpreter::handle_to_bool() {
         auto& top = stack.top();
-        if (std::holds_alternative<int32_t>(top)) {
-            stack.top() = std::get<int32_t>(top) != 0;
-        } else if (std::holds_alternative<double>(top)) {
-            stack.top() = std::get<double>(top) != 0.0;
-        } else {
-            throw IRInterpreterException("Cannot convert to bool or not implemented yet");
-        }
+        top = PrimValue::from_bool(top.to_bool());
     }
 
     void IRInterpreter::handle_binary_op(IRInstruction::InstructionType op) {
@@ -684,45 +672,17 @@ namespace luaxc {
         // the left node is visited first and entered the stack first,
         // so the right node is the top of the stack
 
-        if (std::holds_alternative<int32_t>(lhs_variant) && std::holds_alternative<int32_t>(rhs_variant)) {
-            handle_binary_op(op, std::get<int32_t>(lhs_variant), std::get<int32_t>(rhs_variant));
-        } else if (std::holds_alternative<double>(lhs_variant) && std::holds_alternative<double>(rhs_variant)) {
-            handle_binary_op(op, std::get<double>(lhs_variant), std::get<double>(rhs_variant));
-        } else {
-            double lhs_double, rhs_double;
-
-            if (std::holds_alternative<int32_t>(lhs_variant)) {
-                lhs_double = static_cast<double>(std::get<int32_t>(lhs_variant));
-            } else {
-                lhs_double = std::get<double>(lhs_variant);
-            }
-
-            if (std::holds_alternative<int32_t>(rhs_variant)) {
-                rhs_double = static_cast<double>(std::get<int32_t>(rhs_variant));
-            } else {
-                rhs_double = std::get<double>(rhs_variant);
-            }
-
-            handle_binary_op(op, lhs_double, rhs_double);
-        }
+        handle_binary_op(op, lhs_variant, rhs_variant);
     }
 
     void IRInterpreter::handle_unary_op(IRInstruction::InstructionType op) {
         auto rhs_variant = stack.top();
         stack.pop();
 
-        if (std::holds_alternative<double>(rhs_variant)) {
-            double rhs_double = std::get<double>(rhs_variant);
-            handle_unary_op(op, rhs_double);
-        } else if (std::holds_alternative<int32_t>(rhs_variant)) { 
-            int32_t rhs_int = std::get<int32_t>(rhs_variant);
-            handle_unary_op(op, rhs_int);
-        } else {
-            throw IRInterpreterException("Unary operation not supported for this type");
-        }
+        handle_unary_op(op, rhs_variant);
     }
 
-    IRPrimValue IRInterpreter::retrieve_value(const std::string& identifier) {
+    IRPrimValue IRInterpreter::retrieve_raw_value(const std::string& identifier) {
         if (variables.find(identifier) != variables.end()) {
             return variables[identifier];
         } else {

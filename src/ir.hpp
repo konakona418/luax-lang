@@ -8,6 +8,7 @@
 #include <cmath>
 
 #include "ast.hpp"
+#include "gc.hpp"
 
 namespace luaxc {
 
@@ -31,7 +32,7 @@ namespace luaxc {
         const char* what() const noexcept override { return message.c_str(); }
     };
 
-    using IRPrimValue = std::variant<int32_t, double>;
+    using IRPrimValue = PrimValue;
     using IRLoadConstParam = IRPrimValue;
     
     struct IRLoadIdentifierParam { 
@@ -164,7 +165,12 @@ namespace luaxc {
 
         void run();
         
-        IRPrimValue retrieve_value(const std::string& identifier);
+        IRPrimValue retrieve_raw_value(const std::string& identifier);
+
+        template <typename T>
+        T retrieve_value(const std::string& identifier) {
+            return retrieve_raw_value(identifier).get_inner_value<T>();
+        }
         
         bool has_identifier(const std::string& identifier) const;
 
@@ -183,77 +189,62 @@ namespace luaxc {
 
         void handle_to_bool();
 
-        template <typename T>
-        void handle_binary_op(IRInstruction::InstructionType op, T lhs, T rhs) {
+        void handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs) {
             switch (op) {
                 case IRInstruction::InstructionType::ADD: 
-                    stack.push(lhs + rhs);
+                    stack.push(detail::prim_value_add(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::SUB: 
-                    stack.push(lhs - rhs);
+                    stack.push(detail::prim_value_sub(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::MUL: 
-                    stack.push(lhs * rhs);
+                    stack.push(detail::prim_value_mul(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::DIV: 
-                    stack.push(lhs / rhs);
+                    stack.push(detail::prim_value_div(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::MOD:
-                    if constexpr (std::is_integral_v<T>) {
-                        stack.push(lhs % rhs);
-                    } else {
-                        stack.push(std::fmod(lhs, rhs));
-                    }
+                    stack.push(detail::prim_value_mod(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::AND:
-                    if constexpr (std::is_integral_v<T>) {
-                        stack.push(lhs & rhs);
-                    }
+                    stack.push(detail::prim_value_band(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::LOGICAL_AND: {
-                    stack.push(LUAXC_IR_RUNTIME_FORCE_BOOLEAN(lhs) && LUAXC_IR_RUNTIME_FORCE_BOOLEAN(rhs));
+                    stack.push(detail::prim_value_land(lhs, rhs));
                     break;
                 }
                 case IRInstruction::InstructionType::OR:
-                    if constexpr (std::is_integral_v<T>) {
-                        stack.push(lhs | rhs);
-                    }
+                    stack.push(detail::prim_value_bor(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::LOGICAL_OR:
-                    stack.push(LUAXC_IR_RUNTIME_FORCE_BOOLEAN(lhs) || LUAXC_IR_RUNTIME_FORCE_BOOLEAN(rhs));
+                    stack.push(detail::prim_value_lor(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::XOR:
-                    if constexpr (std::is_integral_v<T>) {
-                        stack.push(lhs ^ rhs);
-                    }
+                    stack.push(detail::prim_value_bxor(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::SHL:
-                    if constexpr (std::is_integral_v<T>) {
-                        stack.push(lhs << rhs);
-                    }
+                    stack.push(detail::prim_value_shl(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::SHR:
-                    if constexpr (std::is_integral_v<T>) {
-                        stack.push(lhs >> rhs);
-                    }
+                    stack.push(detail::prim_value_shr(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::CMP_EQ:
-                    stack.push(lhs == rhs);
+                    stack.push(detail::prim_value_eq(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::CMP_NE:
-                    stack.push(lhs != rhs);
+                    stack.push(detail::prim_value_neq(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::CMP_LT:
-                    stack.push(lhs < rhs);
+                    stack.push(detail::prim_value_lt(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::CMP_LE:
-                    stack.push(lhs <= rhs);
+                    stack.push(detail::prim_value_lte(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::CMP_GT:
-                    stack.push(lhs > rhs);
+                    stack.push(detail::prim_value_gt(lhs, rhs));
                     break;
                 case IRInstruction::InstructionType::CMP_GE:
-                    stack.push(lhs >= rhs);
+                    stack.push(detail::prim_value_gte(lhs, rhs));
                     break;
                 default:
                     throw IRInterpreterException("Invalid instruction type");
@@ -261,20 +252,17 @@ namespace luaxc {
             }
         }
 
-        template <typename T>
-        void handle_unary_op(IRInstruction::InstructionType op, T rhs) {
+        void handle_unary_op(IRInstruction::InstructionType op, IRPrimValue rhs) {
             switch (op) {
                 case IRInstruction::InstructionType::NEGATE:
-                    stack.push(-rhs);
+                    stack.push(detail::prim_value_neg(rhs));
                     break;
                 case IRInstruction::InstructionType::NOT: {
-                    if constexpr (std::is_integral_v<T>) { 
-                        stack.push(~rhs);
-                    }
+                    stack.push(detail::prim_value_bnot(rhs));
                     break;
                 }
                 case IRInstruction::InstructionType::LOGICAL_NOT: {
-                    stack.push(!LUAXC_IR_RUNTIME_FORCE_BOOLEAN(rhs));
+                    stack.push(detail::prim_value_lnot(rhs));
                     break;
                 }
                 default:
