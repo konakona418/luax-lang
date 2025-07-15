@@ -124,6 +124,8 @@ namespace luaxc {
                 return "[null]";
             } else if constexpr (std::is_same_v<T, UnitObject>) {
                 return "[unit object]";
+            } else if constexpr (std::is_same_v<T, FunctionObject*>) {
+                return "[function object]";
             } else {
                 return "[unknown object]";
             }

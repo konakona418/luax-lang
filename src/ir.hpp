@@ -110,9 +110,12 @@ namespace luaxc {
 
     std::string dump_bytecode(const ByteCode& bytecode);
 
+    class IRRuntime;
+
     class IRGenerator {
     public:
-        explicit IRGenerator(std::unique_ptr<AstNode> ast_base_node) : ast(std::move(ast_base_node)) {}
+        IRGenerator(IRRuntime& runtime, std::unique_ptr<AstNode> ast_base_node)
+            : runtime(runtime), ast(std::move(ast_base_node)) {}
 
         ByteCode generate();
 
@@ -131,6 +134,8 @@ namespace luaxc {
         std::unique_ptr<luaxc::AstNode> ast;
 
         std::stack<WhileLoopGenerationContext> while_loop_generation_stack;
+
+        IRRuntime& runtime;
 
         bool is_binary_logical_operator(BinaryExpressionNode::BinaryOperator op);
 
@@ -165,14 +170,20 @@ namespace luaxc {
         void generate_function_invocation_statement(
                 const FunctionInvocationExpressionNode* statement,
                 ByteCode& byte_code);
+
+        void generate_function_declaration_statement(
+                const FunctionDeclarationNode* statement,
+                ByteCode& byte_code);
+
+        void generate_return_statement(const ReturnNode* statement, ByteCode& byte_code);
     };
 
     class IRInterpreter {
     public:
-        IRInterpreter();
+        explicit IRInterpreter(IRRuntime& runtime);
         ~IRInterpreter();
 
-        explicit IRInterpreter(ByteCode byte_code) : IRInterpreter() {
+        IRInterpreter(IRRuntime& runtime, ByteCode byte_code) : IRInterpreter(runtime) {
             this->byte_code = std::move(byte_code);
         };
 
@@ -195,6 +206,8 @@ namespace luaxc {
         struct StackFrame {
             std::unordered_map<std::string, IRPrimValue> variables;
             size_t return_addr;
+
+            explicit StackFrame(size_t return_addr) : return_addr(return_addr) {};
         };
 
         ByteCode byte_code;
@@ -202,12 +215,9 @@ namespace luaxc {
         std::vector<StackFrame> stack_frames;
         std::stack<IRPrimValue> stack;
         IRPrimValue output;
-
-        std::vector<FunctionObject*> native_functions;
+        IRRuntime& runtime;
 
         void preload_native_functions();
-
-        void free_native_functions();
 
         void push_stack_frame();
 
@@ -231,10 +241,55 @@ namespace luaxc {
 
         void handle_to_bool();
 
-        void handle_function_invocation(IRCallParam param);
+        bool handle_function_invocation(IRCallParam param);
 
         void handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs);
 
         void handle_unary_op(IRInstruction::InstructionType op, IRPrimValue rhs);
+    };
+
+    class IRRuntime {
+    public:
+        IRRuntime() = default;
+
+        ~IRRuntime() {
+            for (auto* object: objects) {
+                delete object;
+            }
+        }
+
+        void compile(std::unique_ptr<AstNode> base_node) {
+            generator = std::make_unique<IRGenerator>(*this, std::move(base_node));
+            interpreter = std::make_unique<IRInterpreter>(*this);
+
+            byte_code = generator->generate();
+        }
+
+        void run() {
+            if (byte_code.size() == 0) {
+                throw std::runtime_error("Not compiled");
+            }
+
+            interpreter->set_byte_code(byte_code);
+            interpreter->run();
+        }
+
+        IRInterpreter& get_interpreter() {
+            return *this->interpreter.get();
+        }
+
+        void push_gc_object(GCObject* object) {
+            objects.push_back(object);
+        }
+
+        const ByteCode& get_byte_code() const { return byte_code; }
+
+    private:
+        std::unique_ptr<IRGenerator> generator = nullptr;
+        std::unique_ptr<IRInterpreter> interpreter = nullptr;
+
+        std::vector<GCObject*> objects;
+
+        ByteCode byte_code;
     };
 }// namespace luaxc

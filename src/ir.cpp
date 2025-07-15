@@ -103,6 +103,9 @@ namespace luaxc {
                 out = "CALL";
                 out += " " + std::to_string(std::get<IRCallParam>(param).arguments_count);
                 break;
+            case IRInstruction::InstructionType::RET:
+                out += "RET";
+                break;
             default:
                 out = "UNKNOWN";
                 break;
@@ -172,6 +175,10 @@ namespace luaxc {
                 return generate_continue_statement(byte_code);
             case StatementNode::StatementType::ExpressionStmt:
                 return generate_expression(static_cast<const ExpressionNode*>(statement_node), byte_code);
+            case StatementNode::StatementType::FunctionDeclarationStmt:
+                return generate_function_declaration_statement(static_cast<const FunctionDeclarationNode*>(statement_node), byte_code);
+            case StatementNode::StatementType::ReturnStmt:
+                return generate_return_statement(static_cast<const ReturnNode*>(statement_node), byte_code);
             default:
                 throw IRGeneratorException("Unsupported statement type");
         }
@@ -575,7 +582,7 @@ namespace luaxc {
         ctx.register_continue_instruction(byte_code.size() - 1);
     }
 
-    IRInterpreter::IRInterpreter() {
+    IRInterpreter::IRInterpreter(IRRuntime& runtime) : runtime(runtime) {
         push_stack_frame();// global scope
         preload_native_functions();
     }
@@ -583,7 +590,6 @@ namespace luaxc {
     IRInterpreter::~IRInterpreter() {
         assert(stack_frames.size() == 1);
         pop_stack_frame();
-        free_native_functions();
     }
 
     void IRGenerator::generate_function_invocation_statement(const FunctionInvocationExpressionNode* node, ByteCode& byte_code) {
@@ -606,6 +612,58 @@ namespace luaxc {
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::CALL, IRCallParam{arguments_count}));
+    }
+
+    void IRGenerator::generate_function_declaration_statement(
+            const FunctionDeclarationNode* statement,
+            ByteCode& byte_code) {
+        size_t jump_over_function_instruction_index = byte_code.size();
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::JMP,
+                IRJumpParam(0)));
+
+        size_t fn_start_index = byte_code.size();
+
+        for (auto& param: statement->get_parameters()) {
+            auto identifier = dynamic_cast<IdentifierNode*>(param.get())->get_name();
+            // the arguments are pushed onto stack in reverse order
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::STORE_IDENTIFIER,
+                    IRStoreIdentifierParam{identifier}));
+        }
+
+        generate_program_or_block(statement->get_function_body().get(), byte_code);
+
+        // no return value
+        if (byte_code.back().type != IRInstruction::InstructionType::RET) {
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::LOAD_CONST, IRLoadConstParam{IRPrimValue::unit()}));
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::PUSH_STACK, {std::monostate()}));
+            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::RET, {std::monostate()}));
+        }
+
+        byte_code[jump_over_function_instruction_index].param = IRJumpParam(byte_code.size());
+
+        auto function_identifier =
+                static_cast<IdentifierNode*>(statement->get_identifier().get())->get_name();
+        auto* func_obj =
+                FunctionObject::create_function(fn_start_index, statement->get_parameters().size());
+
+        runtime.push_gc_object(func_obj);
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::LOAD_CONST, IRPrimValue(ValueType::Function, func_obj)));
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::STORE_IDENTIFIER, IRStoreIdentifierParam{function_identifier}));
+    }
+
+    void IRGenerator::generate_return_statement(const ReturnNode* statement, ByteCode& byte_code) {
+        generate_expression(static_cast<ExpressionNode*>(statement->get_expression().get()), byte_code);
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::RET, {std::monostate()}));
     }
 
     void IRInterpreter::run() {
@@ -679,7 +737,15 @@ namespace luaxc {
 
                 case IRInstruction::InstructionType::CALL: {
                     auto param = std::get<IRCallParam>(instruction.param);
-                    handle_function_invocation(param);
+                    jumped = handle_function_invocation(param);
+                    break;
+                }
+
+                case IRInstruction::InstructionType::RET: {
+                    auto return_addr = current_stack_frame().return_addr;
+                    pop_stack_frame();
+                    pc = return_addr;
+                    jumped = true;
                     break;
                 }
 
@@ -719,7 +785,7 @@ namespace luaxc {
         top = PrimValue::from_bool(top.to_bool());
     }
 
-    void IRInterpreter::handle_function_invocation(IRCallParam param) {
+    bool IRInterpreter::handle_function_invocation(IRCallParam param) {
         auto fn_obj = stack.top();
         stack.pop();
 
@@ -728,7 +794,11 @@ namespace luaxc {
         }
 
         auto fn = fn_obj.get_inner_value<FunctionObject*>();
+
         if (fn->is_native_function()) {
+            // only non-native functions generate RET command
+            // so we don't push a stack frame here,
+            // for no one will be responsible for popping it.
             std::vector<IRPrimValue> args(param.arguments_count);
             for (size_t i = 0; i < param.arguments_count; i++) {
                 args[i] = stack.top();
@@ -736,8 +806,12 @@ namespace luaxc {
             }
             auto ret = fn->call_native(args);
             stack.push(ret);
+            return false;
         } else {
-            throw IRInterpreterException("Cannot invoke non-native function");
+            push_stack_frame();
+            size_t jump_target = fn->get_begin_offset();
+            pc = jump_target;
+            return true;
         }
     }
 
@@ -863,21 +937,29 @@ namespace luaxc {
     void IRInterpreter::preload_native_functions() {
         FunctionObject* println = FunctionObject::create_native_function(
                 [](std::vector<PrimValue> args) -> PrimValue {
-                    printf("%s\n", args[0].to_string().c_str());
+                    for (auto& arg: args) {
+                        printf("%s ", arg.to_string().c_str());
+                    }
+                    printf("\n");
                     return PrimValue::unit();
                 });
-        native_functions.push_back(println);
+        runtime.push_gc_object(println);
         store_value_in_stack_frame("println", PrimValue(ValueType::Function, println));
-    }
 
-    void IRInterpreter::free_native_functions() {
-        for (auto function: native_functions) {
-            delete function;
-        }
+        FunctionObject* print = FunctionObject::create_native_function(
+                [](std::vector<PrimValue> args) -> PrimValue {
+                    for (auto& arg: args) {
+                        printf("%s ", arg.to_string().c_str());
+                    }
+                    return PrimValue::unit();
+                });
+        runtime.push_gc_object(print);
+        store_value_in_stack_frame("print", PrimValue(ValueType::Function, print));
     }
 
     void IRInterpreter::push_stack_frame() {
-        stack_frames.emplace_back();
+        size_t return_addr = pc + 1;
+        stack_frames.emplace_back(return_addr);
     }
 
     void IRInterpreter::pop_stack_frame() {

@@ -76,6 +76,10 @@ namespace luaxc {
                 return parse_break_statement();
             case TokenType::KEYWORD_CONTINUE:
                 return parse_continue_statement();
+            case TokenType::KEYWORD_FUNC:
+                return parse_function_declaration_statement();
+            case TokenType::KEYWORD_RETURN:
+                return parse_return_statement();
             default:
                 return parse_expression();
         }
@@ -146,6 +150,53 @@ namespace luaxc {
         consume(TokenType::SEMICOLON, "Expected ';' after forward declaration");
 
         return std::make_unique<ForwardDeclarationStmtNode>(std::move(identifier));
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_function_declaration_statement() {
+        consume(TokenType::KEYWORD_FUNC, "Expected 'func'");
+        std::unique_ptr<AstNode> identifier = parse_identifier();
+        declare_identifier(static_cast<IdentifierNode*>(identifier.get())->get_name());
+
+        consume(TokenType::L_PARENTHESIS, "Expected '(' after function name");
+        std::vector<std::unique_ptr<AstNode>> parameters;
+
+        enter_scope();
+
+        while (current_token.type != TokenType::R_PARENTHESIS) {
+            auto param = parse_identifier();
+            declare_identifier(static_cast<IdentifierNode*>(param.get())->get_name());
+
+            parameters.push_back(std::move(param));
+
+            if (current_token.type == TokenType::COMMA) {
+                consume(TokenType::COMMA, "Expected ','");
+            }
+        }
+
+        consume(TokenType::R_PARENTHESIS, "Expected ')' enclosing function parameters");
+
+        auto body = parse_block_statement();
+
+        exit_scope();
+
+        return std::make_unique<FunctionDeclarationNode>(
+                std::move(identifier),
+                std::move(parameters),
+                std::move(body));
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_return_statement() {
+        consume(TokenType::KEYWORD_RETURN, "Expected 'return'");
+
+        if (current_token.type == TokenType::SEMICOLON) {
+            consume(TokenType::SEMICOLON, "Expected ';'");
+            return std::make_unique<ReturnNode>(nullptr);
+        }
+
+        auto expression = parse_simple_expression();
+        consume(TokenType::SEMICOLON, "Expected ';' after return statement");
+
+        return std::make_unique<ReturnNode>(std::move(expression));
     }
 
     std::unique_ptr<AstNode> Parser::parse_identifier() {

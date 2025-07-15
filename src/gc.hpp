@@ -44,7 +44,7 @@ namespace luaxc {
     using Int = int64_t;
     using Float = double;
 
-    class GCObject;
+    class GCObject {};
     using StringObject = std::string;
     class ArrayObject;
     class FunctionObject;
@@ -146,7 +146,7 @@ namespace luaxc {
         Value value;
     };
 
-    class FunctionObject {
+    class FunctionObject : public GCObject {
     public:
         FunctionObject() = default;
 
@@ -156,6 +156,17 @@ namespace luaxc {
             auto* func = new FunctionObject();
             func->native_function = std::move(function);
             func->is_native = true;
+            func->begin_offset = 0;
+            func->arity = 1;
+            return func;
+        }
+
+        static FunctionObject* create_function(size_t begin_offset, size_t arity) {
+            auto* func = new FunctionObject();
+            func->is_native = false;
+            func->native_function = nullptr;
+            func->begin_offset = begin_offset;
+            func->arity = arity;
             return func;
         }
 
@@ -163,9 +174,15 @@ namespace luaxc {
 
         PrimValue call_native(std::vector<PrimValue> args) { return native_function(std::move(args)); };
 
+        size_t get_begin_offset() const { return begin_offset; }
+
+        size_t get_arity() const { return arity; }
+
     private:
         bool is_native;
         std::function<PrimValue(std::vector<PrimValue>)> native_function;
+        size_t begin_offset;
+        size_t arity;
     };
 
     namespace detail {

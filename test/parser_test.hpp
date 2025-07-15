@@ -9,12 +9,16 @@ namespace parser_test {
         auto lexer = luaxc::Lexer(input);
         auto parser = luaxc::Parser(lexer);
         auto program = parser.parse_program();
-        auto ir_generator = luaxc::IRGenerator(std::move(program));
-        auto byte_code = ir_generator.generate();
+        auto runtime = luaxc::IRRuntime();
+
+        runtime.compile(std::move(program));
+
+        auto byte_code = runtime.get_byte_code();
         std::cout << luaxc::dump_bytecode(byte_code) << std::endl;
 
-        auto ir_interpreter = luaxc::IRInterpreter(std::move(byte_code));
-        ir_interpreter.run();
+        runtime.run();
+
+        auto ir_interpreter = runtime.get_interpreter();
 
         return ir_interpreter;
     }
@@ -277,6 +281,50 @@ namespace parser_test {
         auto ir_interpreter = compile_run(input);
     }
 
+    inline void test_function_invocation_multiple_args() {
+        std::string input = R"(
+        use println;
+        let a = 114514;
+        let b = 1919;
+        let c = 2;
+        let unit = println(a, b, 800 + c * (1 + 4));
+        )";
+
+        auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::UnitObject>("unit") == luaxc::UnitObject{});
+    }
+
+    inline void test_function_declaration() {
+        std::string input = R"(
+        use println;
+        func add(a, b) {
+            return a + b;
+        }
+        let result = add(1, 2);
+        println(result);
+        )";
+
+        auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 3);
+    }
+
+    inline void test_multiple_function_declarations() {
+        std::string input = R"(
+        use println;
+        func add(a, b) {
+            return a + b;
+        }
+        func mul(a, b) {
+            return a * b;
+        }
+        let result = mul(add(1, 2), 4);
+        println(result);
+        )";
+
+        auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 12);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -327,6 +375,9 @@ namespace parser_test {
 
         begin_test("parser-fn invoke") {
             test(test_function_invocation);
+            test(test_function_invocation_multiple_args);
+            test(test_function_declaration);
+            test(test_multiple_function_declarations)
         }
         end_test();
     }

@@ -51,6 +51,8 @@ namespace luaxc {
             ForStmt,
             BreakStmt,
             ContinueStmt,
+            FunctionDeclarationStmt,
+            ReturnStmt,
         };
 
         explicit StatementNode(StatementType statement_type)
@@ -311,11 +313,12 @@ namespace luaxc {
                 std::unique_ptr<AstNode> init_stmt,
                 std::unique_ptr<AstNode> condition,
                 std::unique_ptr<AstNode> update,
-                std::unique_ptr<AstNode> body) : StatementNode(StatementType::ForStmt),
-                                                 init_stmt(std::move(init_stmt)),
-                                                 condition_expr(std::move(condition)),
-                                                 update_stmt(std::move(update)),
-                                                 body(std::move(body)) {}
+                std::unique_ptr<AstNode> body)
+            : StatementNode(StatementType::ForStmt),
+              init_stmt(std::move(init_stmt)),
+              condition_expr(std::move(condition)),
+              update_stmt(std::move(update)),
+              body(std::move(body)) {}
 
         const std::unique_ptr<AstNode>& get_init_stmt() const { return init_stmt; }
 
@@ -335,6 +338,40 @@ namespace luaxc {
 
     class RangeBasedForNode : public StatementNode {
         // todo
+    };
+
+    class FunctionDeclarationNode : public StatementNode {
+    public:
+        FunctionDeclarationNode(
+                std::unique_ptr<AstNode> identifier,
+                std::vector<std::unique_ptr<AstNode>> parameters,
+                std::unique_ptr<AstNode> function_body)
+            : StatementNode(StatementType::FunctionDeclarationStmt),
+              identifier(std::move(identifier)), parameters(std::move(parameters)),
+              body(std::move(function_body)) {}
+
+        const std::unique_ptr<AstNode>& get_identifier() const { return identifier; }
+
+        const std::vector<std::unique_ptr<AstNode>>& get_parameters() const { return parameters; }
+
+        const std::unique_ptr<AstNode>& get_function_body() const { return body; }
+
+    private:
+        std::unique_ptr<AstNode> identifier;
+        std::vector<std::unique_ptr<AstNode>> parameters;
+        std::unique_ptr<AstNode> body;
+    };
+
+    class ReturnNode : public StatementNode {
+    public:
+        explicit ReturnNode(std::unique_ptr<AstNode> expression)
+            : StatementNode(StatementType::ReturnStmt),
+              expression(std::move(expression)) {}
+
+        const std::unique_ptr<AstNode>& get_expression() const { return expression; }
+
+    private:
+        std::unique_ptr<AstNode> expression;
     };
 
     class FunctionInvocationExpressionNode : public ExpressionNode {
