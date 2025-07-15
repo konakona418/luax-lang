@@ -531,6 +531,7 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_block_statement() {
+        // '{' stmt* '}' (';')?
         std::vector<std::unique_ptr<AstNode>> statements;
 
         consume(TokenType::L_CURLY_BRACKET, "Expected '{'");
@@ -548,6 +549,12 @@ namespace luaxc {
         exit_scope();
 
         consume(TokenType::R_CURLY_BRACKET, "Block statement not closed with '}'");
+
+        // this is to support a block with a trailing semicolon.
+        if (current_token.type == TokenType::SEMICOLON) {
+            consume(TokenType::SEMICOLON, "Expected semicolon");
+        }
+
         return std::make_unique<BlockNode>(std::move(statements));
     }
 

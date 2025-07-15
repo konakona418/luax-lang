@@ -195,6 +195,8 @@ namespace luaxc {
 
         IRPrimValue& retrieve_raw_value_ref(const std::string& identifier);
 
+        void store_raw_value(const std::string& identifier, IRPrimValue value);
+
         template<typename T>
         T retrieve_value(const std::string& identifier) {
             return retrieve_raw_value(identifier).get_inner_value<T>();
@@ -225,13 +227,23 @@ namespace luaxc {
 
         StackFrame& current_stack_frame();
 
+        StackFrame& global_stack_frame();
+
         bool has_identifier_in_stack_frame(const std::string& identifier);
+
+        bool has_identifier_in_global_scope(const std::string& identifier);
 
         IRPrimValue retrieve_raw_value_in_stack_frame(const std::string& identifier);
 
         IRPrimValue& retrieve_value_ref_in_stack_frame(const std::string& identifier);
 
+        IRPrimValue retrieve_raw_value_in_global_scope(const std::string& identifier);
+
+        IRPrimValue& retrieve_value_ref_in_global_scope(const std::string& identifier);
+
         void store_value_in_stack_frame(const std::string& identifier, IRPrimValue value);
+
+        void store_value_in_global_scope(const std::string& identifier, IRPrimValue value);
 
         void handle_binary_op(IRInstruction::InstructionType op);
 

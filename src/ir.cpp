@@ -21,7 +21,6 @@ namespace luaxc {
                 out += " " + std::get<IRLoadIdentifierParam>(param).identifier;
                 break;
             case IRInstruction::InstructionType::STORE_IDENTIFIER:
-
                 out = "STORE_IDENTIFIER";
                 out += " " + std::get<IRStoreIdentifierParam>(param).identifier;
                 break;
@@ -683,7 +682,7 @@ namespace luaxc {
                 }
                 case IRInstruction::InstructionType::STORE_IDENTIFIER: {
                     auto param = std::get<IRStoreIdentifierParam>(instruction.param);
-                    store_value_in_stack_frame(param.identifier, output);
+                    store_raw_value(param.identifier, output);
                     break;
                 }
                 case IRInstruction::InstructionType::PUSH_STACK: {
@@ -915,23 +914,37 @@ namespace luaxc {
     }
 
     IRPrimValue IRInterpreter::retrieve_raw_value(const std::string& identifier) {
-        if (has_identifier(identifier)) {
+        if (has_identifier_in_stack_frame(identifier)) {
             return retrieve_raw_value_in_stack_frame(identifier);
+        } else if (has_identifier_in_global_scope(identifier)) {
+            return retrieve_raw_value_in_global_scope(identifier);
         } else {
             throw IRInterpreterException("Identifier not found: " + identifier);
         }
     }
 
     IRPrimValue& IRInterpreter::retrieve_raw_value_ref(const std::string& identifier) {
-        if (has_identifier(identifier)) {
+        if (has_identifier_in_stack_frame(identifier)) {
             return retrieve_value_ref_in_stack_frame(identifier);
+        } else if (has_identifier_in_global_scope(identifier)) {
+            return retrieve_value_ref_in_global_scope(identifier);
         } else {
             throw IRInterpreterException("Identifier not found: " + identifier);
         }
     }
 
+    void IRInterpreter::store_raw_value(const std::string& identifier, IRPrimValue value) {
+        if (has_identifier_in_stack_frame(identifier)) {
+            store_value_in_stack_frame(identifier, value);
+        } else if (has_identifier_in_global_scope(identifier)) {
+            store_value_in_global_scope(identifier, value);
+        } else {
+            store_value_in_stack_frame(identifier, value);
+        }
+    }
+
     bool IRInterpreter::has_identifier(const std::string& identifier) {
-        return has_identifier_in_stack_frame(identifier);
+        return has_identifier_in_stack_frame(identifier) || has_identifier_in_global_scope(identifier);
     }
 
     void IRInterpreter::preload_native_functions() {
@@ -970,8 +983,16 @@ namespace luaxc {
         return stack_frames.back();
     }
 
+    IRInterpreter::StackFrame& IRInterpreter::global_stack_frame() {
+        return stack_frames[0];
+    }
+
     bool IRInterpreter::has_identifier_in_stack_frame(const std::string& identifier) {
         return current_stack_frame().variables.find(identifier) != current_stack_frame().variables.end();
+    }
+
+    bool IRInterpreter::has_identifier_in_global_scope(const std::string& identifier) {
+        return global_stack_frame().variables.find(identifier) != stack_frames[0].variables.end();
     }
 
     IRPrimValue IRInterpreter::retrieve_raw_value_in_stack_frame(const std::string& identifier) {
@@ -982,7 +1003,19 @@ namespace luaxc {
         return current_stack_frame().variables.at(identifier);
     }
 
+    IRPrimValue IRInterpreter::retrieve_raw_value_in_global_scope(const std::string& identifier) {
+        return global_stack_frame().variables.at(identifier);
+    }
+
+    IRPrimValue& IRInterpreter::retrieve_value_ref_in_global_scope(const std::string& identifier) {
+        return global_stack_frame().variables.at(identifier);
+    }
+
     void IRInterpreter::store_value_in_stack_frame(const std::string& identifier, IRPrimValue value) {
         current_stack_frame().variables[identifier] = value;
+    }
+
+    void IRInterpreter::store_value_in_global_scope(const std::string& identifier, IRPrimValue value) {
+        global_stack_frame().variables[identifier] = value;
     }
 }// namespace luaxc

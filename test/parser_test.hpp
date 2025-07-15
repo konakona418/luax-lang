@@ -325,6 +325,29 @@ namespace parser_test {
         assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 12);
     }
 
+    inline void test_deferred_function_declarations() {
+        std::string input = R"(
+        use println;
+        use add;
+
+        let result;
+
+        func main() {
+            result = add(1, 2);
+            println(result);
+        }
+
+        func add(a, b) {
+            return a + b;
+        }
+
+        main();
+        )";
+
+        auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 3);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -377,7 +400,8 @@ namespace parser_test {
             test(test_function_invocation);
             test(test_function_invocation_multiple_args);
             test(test_function_declaration);
-            test(test_multiple_function_declarations)
+            test(test_multiple_function_declarations);
+            test(test_deferred_function_declarations);
         }
         end_test();
     }
