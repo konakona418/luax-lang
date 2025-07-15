@@ -431,6 +431,11 @@ namespace luaxc {
         } else if (current_token.type == TokenType::IDENTIFIER) {
             node = std::make_unique<IdentifierNode>(current_token.value);
             consume(TokenType::IDENTIFIER);
+
+            // potential function invocation
+            if (current_token.type == TokenType::L_PARENTHESIS) {
+                node = parse_function_invocation_statement(std::move(node));
+            }
         } else if (current_token.type == TokenType::L_PARENTHESIS) {
             consume(TokenType::L_PARENTHESIS);
             node = parse_simple_expression();
@@ -440,6 +445,23 @@ namespace luaxc {
             LUAXC_PARSER_THROW_NOT_IMPLEMENTED("String literals are not implemented yet.")
         }
         return node;
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_function_invocation_statement(std::unique_ptr<AstNode> function_identifier) {
+        consume(TokenType::L_PARENTHESIS, "Expected '(' after function identifier");
+        std::vector<std::unique_ptr<AstNode>> arguments;
+
+        while (current_token.type != TokenType::R_PARENTHESIS) {
+            arguments.push_back(parse_expression());
+            if (current_token.type == TokenType::COMMA) {
+                consume(TokenType::COMMA, "Expected ',' after argument");
+            }
+        }
+
+        consume(TokenType::R_PARENTHESIS, "Expected ')' ending function invocation");
+
+        return std::make_unique<FunctionInvocationNode>(
+                std::move(function_identifier), std::move(arguments));
     }
 
     std::unique_ptr<AstNode> Parser::parse_block_statement() {

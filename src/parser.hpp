@@ -93,6 +93,8 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> parse_primary();
 
+        std::unique_ptr<AstNode> parse_function_invocation_statement(std::unique_ptr<AstNode> function_identifier);
+
         std::unique_ptr<AstNode> parse_block_statement();
 
         std::unique_ptr<AstNode> parse_if_statement();
