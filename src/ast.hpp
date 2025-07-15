@@ -80,8 +80,13 @@ namespace luaxc {
 
         ExpressionType get_expression_type() const { return expression_type; }
 
+        bool is_result_discarded() const { return result_discarded; }
+
+        void set_result_discarded(bool result_discarded) { this->result_discarded = result_discarded; }
+
     private:
         ExpressionType expression_type;
+        bool result_discarded = false;
     };
 
     // decl -> ('let' identifier '=' expr ';') | ('let' identifier ';')

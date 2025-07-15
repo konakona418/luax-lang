@@ -187,12 +187,18 @@ namespace luaxc {
 
     std::unique_ptr<AstNode> Parser::parse_assignment_expression(bool consume_semicolon) {
         auto left = parse_simple_expression();
+        bool is_result_discarded = false;
 
         if (current_token.type == TokenType::ASSIGN) {
             return parse_basic_assignment_expression(std::move(left), consume_semicolon);
         } else if (current_token.type == TokenType::INCREMENT_BY || current_token.type == TokenType::DECREMENT_BY) {
             return parse_combinative_assignment_expression(std::move(left), consume_semicolon);
+        } else {
+            // if we are not assigning the result to anything, we can discard it
+            is_result_discarded = true;
         }
+
+        static_cast<ExpressionNode*>(left.get())->set_result_discarded(is_result_discarded);
 
         return left;
     }

@@ -221,6 +221,12 @@ namespace luaxc {
             default:
                 throw IRGeneratorException("Unsupported expression type");
         }
+
+        if (node->is_result_discarded()) {
+            // discard the value
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
+        }
     }
 
     void IRGenerator::generate_declaration_statement(const DeclarationStmtNode* node, ByteCode& byte_code) {
