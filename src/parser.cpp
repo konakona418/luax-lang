@@ -174,7 +174,7 @@ namespace luaxc {
             consume(TokenType::SEMICOLON, "Expected ';' after assignment statement");
         }
 
-        return std::make_unique<AssignmentStmtNode>(std::move(identifier), std::move(value));
+        return std::make_unique<AssignmentExpressionNode>(std::move(identifier), std::move(value));
     }
 
     std::unique_ptr<AstNode> Parser::parse_expression(bool consume_semicolon) {
@@ -469,7 +469,7 @@ namespace luaxc {
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' ending function invocation");
 
-        return std::make_unique<FunctionInvocationNode>(
+        return std::make_unique<FunctionInvocationExpressionNode>(
                 std::move(function_identifier), std::move(arguments));
     }
 

@@ -158,18 +158,6 @@ namespace luaxc {
             case StatementNode::StatementType::ForwardDeclarationStmt:
                 // todo: in the future this may be used to handle imports.
                 break;
-            case StatementNode::StatementType::AssignmentStmt:
-                generate_assignment_statement(
-                        static_cast<const AssignmentStmtNode*>(statement_node), byte_code);
-                break;
-            case StatementNode::StatementType::BinaryExprStmt:
-                return generate_binary_expression_statement(
-                        static_cast<const BinaryExpressionNode*>(statement_node), byte_code);
-                break;
-            case StatementNode::StatementType::UnaryExprStmt:
-                return generate_unary_expression_statement(
-                        static_cast<const UnaryExpressionNode*>(statement_node), byte_code);
-                break;
             case StatementNode::StatementType::BlockStmt:
                 return generate_program_or_block(statement_node, byte_code);
             case StatementNode::StatementType::IfStmt:
@@ -182,28 +170,16 @@ namespace luaxc {
                 return generate_break_statement(byte_code);
             case StatementNode::StatementType::ContinueStmt:
                 return generate_continue_statement(byte_code);
-            case StatementNode::StatementType::FuncInvokeStmt:
-                return generate_function_invocation_statement(
-                        static_cast<const FunctionInvocationNode*>(statement_node), byte_code);
+            case StatementNode::StatementType::ExpressionStmt:
+                return generate_expression(static_cast<const ExpressionNode*>(statement_node), byte_code);
             default:
                 throw IRGeneratorException("Unsupported statement type");
         }
     }
 
-    void IRGenerator::generate_expression(const AstNode* node, ByteCode& byte_code) {
-        switch (node->get_type()) {
-            case AstNodeType::Stmt:
-                generate_statement(static_cast<const StatementNode*>(node), byte_code);
-                break;
-            case AstNodeType::NumericLiteral:
-                byte_code.push_back(
-                        IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
-                                      {IRLoadConstParam(static_cast<const NumericLiteralNode*>(node)->get_value())}));
-                byte_code.push_back(
-                        IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
-                                      {std::monostate()}));
-                break;
-            case AstNodeType::Identifier:
+    void IRGenerator::generate_expression(const ExpressionNode* node, ByteCode& byte_code) {
+        switch (node->get_expression_type()) {
+            case ExpressionNode::ExpressionType::Identifier: {
                 byte_code.push_back(
                         IRInstruction(IRInstruction::InstructionType::LOAD_IDENTIFIER,
                                       {IRLoadIdentifierParam{static_cast<const IdentifierNode*>(node)->get_name()}}));
@@ -211,6 +187,37 @@ namespace luaxc {
                         IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
                                       {std::monostate()}));
                 break;
+            }
+            case ExpressionNode::ExpressionType::NumericLiteral: {
+                byte_code.push_back(
+                        IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
+                                      {IRLoadConstParam(static_cast<const NumericLiteralNode*>(node)->get_value())}));
+                byte_code.push_back(
+                        IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
+                                      {std::monostate()}));
+                break;
+            }
+            case ExpressionNode::ExpressionType::StringLiteral: {
+                // todo: support strings
+                throw IRGeneratorException("String literals are not supported yet");
+                break;
+            }
+            case ExpressionNode::ExpressionType::AssignmentExpr: {
+                generate_assignment_statement(static_cast<const AssignmentExpressionNode*>(node), byte_code);
+                break;
+            }
+            case ExpressionNode::ExpressionType::BinaryExpr: {
+                generate_binary_expression_statement(static_cast<const BinaryExpressionNode*>(node), byte_code);
+                break;
+            }
+            case ExpressionNode::ExpressionType::UnaryExpr: {
+                generate_unary_expression_statement(static_cast<const UnaryExpressionNode*>(node), byte_code);
+                break;
+            }
+            case ExpressionNode::ExpressionType::FuncInvokeExpr: {
+                generate_function_invocation_statement(static_cast<const FunctionInvocationExpressionNode*>(node), byte_code);
+                break;
+            }
             default:
                 throw IRGeneratorException("Unsupported expression type");
         }
@@ -233,7 +240,7 @@ namespace luaxc {
             return;
         }
 
-        generate_expression(expr, byte_code);
+        generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         auto* identifier_node = static_cast<IdentifierNode*>(identifiers[0].get());
 
@@ -246,11 +253,11 @@ namespace luaxc {
                 IRStoreIdentifierParam{identifier_node->get_name()}));
     }
 
-    void IRGenerator::generate_assignment_statement(const AssignmentStmtNode* node, ByteCode& byte_code) {
+    void IRGenerator::generate_assignment_statement(const AssignmentExpressionNode* node, ByteCode& byte_code) {
         auto expr = static_cast<const StatementNode*>(node->get_value().get());
         auto identifier = static_cast<const IdentifierNode*>(node->get_identifier().get());
 
-        generate_expression(expr, byte_code);
+        generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::POP_STACK,
@@ -282,13 +289,13 @@ namespace luaxc {
         const auto& left = statement->get_left();
         const auto& right = statement->get_right();
 
-        generate_expression(left.get(), byte_code);
+        generate_expression(static_cast<const ExpressionNode*>(left.get()), byte_code);
         if (is_binary_logical_operator(node_op)) {
             // when the logical operator is used, we need to convert the lhs and rhs value to boolean
             byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
         }
 
-        generate_expression(right.get(), byte_code);
+        generate_expression(static_cast<const ExpressionNode*>(right.get()), byte_code);
         if (is_binary_logical_operator(node_op)) {
             byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
         }
@@ -368,7 +375,7 @@ namespace luaxc {
         // this requires left to be a left-value,
         // however I haven't figured out how to implement this checking stuff yet.
 
-        generate_expression(right.get(), byte_code);
+        generate_expression(static_cast<const ExpressionNode*>(right.get()), byte_code);
 
         auto& left_identifier = dynamic_cast<IdentifierNode*>(left.get())->get_name();
 
@@ -402,7 +409,7 @@ namespace luaxc {
     void IRGenerator::generate_unary_expression_statement(const UnaryExpressionNode* statement, ByteCode& byte_code) {
         const auto& operand = statement->get_operand();
 
-        generate_expression(operand.get(), byte_code);
+        generate_expression(static_cast<const ExpressionNode*>(operand.get()), byte_code);
         if (statement->get_operator() == UnaryExpressionNode::UnaryOperator::BitwiseNot) {
             byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
         }
@@ -429,7 +436,7 @@ namespace luaxc {
     void IRGenerator::generate_if_statement(const IfNode* statement, ByteCode& byte_code) {
         auto* expr = statement->get_condition().get();
 
-        generate_expression(expr, byte_code);
+        generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
@@ -464,7 +471,7 @@ namespace luaxc {
         size_t while_start_index, while_end_index, while_start_jmp_index;
         while_start_index = byte_code.size();
 
-        generate_expression(expr, byte_code);
+        generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
@@ -511,7 +518,7 @@ namespace luaxc {
         generate_statement(update_stmt, byte_code);
 
         auto* cond_expr = statement->get_condition_expr().get();
-        generate_expression(cond_expr, byte_code);
+        generate_expression(static_cast<const ExpressionNode*>(cond_expr), byte_code);
 
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
@@ -573,14 +580,14 @@ namespace luaxc {
         free_native_functions();
     }
 
-    void IRGenerator::generate_function_invocation_statement(const FunctionInvocationNode* node, ByteCode& byte_code) {
+    void IRGenerator::generate_function_invocation_statement(const FunctionInvocationExpressionNode* node, ByteCode& byte_code) {
         const auto& args = node->get_arguments();
         size_t arguments_count = args.size();
 
         for (int i = arguments_count - 1; i >= 0; i--) {
             // the arguments are pushed in reverse order
             // so the first argument is at the top of the stack
-            generate_expression(args[i].get(), byte_code);
+            generate_expression(static_cast<const ExpressionNode*>(args[i].get()), byte_code);
         }
 
         // load the function object

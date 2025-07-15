@@ -10,9 +10,6 @@ namespace luaxc {
     enum class AstNodeType {
         Program,
         Stmt,
-        NumericLiteral,
-        StringLiteral,
-        Identifier,
     };
 
     class AstNode {
@@ -47,10 +44,7 @@ namespace luaxc {
         enum class StatementType {
             DeclarationStmt,
             ForwardDeclarationStmt,// use
-            AssignmentStmt,
-            BinaryExprStmt,
-            UnaryExprStmt,
-            FuncInvokeStmt,
+            ExpressionStmt,
             BlockStmt,
             IfStmt,
             WhileStmt,
@@ -66,6 +60,28 @@ namespace luaxc {
 
     private:
         StatementType statement_type;
+    };
+
+    class ExpressionNode : public StatementNode {
+    public:
+        enum class ExpressionType {
+            Identifier,
+            NumericLiteral,
+            StringLiteral,
+            AssignmentExpr,
+            BinaryExpr,
+            UnaryExpr,
+            FuncInvokeExpr,
+        };
+
+        ExpressionNode(ExpressionType expression_type)
+            : StatementNode(StatementType::ExpressionStmt),
+              expression_type(expression_type) {}
+
+        ExpressionType get_expression_type() const { return expression_type; }
+
+    private:
+        ExpressionType expression_type;
     };
 
     // decl -> ('let' identifier '=' expr ';') | ('let' identifier ';')
@@ -96,10 +112,11 @@ namespace luaxc {
     };
 
     // assign -> identifier = expr ';'
-    class AssignmentStmtNode : public StatementNode {
+    class AssignmentExpressionNode : public ExpressionNode {
     public:
-        explicit AssignmentStmtNode(std::unique_ptr<AstNode> identifier, std::unique_ptr<AstNode> value)
-            : StatementNode(StatementType::AssignmentStmt), identifier(std::move(identifier)), value(std::move(value)) {}
+        explicit AssignmentExpressionNode(std::unique_ptr<AstNode> identifier, std::unique_ptr<AstNode> value)
+            : ExpressionNode(ExpressionType::AssignmentExpr),
+              identifier(std::move(identifier)), value(std::move(value)) {}
 
         const std::unique_ptr<AstNode>& get_identifier() const { return identifier; }
         const std::unique_ptr<AstNode>& get_value() const { return value; }
@@ -110,7 +127,7 @@ namespace luaxc {
     };
 
     // numeric -> numeric_literal
-    class NumericLiteralNode : public AstNode {
+    class NumericLiteralNode : public ExpressionNode {
     public:
         using NumericVariant = PrimValue;
 
@@ -119,7 +136,9 @@ namespace luaxc {
             Float
         };
 
-        NumericLiteralNode(NumericLiteralType type, std::string value) : AstNode(AstNodeType::NumericLiteral), type(type), string_value(value) {
+        NumericLiteralNode(NumericLiteralType type, std::string value)
+            : ExpressionNode(ExpressionType::NumericLiteral),
+              type(type), string_value(value) {
             this->value = parse_numeric_literal(value, type);
         }
 
@@ -137,9 +156,11 @@ namespace luaxc {
         static NumericVariant parse_numeric_literal(const std::string& value, NumericLiteralType type);
     };
 
-    class StringLiteralNode : public AstNode {
+    class StringLiteralNode : public ExpressionNode {
     public:
-        StringLiteralNode(std::string value) : AstNode(AstNodeType::StringLiteral), value(std::move(value)) {}
+        StringLiteralNode(std::string value)
+            : ExpressionNode(ExpressionType::StringLiteral),
+              value(std::move(value)) {}
 
         const std::string& get_value() const { return value; }
 
@@ -147,9 +168,11 @@ namespace luaxc {
         std::string value;
     };
 
-    class IdentifierNode : public AstNode {
+    class IdentifierNode : public ExpressionNode {
     public:
-        explicit IdentifierNode(std::string name) : AstNode(AstNodeType::Identifier), name(std::move(name)) {}
+        explicit IdentifierNode(std::string name)
+            : ExpressionNode(ExpressionType::Identifier),
+              name(std::move(name)) {}
 
         const std::string& get_name() const { return name; }
 
@@ -158,7 +181,7 @@ namespace luaxc {
     };
 
     // binary expr -> expr op expr
-    class BinaryExpressionNode : public StatementNode {
+    class BinaryExpressionNode : public ExpressionNode {
     public:
         enum class BinaryOperator {
             Invalid,
@@ -185,7 +208,7 @@ namespace luaxc {
         };
 
         BinaryExpressionNode(std::unique_ptr<AstNode> left, std::unique_ptr<AstNode> right, BinaryOperator op)
-            : StatementNode(StatementNode::StatementType::BinaryExprStmt), left(std::move(left)), right(std::move(right)), op(op) {}
+            : ExpressionNode(ExpressionType::BinaryExpr), left(std::move(left)), right(std::move(right)), op(op) {}
 
         const std::unique_ptr<AstNode>& get_left() const { return left; }
 
@@ -200,7 +223,7 @@ namespace luaxc {
     };
 
     // unary expr -> (op) expr
-    class UnaryExpressionNode : public StatementNode {
+    class UnaryExpressionNode : public ExpressionNode {
     public:
         enum class UnaryOperator {
             BitwiseNot,
@@ -212,7 +235,7 @@ namespace luaxc {
         };
 
         UnaryExpressionNode(std::unique_ptr<AstNode> operand, UnaryOperator op)
-            : StatementNode(StatementNode::StatementType::UnaryExprStmt), operand(std::move(operand)), op(op) {}
+            : ExpressionNode(ExpressionType::UnaryExpr), operand(std::move(operand)), op(op) {}
 
         UnaryOperator get_operator() const { return op; }
 
@@ -309,13 +332,13 @@ namespace luaxc {
         // todo
     };
 
-    class FunctionInvocationNode : public StatementNode {
+    class FunctionInvocationExpressionNode : public ExpressionNode {
     public:
-        explicit FunctionInvocationNode(std::unique_ptr<AstNode> function_identifier)
-            : StatementNode(StatementType::FuncInvokeStmt), function_identifier(std::move(function_identifier)) {}
+        explicit FunctionInvocationExpressionNode(std::unique_ptr<AstNode> function_identifier)
+            : ExpressionNode(ExpressionType::FuncInvokeExpr), function_identifier(std::move(function_identifier)) {}
 
-        FunctionInvocationNode(std::unique_ptr<AstNode> function_identifier, std::vector<std::unique_ptr<AstNode>> arguments)
-            : StatementNode(StatementType::FuncInvokeStmt), function_identifier(std::move(function_identifier)), arguments_expr(std::move(arguments)) {}
+        FunctionInvocationExpressionNode(std::unique_ptr<AstNode> function_identifier, std::vector<std::unique_ptr<AstNode>> arguments)
+            : ExpressionNode(ExpressionType::FuncInvokeExpr), function_identifier(std::move(function_identifier)), arguments_expr(std::move(arguments)) {}
 
         const std::unique_ptr<AstNode>& get_function_identifier() const { return function_identifier; }
 
