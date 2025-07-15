@@ -9,6 +9,7 @@
 
 #define LUAXC_PARSER_THROW_NOT_IMPLEMENTED(feature) LUAXC_PARSER_THROW_ERROR("Not implemented feature: " #feature)
 
+
 namespace luaxc {
     void Parser::consume(TokenType expected) {
         consume(expected, "Unexpected token");
@@ -59,30 +60,48 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_statement() {
+        std::unique_ptr<AstNode> parsed;
+
         switch (current_token.type) {
             case TokenType::KEYWORD_LET:
-                return parse_declaration_statement();
-            case luaxc::TokenType::KEYWORD_USE:
-                return parse_forward_declaration_statement();
+                parsed = parse_declaration_statement();
+                break;
+            case TokenType::KEYWORD_USE:
+                parsed = parse_forward_declaration_statement();
+                break;
             case TokenType::L_CURLY_BRACKET:// '{': block statement start
-                return parse_block_statement();
+                parsed = parse_block_statement();
+                break;
             case TokenType::KEYWORD_IF:
-                return parse_if_statement();
+                parsed = parse_if_statement();
+                break;
             case TokenType::KEYWORD_WHILE:
-                return parse_while_statement();
+                parsed = parse_while_statement();
+                break;
             case TokenType::KEYWORD_FOR:
-                return parse_for_statement();
+                parsed = parse_for_statement();
+                break;
             case TokenType::KEYWORD_BREAK:
-                return parse_break_statement();
+                parsed = parse_break_statement();
+                break;
             case TokenType::KEYWORD_CONTINUE:
-                return parse_continue_statement();
+                parsed = parse_continue_statement();
+                break;
             case TokenType::KEYWORD_FUNC:
-                return parse_function_declaration_statement();
+                parsed = parse_function_declaration_statement();
+                break;
             case TokenType::KEYWORD_RETURN:
-                return parse_return_statement();
+                parsed = parse_return_statement();
+                break;
             default:
-                return parse_expression();
+                parsed = parse_expression();
+                break;
         }
+
+        while (current_token.type == TokenType::SEMICOLON) {
+            next_token();
+        }
+        return parsed;
     }
 
     std::unique_ptr<AstNode> Parser::parse_declaration_statement(bool consume_semicolon) {
@@ -550,9 +569,8 @@ namespace luaxc {
 
         consume(TokenType::R_CURLY_BRACKET, "Block statement not closed with '}'");
 
-        // this is to support a block with a trailing semicolon.
         if (current_token.type == TokenType::SEMICOLON) {
-            consume(TokenType::SEMICOLON, "Expected semicolon");
+            LUAXC_PARSER_THROW_ERROR("Unexpected semicolon after block")
         }
 
         return std::make_unique<BlockNode>(std::move(statements));

@@ -256,7 +256,7 @@ namespace parser_test {
     inline void test_scopes_error_check() {
         std::string input = R"(
         {
-            let a = 0;
+            let a = 0;;
         }
         a = 1;
         )";
@@ -348,6 +348,27 @@ namespace parser_test {
         assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 3);
     }
 
+    inline void test_nested_function_declaration() {
+        std::string input = R"(
+        use println;
+
+        let result;
+        func main() {
+            func add(a, b) {
+                return a + b;
+            }
+
+            result = add(1, 2);
+            println(result);
+        }
+
+        main();
+        )";
+
+        auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 3);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -402,6 +423,7 @@ namespace parser_test {
             test(test_function_declaration);
             test(test_multiple_function_declarations);
             test(test_deferred_function_declarations);
+            test(test_nested_function_declaration);
         }
         end_test();
     }
