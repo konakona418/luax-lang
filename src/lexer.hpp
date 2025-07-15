@@ -58,6 +58,7 @@ namespace luaxc {
         LOGICAL_NOT,        // symbol: !
 
         KEYWORD_LET,
+        KEYWORD_USE,
         KEYWORD_CONST,
         KEYWORD_IF,
         KEYWORD_ELSE,

@@ -366,7 +366,7 @@ namespace luaxc {
                 "if", "else", "elif",
                 "for", "while", "do",
                 "break", "continue",
-                "return"};
+                "return", "use"};
         return keywords.find(candidate) != keywords.end();
     }
 
@@ -401,6 +401,8 @@ namespace luaxc {
                 break;
             case 'w':
                 if (candidate == "while") return TokenType::KEYWORD_WHILE;
+            case 'u':
+                if (candidate == "use") return TokenType::KEYWORD_USE;
             default:
                 break;
         }
