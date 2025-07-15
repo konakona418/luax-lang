@@ -552,6 +552,15 @@ namespace luaxc {
         ctx.register_continue_instruction(byte_code.size() - 1);
     }
 
+    IRInterpreter::IRInterpreter() {
+        push_stack_frame();// global scope
+    }
+
+    IRInterpreter::~IRInterpreter() {
+        assert(stack_frames.size() == 1);
+        pop_stack_frame();
+    }
+
     void IRInterpreter::run() {
         size_t size = byte_code.size();
         while (pc < size) {
@@ -564,16 +573,12 @@ namespace luaxc {
                     break;
                 case IRInstruction::InstructionType::LOAD_IDENTIFIER: {
                     auto param = std::get<IRLoadIdentifierParam>(instruction.param);
-                    if (variables.find(param.identifier) != variables.end()) {
-                        output = variables[param.identifier];
-                    } else {
-                        throw IRInterpreterException("Identifier not found: " + param.identifier);
-                    }
+                    output = retrieve_raw_value(param.identifier);
                     break;
                 }
                 case IRInstruction::InstructionType::STORE_IDENTIFIER: {
                     auto param = std::get<IRStoreIdentifierParam>(instruction.param);
-                    variables[param.identifier] = output;
+                    store_value_in_stack_frame(param.identifier, output);
                     break;
                 }
                 case IRInstruction::InstructionType::PUSH_STACK: {
@@ -761,14 +766,50 @@ namespace luaxc {
     }
 
     IRPrimValue IRInterpreter::retrieve_raw_value(const std::string& identifier) {
-        if (variables.find(identifier) != variables.end()) {
-            return variables[identifier];
+        if (has_identifier(identifier)) {
+            return retrieve_raw_value_in_stack_frame(identifier);
         } else {
             throw IRInterpreterException("Identifier not found: " + identifier);
         }
     }
 
-    bool IRInterpreter::has_identifier(const std::string& identifier) const {
-        return variables.find(identifier) != variables.end();
+    IRPrimValue& IRInterpreter::retrieve_raw_value_ref(const std::string& identifier) {
+        if (has_identifier(identifier)) {
+            return retrieve_value_ref_in_stack_frame(identifier);
+        } else {
+            throw IRInterpreterException("Identifier not found: " + identifier);
+        }
+    }
+
+    bool IRInterpreter::has_identifier(const std::string& identifier) {
+        return has_identifier_in_stack_frame(identifier);
+    }
+
+    void IRInterpreter::push_stack_frame() {
+        stack_frames.emplace_back();
+    }
+
+    void IRInterpreter::pop_stack_frame() {
+        stack_frames.pop_back();
+    }
+
+    IRInterpreter::StackFrame& IRInterpreter::current_stack_frame() {
+        return stack_frames.back();
+    }
+
+    bool IRInterpreter::has_identifier_in_stack_frame(const std::string& identifier) {
+        return current_stack_frame().variables.find(identifier) != current_stack_frame().variables.end();
+    }
+
+    IRPrimValue IRInterpreter::retrieve_raw_value_in_stack_frame(const std::string& identifier) {
+        return current_stack_frame().variables.at(identifier);
+    }
+
+    IRPrimValue& IRInterpreter::retrieve_value_ref_in_stack_frame(const std::string& identifier) {
+        return current_stack_frame().variables.at(identifier);
+    }
+
+    void IRInterpreter::store_value_in_stack_frame(const std::string& identifier, IRPrimValue value) {
+        current_stack_frame().variables[identifier] = value;
     }
 }// namespace luaxc

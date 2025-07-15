@@ -45,6 +45,10 @@ namespace luaxc {
 
     using IRJumpParam = size_t;
 
+    struct IRCallParam {
+        size_t arguments_count;
+    };
+
     class IRInstruction {
     public:
         enum class InstructionType {
@@ -81,6 +85,9 @@ namespace luaxc {
 
             PUSH_STACK,// push output to stack
             POP_STACK, // pop value from stack
+
+            CALL,
+            RET,
         };
 
         using IRParam = std::variant<
@@ -88,7 +95,8 @@ namespace luaxc {
                 IRLoadConstParam,
                 IRLoadIdentifierParam,
                 IRStoreIdentifierParam,
-                IRJumpParam>;
+                IRJumpParam,
+                IRCallParam>;
 
         IRParam param;
         InstructionType type;
@@ -158,7 +166,11 @@ namespace luaxc {
     class IRInterpreter {
     public:
         IRInterpreter();
-        explicit IRInterpreter(ByteCode byte_code) : byte_code(std::move(byte_code)) {};
+        ~IRInterpreter();
+
+        explicit IRInterpreter(ByteCode byte_code) : IRInterpreter() {
+            this->byte_code = std::move(byte_code);
+        };
 
         void set_byte_code(ByteCode byte_code) { this->byte_code = std::move(byte_code); };
 
@@ -166,19 +178,39 @@ namespace luaxc {
 
         IRPrimValue retrieve_raw_value(const std::string& identifier);
 
+        IRPrimValue& retrieve_raw_value_ref(const std::string& identifier);
+
         template<typename T>
         T retrieve_value(const std::string& identifier) {
             return retrieve_raw_value(identifier).get_inner_value<T>();
         }
 
-        bool has_identifier(const std::string& identifier) const;
+        bool has_identifier(const std::string& identifier);
 
     private:
+        struct StackFrame {
+            std::unordered_map<std::string, IRPrimValue> variables;
+        };
+
         ByteCode byte_code;
         size_t pc = 0;
-        std::unordered_map<std::string, IRPrimValue> variables;
+        std::vector<StackFrame> stack_frames;
         std::stack<IRPrimValue> stack;
         IRPrimValue output;
+
+        void push_stack_frame();
+
+        void pop_stack_frame();
+
+        StackFrame& current_stack_frame();
+
+        bool has_identifier_in_stack_frame(const std::string& identifier);
+
+        IRPrimValue retrieve_raw_value_in_stack_frame(const std::string& identifier);
+
+        IRPrimValue& retrieve_value_ref_in_stack_frame(const std::string& identifier);
+
+        void store_value_in_stack_frame(const std::string& identifier, IRPrimValue value);
 
         void handle_binary_op(IRInstruction::InstructionType op);
 

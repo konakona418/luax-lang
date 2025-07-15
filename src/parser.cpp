@@ -452,7 +452,7 @@ namespace luaxc {
         std::vector<std::unique_ptr<AstNode>> arguments;
 
         while (current_token.type != TokenType::R_PARENTHESIS) {
-            arguments.push_back(parse_expression());
+            arguments.push_back(parse_simple_expression());
             if (current_token.type == TokenType::COMMA) {
                 consume(TokenType::COMMA, "Expected ',' after argument");
             }
