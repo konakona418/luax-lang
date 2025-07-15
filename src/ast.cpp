@@ -6,7 +6,7 @@ namespace luaxc {
     }
 
     NumericLiteralNode::NumericVariant
-    NumericLiteralNode::parse_numeric_literal(const std::string &value, NumericLiteralType type) {
+    NumericLiteralNode::parse_numeric_literal(const std::string& value, NumericLiteralType type) {
         if (type == NumericLiteralType::Integer) {
             auto pos_of_u_mark = value.find_first_of('u');
             auto pos_of_i_mark = value.find_first_of('i');

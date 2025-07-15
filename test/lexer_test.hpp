@@ -217,7 +217,7 @@ namespace lexer_test {
         bool caught_exception = false;
         try {
             std::vector<luaxc::Token> tokens = lexer.lex();
-        } catch (const luaxc::error::LexerError &e) {
+        } catch (const luaxc::error::LexerError& e) {
             caught_exception = true;
         }
         assert(caught_exception);
@@ -299,7 +299,7 @@ namespace lexer_test {
         bool caught_exception = false;
         try {
             std::vector<luaxc::Token> tokens = lexer.lex();
-        } catch (const luaxc::error::LexerError &e) {
+        } catch (const luaxc::error::LexerError& e) {
             caught_exception = true;
         }
         assert(caught_exception);
@@ -310,7 +310,7 @@ namespace lexer_test {
         bool caught_exception = false;
         try {
             std::vector<luaxc::Token> tokens = lexer.lex();
-        } catch (const luaxc::error::LexerError &e) {
+        } catch (const luaxc::error::LexerError& e) {
             caught_exception = true;
             test_helper::dbg_print(e.what());
         }
@@ -322,7 +322,7 @@ namespace lexer_test {
         bool caught_exception = false;
         try {
             std::vector<luaxc::Token> tokens = lexer.lex();
-        } catch (const luaxc::error::LexerError &e) {
+        } catch (const luaxc::error::LexerError& e) {
             caught_exception = true;
             test_helper::dbg_print(e.what());
         }

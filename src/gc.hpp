@@ -16,7 +16,7 @@ namespace luaxc {
                 this->message = ss.str();
             }
 
-            const char *what() const noexcept override {
+            const char* what() const noexcept override {
                 return message.c_str();
             }
         };
@@ -56,9 +56,9 @@ namespace luaxc {
 
         operator float() const { return 0.0f; }
 
-        bool operator==(const NullObject &) const { return true; }
+        bool operator==(const NullObject&) const { return true; }
 
-        bool operator!=(const NullObject &) const { return false; }
+        bool operator!=(const NullObject&) const { return false; }
     };
 
     class PrimValue {
@@ -69,9 +69,9 @@ namespace luaxc {
                 Int,
                 Float,
                 StringObject,
-                GCObject *,
-                ArrayObject *,
-                FunctionObject *,
+                GCObject*,
+                ArrayObject*,
+                FunctionObject*,
                 NullObject>;
 
         PrimValue() : type(ValueType::Unknown) {}
@@ -80,7 +80,7 @@ namespace luaxc {
 
         PrimValue(ValueType type, Value value) : type(type), value(std::move(value)) {}
 
-        static PrimValue from_string(const std::string &str) { return PrimValue(ValueType::String, std::move(str)); };
+        static PrimValue from_string(const std::string& str) { return PrimValue(ValueType::String, std::move(str)); };
 
         static PrimValue from_i32(int32_t i) { return PrimValue(ValueType::Int, i); }
 
@@ -114,7 +114,7 @@ namespace luaxc {
 
         Value get_value() const { return value; }
 
-        const Value &get_value_ref() const { return value; }
+        const Value& get_value_ref() const { return value; }
 
         template<typename T>
         T get_inner_value() const { return std::get<T>(value); }
@@ -122,7 +122,7 @@ namespace luaxc {
         template<typename T>
         bool holds_alternative() const { return std::holds_alternative<T>(value); }
 
-        bool operator==(const PrimValue &other) const;
+        bool operator==(const PrimValue& other) const;
 
     private:
         ValueType type;
@@ -137,9 +137,9 @@ namespace luaxc {
         template<class... Ts>
         overloaded(Ts...) -> overloaded<Ts...>;
 #define LUAXC_GC_VALUE_DECLARE_BINARY_OPERATOR(op_fn_name) \
-    PrimValue op_fn_name(const PrimValue &lhs, const PrimValue &rhs);
+    PrimValue op_fn_name(const PrimValue& lhs, const PrimValue& rhs);
 #define LUAXC_GC_VALUE_DECLARE_UNARY_OPERATOR(op_fn_name) \
-    PrimValue op_fn_name(const PrimValue &val);
+    PrimValue op_fn_name(const PrimValue& val);
 
         LUAXC_GC_VALUE_DECLARE_BINARY_OPERATOR(prim_value_eq)
         LUAXC_GC_VALUE_DECLARE_BINARY_OPERATOR(prim_value_neq)

@@ -5,7 +5,7 @@
 #include "test_helper.hpp"
 
 namespace parser_test {
-    inline luaxc::IRInterpreter compile_run(const std::string &input) {
+    inline luaxc::IRInterpreter compile_run(const std::string& input) {
         auto lexer = luaxc::Lexer(input);
         auto parser = luaxc::Parser(lexer);
         auto program = parser.parse_program();
@@ -259,7 +259,7 @@ namespace parser_test {
         bool caught_error = false;
         try {
             compile_run(input);
-        } catch (std::exception &e) {
+        } catch (std::exception& e) {
             caught_error = true;
             std::cout << e.what() << std::endl;
         }

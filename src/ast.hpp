@@ -10,7 +10,6 @@ namespace luaxc {
     enum class AstNodeType {
         Program,
         Stmt,
-        Declaration,
         NumericLiteral,
         StringLiteral,
         Identifier,
@@ -36,7 +35,7 @@ namespace luaxc {
 
         void add_statement(std::unique_ptr<AstNode> statement);
 
-        const std::vector<std::unique_ptr<AstNode>> &get_statements() const { return statements; }
+        const std::vector<std::unique_ptr<AstNode>>& get_statements() const { return statements; }
 
     private:
         std::vector<std::unique_ptr<AstNode>> statements;
@@ -50,6 +49,7 @@ namespace luaxc {
             AssignmentStmt,
             BinaryExprStmt,
             UnaryExprStmt,
+            FuncInvokeStmt,
             BlockStmt,
             IfStmt,
             WhileStmt,
@@ -70,12 +70,12 @@ namespace luaxc {
     // decl -> ('let' identifier '=' expr ';') | ('let' identifier ';')
     class DeclarationStmtNode : public StatementNode {
     public:
-        DeclarationStmtNode(std::vector<std::unique_ptr<AstNode>> &&identifiers, std::unique_ptr<AstNode> value)
+        DeclarationStmtNode(std::vector<std::unique_ptr<AstNode>>&& identifiers, std::unique_ptr<AstNode> value)
             : StatementNode(StatementType::DeclarationStmt), identifiers(std::move(identifiers)), value_or_initializer(std::move(value)) {}
 
-        const std::vector<std::unique_ptr<AstNode>> &get_identifiers() const { return identifiers; }
+        const std::vector<std::unique_ptr<AstNode>>& get_identifiers() const { return identifiers; }
 
-        const AstNode *get_value_or_initializer() const { return value_or_initializer.get(); }
+        const AstNode* get_value_or_initializer() const { return value_or_initializer.get(); }
 
     private:
         std::vector<std::unique_ptr<AstNode>> identifiers;
@@ -88,8 +88,8 @@ namespace luaxc {
         explicit AssignmentStmtNode(std::unique_ptr<AstNode> identifier, std::unique_ptr<AstNode> value)
             : StatementNode(StatementType::AssignmentStmt), identifier(std::move(identifier)), value(std::move(value)) {}
 
-        const std::unique_ptr<AstNode> &get_identifier() const { return identifier; }
-        const std::unique_ptr<AstNode> &get_value() const { return value; }
+        const std::unique_ptr<AstNode>& get_identifier() const { return identifier; }
+        const std::unique_ptr<AstNode>& get_value() const { return value; }
 
     private:
         std::unique_ptr<AstNode> identifier;
@@ -114,21 +114,21 @@ namespace luaxc {
 
         NumericVariant get_value() const { return value; }
 
-        const std::string &get_string_value() const { return string_value; }
+        const std::string& get_string_value() const { return string_value; }
 
     private:
         NumericLiteralType type;
         NumericVariant value;
         std::string string_value;
 
-        static NumericVariant parse_numeric_literal(const std::string &value, NumericLiteralType type);
+        static NumericVariant parse_numeric_literal(const std::string& value, NumericLiteralType type);
     };
 
     class StringLiteralNode : public AstNode {
     public:
         StringLiteralNode(std::string value) : AstNode(AstNodeType::StringLiteral), value(std::move(value)) {}
 
-        const std::string &get_value() const { return value; }
+        const std::string& get_value() const { return value; }
 
     private:
         std::string value;
@@ -138,7 +138,7 @@ namespace luaxc {
     public:
         explicit IdentifierNode(std::string name) : AstNode(AstNodeType::Identifier), name(std::move(name)) {}
 
-        const std::string &get_name() const { return name; }
+        const std::string& get_name() const { return name; }
 
     private:
         std::string name;
@@ -174,9 +174,9 @@ namespace luaxc {
         BinaryExpressionNode(std::unique_ptr<AstNode> left, std::unique_ptr<AstNode> right, BinaryOperator op)
             : StatementNode(StatementNode::StatementType::BinaryExprStmt), left(std::move(left)), right(std::move(right)), op(op) {}
 
-        const std::unique_ptr<AstNode> &get_left() const { return left; }
+        const std::unique_ptr<AstNode>& get_left() const { return left; }
 
-        const std::unique_ptr<AstNode> &get_right() const { return right; }
+        const std::unique_ptr<AstNode>& get_right() const { return right; }
 
         BinaryOperator get_op() const { return op; }
 
@@ -203,7 +203,7 @@ namespace luaxc {
 
         UnaryOperator get_operator() const { return op; }
 
-        const std::unique_ptr<AstNode> &get_operand() const { return operand; }
+        const std::unique_ptr<AstNode>& get_operand() const { return operand; }
 
     private:
         UnaryOperator op;
@@ -216,7 +216,7 @@ namespace luaxc {
         explicit BlockNode(std::vector<std::unique_ptr<AstNode>> statements)
             : StatementNode(StatementNode::StatementType::BlockStmt), statements(std::move(statements)) {}
 
-        const std::vector<std::unique_ptr<AstNode>> &get_statements() const { return statements; }
+        const std::vector<std::unique_ptr<AstNode>>& get_statements() const { return statements; }
 
     private:
         std::vector<std::unique_ptr<AstNode>> statements;
@@ -228,11 +228,11 @@ namespace luaxc {
         explicit IfNode(std::unique_ptr<AstNode> condition, std::unique_ptr<AstNode> body, std::unique_ptr<AstNode> else_body)
             : StatementNode(StatementNode::StatementType::IfStmt), condition(std::move(condition)), body(std::move(body)), else_body(std::move(else_body)) {}
 
-        const std::unique_ptr<AstNode> &get_condition() const { return condition; }
+        const std::unique_ptr<AstNode>& get_condition() const { return condition; }
 
-        const std::unique_ptr<AstNode> &get_body() const { return body; }
+        const std::unique_ptr<AstNode>& get_body() const { return body; }
 
-        const std::unique_ptr<AstNode> &get_else_body() const { return else_body; }
+        const std::unique_ptr<AstNode>& get_else_body() const { return else_body; }
 
     private:
         std::unique_ptr<AstNode> condition;
@@ -245,9 +245,9 @@ namespace luaxc {
         explicit WhileNode(std::unique_ptr<AstNode> condition, std::unique_ptr<AstNode> body)
             : StatementNode(StatementType::WhileStmt), condition(std::move(condition)), body(std::move(body)) {};
 
-        const std::unique_ptr<AstNode> &get_condition() const { return condition; }
+        const std::unique_ptr<AstNode>& get_condition() const { return condition; }
 
-        const std::unique_ptr<AstNode> &get_body() const { return body; }
+        const std::unique_ptr<AstNode>& get_body() const { return body; }
 
     private:
         std::unique_ptr<AstNode> condition;
@@ -276,13 +276,13 @@ namespace luaxc {
                                                  update_stmt(std::move(update)),
                                                  body(std::move(body)) {}
 
-        const std::unique_ptr<AstNode> &get_init_stmt() const { return init_stmt; }
+        const std::unique_ptr<AstNode>& get_init_stmt() const { return init_stmt; }
 
-        const std::unique_ptr<AstNode> &get_condition_expr() const { return condition_expr; }
+        const std::unique_ptr<AstNode>& get_condition_expr() const { return condition_expr; }
 
-        const std::unique_ptr<AstNode> &get_update_stmt() const { return update_stmt; }
+        const std::unique_ptr<AstNode>& get_update_stmt() const { return update_stmt; }
 
-        const std::unique_ptr<AstNode> &get_body() const { return body; }
+        const std::unique_ptr<AstNode>& get_body() const { return body; }
 
     private:
         std::unique_ptr<AstNode> init_stmt;
@@ -294,5 +294,22 @@ namespace luaxc {
 
     class RangeBasedForNode : public StatementNode {
         // todo
+    };
+
+    class FunctionInvocationNode : public StatementNode {
+    public:
+        explicit FunctionInvocationNode(std::unique_ptr<AstNode> function_identifier)
+            : StatementNode(StatementType::FuncInvokeStmt), function_identifier(std::move(function_identifier)) {}
+
+        FunctionInvocationNode(std::unique_ptr<AstNode> function_identifier, std::vector<std::unique_ptr<AstNode>> arguments)
+            : StatementNode(StatementType::FuncInvokeStmt), function_identifier(std::move(function_identifier)), arguments_expr(std::move(arguments)) {}
+
+        const std::unique_ptr<AstNode>& get_function_identifier() const { return function_identifier; }
+
+        const std::vector<std::unique_ptr<AstNode>>& get_arguments() const { return arguments_expr; }
+
+    private:
+        std::unique_ptr<AstNode> function_identifier;
+        std::vector<std::unique_ptr<AstNode>> arguments_expr;
     };
 }// namespace luaxc

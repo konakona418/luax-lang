@@ -20,7 +20,7 @@ namespace luaxc {
 
         explicit IRGeneratorException(std::string message) : message(message) {}
 
-        const char *what() const noexcept override { return message.c_str(); }
+        const char* what() const noexcept override { return message.c_str(); }
     };
 
     class IRInterpreterException : public std::exception {
@@ -29,7 +29,7 @@ namespace luaxc {
 
         explicit IRInterpreterException(std::string message) : message(message) {}
 
-        const char *what() const noexcept override { return message.c_str(); }
+        const char* what() const noexcept override { return message.c_str(); }
     };
 
     using IRPrimValue = PrimValue;
@@ -100,7 +100,7 @@ namespace luaxc {
 
     using ByteCode = std::vector<IRInstruction>;
 
-    std::string dump_bytecode(const ByteCode &bytecode);
+    std::string dump_bytecode(const ByteCode& bytecode);
 
     class IRGenerator {
     public:
@@ -128,31 +128,31 @@ namespace luaxc {
 
         bool is_combinative_assignment_operator(BinaryExpressionNode::BinaryOperator op);
 
-        void generate_program_or_block(const AstNode *node, ByteCode &byte_code);
+        void generate_program_or_block(const AstNode* node, ByteCode& byte_code);
 
-        void generate_statement(const StatementNode *statement, ByteCode &byte_code);
+        void generate_statement(const StatementNode* statement, ByteCode& byte_code);
 
-        void generate_expression(const AstNode *expression, ByteCode &byte_code);
+        void generate_expression(const AstNode* expression, ByteCode& byte_code);
 
-        void generate_binary_expression_statement(const BinaryExpressionNode *statement, ByteCode &byte_code);
+        void generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
 
-        void generate_combinative_assignment_statement(const BinaryExpressionNode *statement, ByteCode &byte_code);
+        void generate_combinative_assignment_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
 
-        void generate_unary_expression_statement(const UnaryExpressionNode *statement, ByteCode &byte_code);
+        void generate_unary_expression_statement(const UnaryExpressionNode* statement, ByteCode& byte_code);
 
-        void generate_declaration_statement(const DeclarationStmtNode *statement, ByteCode &byte_code);
+        void generate_declaration_statement(const DeclarationStmtNode* statement, ByteCode& byte_code);
 
-        void generate_assignment_statement(const AssignmentStmtNode *statement, ByteCode &byte_code);
+        void generate_assignment_statement(const AssignmentStmtNode* statement, ByteCode& byte_code);
 
-        void generate_if_statement(const IfNode *statement, ByteCode &byte_code);
+        void generate_if_statement(const IfNode* statement, ByteCode& byte_code);
 
-        void generate_while_statement(const WhileNode *statement, ByteCode &byte_code);
+        void generate_while_statement(const WhileNode* statement, ByteCode& byte_code);
 
-        void generate_for_statement(const ForNode *statement, ByteCode &byte_code);
+        void generate_for_statement(const ForNode* statement, ByteCode& byte_code);
 
-        void generate_break_statement(ByteCode &byte_code);
+        void generate_break_statement(ByteCode& byte_code);
 
-        void generate_continue_statement(ByteCode &byte_code);
+        void generate_continue_statement(ByteCode& byte_code);
     };
 
     class IRInterpreter {
@@ -164,14 +164,14 @@ namespace luaxc {
 
         void run();
 
-        IRPrimValue retrieve_raw_value(const std::string &identifier);
+        IRPrimValue retrieve_raw_value(const std::string& identifier);
 
         template<typename T>
-        T retrieve_value(const std::string &identifier) {
+        T retrieve_value(const std::string& identifier) {
             return retrieve_raw_value(identifier).get_inner_value<T>();
         }
 
-        bool has_identifier(const std::string &identifier) const;
+        bool has_identifier(const std::string& identifier) const;
 
     private:
         ByteCode byte_code;

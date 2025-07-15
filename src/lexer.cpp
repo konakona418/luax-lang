@@ -359,7 +359,7 @@ namespace luaxc {
         }
     }
 
-    bool Lexer::is_keyword(const std::string &candidate) {
+    bool Lexer::is_keyword(const std::string& candidate) {
         const static std::unordered_set<std::string> keywords = {
                 "let", "const",
                 "func",
@@ -370,7 +370,7 @@ namespace luaxc {
         return keywords.find(candidate) != keywords.end();
     }
 
-    TokenType Lexer::keyword_type(const std::string &candidate) {
+    TokenType Lexer::keyword_type(const std::string& candidate) {
         switch (candidate[0]) {
             case 'b':
                 if (candidate == "break") return TokenType::KEYWORD_BREAK;

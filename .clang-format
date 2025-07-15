@@ -34,6 +34,9 @@ BreakConstructorInitializers: BeforeColon
 BreakInheritanceList: BeforeColon
 ColumnLimit: 0
 CompactNamespaces: false
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
 ContinuationIndentWidth: 8
 IndentCaseLabels: true
 IndentPPDirectives: None
@@ -43,7 +46,6 @@ MaxEmptyLinesToKeep: 2
 NamespaceIndentation: All
 ObjCSpaceAfterProperty: false
 ObjCSpaceBeforeProtocolList: true
-PointerAlignment: Right
 ReflowComments: false
 SpaceAfterCStyleCast: true
 SpaceAfterLogicalNot: false

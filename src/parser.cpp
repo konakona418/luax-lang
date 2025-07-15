@@ -14,7 +14,7 @@ namespace luaxc {
         consume(expected, "Unexpected token");
     }
 
-    void Parser::consume(TokenType expected, const std::string &err_message) {
+    void Parser::consume(TokenType expected, const std::string& err_message) {
         if (current_token.type != expected) {
             LUAXC_PARSER_THROW_ERROR(err_message);
         }
@@ -33,11 +33,11 @@ namespace luaxc {
         scopes.pop_back();
     }
 
-    void Parser::declare_identifier(const std::string &identifier) {
+    void Parser::declare_identifier(const std::string& identifier) {
         scopes.back().insert(identifier);
     }
 
-    bool Parser::is_identifier_declared(const std::string &identifier) const {
+    bool Parser::is_identifier_declared(const std::string& identifier) const {
         for (int i = static_cast<int>(scopes.size()) - 1; i >= 0; --i) {
             if (scopes[i].find(identifier) != scopes[i].end()) {
                 return true;
@@ -171,7 +171,7 @@ namespace luaxc {
         if (current_token.type == TokenType::IDENTIFIER) {
             auto identifier = parse_identifier();
 
-            auto name = static_cast<IdentifierNode *>(identifier.get())->get_name();
+            auto name = static_cast<IdentifierNode*>(identifier.get())->get_name();
             if (!is_identifier_declared(name)) {
                 LUAXC_PARSER_THROW_ERROR("Undeclared identifier '" + name + "'")
             }

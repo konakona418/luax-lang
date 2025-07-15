@@ -15,9 +15,9 @@ namespace test_helper {
     public:
         StopWatch() = default;
 
-        StopWatch(const StopWatch &) = delete;
+        StopWatch(const StopWatch&) = delete;
 
-        StopWatch(StopWatch &&) = delete;
+        StopWatch(StopWatch&&) = delete;
 
         void start() {
             start_time = std::chrono::high_resolution_clock::now();
@@ -36,13 +36,13 @@ namespace test_helper {
 
 #ifdef DEBUG
     template<typename... Args>
-    void dbg_print(Args &&...args) {
+    void dbg_print(Args&&... args) {
         std::cout << "[DEBUG] ";
         (std::cout << ... << std::forward<Args>(args)) << std::endl;
     }
 #else
     template<typename... Args>
-    void dbg_print(Args &&...args) {}
+    void dbg_print(Args&&... args) {}
 #endif
 
 #define begin_test(test_name)                              \
@@ -60,7 +60,7 @@ namespace test_helper {
         std::cout << "test passed" << std::endl               \
                   << std::endl;                               \
         _test_passed++;                                       \
-    } catch (const std::exception &e) {                       \
+    } catch (const std::exception& e) {                       \
         std::cout << "test failed: " << e.what() << std::endl \
                   << std::endl;                               \
     }

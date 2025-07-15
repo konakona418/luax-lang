@@ -19,7 +19,7 @@ namespace luaxc {
             int line;
             int column;
 
-            const char *what() const noexcept override {
+            const char* what() const noexcept override {
                 return message.c_str();
             }
         };
@@ -152,8 +152,8 @@ namespace luaxc {
 
         Token get_next_token();
 
-        bool is_keyword(const std::string &candidate);
+        bool is_keyword(const std::string& candidate);
 
-        TokenType keyword_type(const std::string &candidate);
+        TokenType keyword_type(const std::string& candidate);
     };
 }// namespace luaxc
