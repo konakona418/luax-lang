@@ -1,9 +1,9 @@
 #pragma once
 
-#include <variant>
 #include <cstdint>
-#include <string>
 #include <sstream>
+#include <string>
+#include <variant>
 
 namespace luaxc {
     namespace error {
@@ -16,14 +16,14 @@ namespace luaxc {
                 this->message = ss.str();
             }
 
-            const char* what() const noexcept override {
+            const char *what() const noexcept override {
                 return message.c_str();
             }
         };
 
-        #define LUAXC_GC_THROW_ERROR(message) throw error::GCError(message);
-        #define LUAXC_GC_THROW_ERROR_EXPR(message) throw error::GCError(message)
-    }
+#define LUAXC_GC_THROW_ERROR(message) throw error::GCError(message);
+#define LUAXC_GC_THROW_ERROR_EXPR(message) throw error::GCError(message)
+    }// namespace error
 
     enum class ValueType {
         Boolean,
@@ -50,30 +50,29 @@ namespace luaxc {
     public:
         NullObject() = default;
 
-        operator bool() const { return false;}
+        operator bool() const { return false; }
 
         operator int() const { return 0; }
 
         operator float() const { return 0.0f; }
 
-        bool operator==(const NullObject&) const { return true; }
+        bool operator==(const NullObject &) const { return true; }
 
-        bool operator!=(const NullObject&) const { return false; }
+        bool operator!=(const NullObject &) const { return false; }
     };
-    
+
     class PrimValue {
     public:
         using Value = std::variant<
-            std::monostate,
-            Bool,
-            Int,
-            Float,
-            StringObject,
-            GCObject*,
-            ArrayObject*,
-            FunctionObject*,
-            NullObject
-        >;
+                std::monostate,
+                Bool,
+                Int,
+                Float,
+                StringObject,
+                GCObject *,
+                ArrayObject *,
+                FunctionObject *,
+                NullObject>;
 
         PrimValue() : type(ValueType::Unknown) {}
 
@@ -81,7 +80,7 @@ namespace luaxc {
 
         PrimValue(ValueType type, Value value) : type(type), value(std::move(value)) {}
 
-        static PrimValue from_string(const std::string& str) { return PrimValue(ValueType::String, std::move(str)); };
+        static PrimValue from_string(const std::string &str) { return PrimValue(ValueType::String, std::move(str)); };
 
         static PrimValue from_i32(int32_t i) { return PrimValue(ValueType::Int, i); }
 
@@ -115,15 +114,15 @@ namespace luaxc {
 
         Value get_value() const { return value; }
 
-        const Value& get_value_ref() const { return value; }
+        const Value &get_value_ref() const { return value; }
 
-        template <typename T>
+        template<typename T>
         T get_inner_value() const { return std::get<T>(value); }
 
-        template <typename T>
+        template<typename T>
         bool holds_alternative() const { return std::holds_alternative<T>(value); }
 
-        bool operator==(const PrimValue& other) const;
+        bool operator==(const PrimValue &other) const;
 
     private:
         ValueType type;
@@ -131,12 +130,16 @@ namespace luaxc {
     };
 
     namespace detail {
-        template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-        template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-        #define LUAXC_GC_VALUE_DECLARE_BINARY_OPERATOR(op_fn_name) \
-            PrimValue op_fn_name(const PrimValue& lhs, const PrimValue& rhs);
-        #define LUAXC_GC_VALUE_DECLARE_UNARY_OPERATOR(op_fn_name) \
-            PrimValue op_fn_name(const PrimValue& val);
+        template<class... Ts>
+        struct overloaded : Ts... {
+            using Ts::operator()...;
+        };
+        template<class... Ts>
+        overloaded(Ts...) -> overloaded<Ts...>;
+#define LUAXC_GC_VALUE_DECLARE_BINARY_OPERATOR(op_fn_name) \
+    PrimValue op_fn_name(const PrimValue &lhs, const PrimValue &rhs);
+#define LUAXC_GC_VALUE_DECLARE_UNARY_OPERATOR(op_fn_name) \
+    PrimValue op_fn_name(const PrimValue &val);
 
         LUAXC_GC_VALUE_DECLARE_BINARY_OPERATOR(prim_value_eq)
         LUAXC_GC_VALUE_DECLARE_BINARY_OPERATOR(prim_value_neq)
@@ -164,6 +167,6 @@ namespace luaxc {
         LUAXC_GC_VALUE_DECLARE_UNARY_OPERATOR(prim_value_bnot)
         LUAXC_GC_VALUE_DECLARE_UNARY_OPERATOR(prim_value_neg)
         LUAXC_GC_VALUE_DECLARE_UNARY_OPERATOR(prim_value_pos)
-    }
+    }// namespace detail
 
-}
+}// namespace luaxc

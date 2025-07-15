@@ -1,18 +1,18 @@
 #pragma once
 
-#include <variant>
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <stack>
 #include <cmath>
+#include <stack>
+#include <string>
+#include <unordered_map>
+#include <variant>
+#include <vector>
 
 #include "ast.hpp"
 #include "gc.hpp"
 
 namespace luaxc {
 
-    #define LUAXC_IR_RUNTIME_FORCE_BOOLEAN(_value) (!!(_value))
+#define LUAXC_IR_RUNTIME_FORCE_BOOLEAN(_value) (!!(_value))
 
     class IRGeneratorException : public std::exception {
     public:
@@ -20,7 +20,7 @@ namespace luaxc {
 
         explicit IRGeneratorException(std::string message) : message(message) {}
 
-        const char* what() const noexcept override { return message.c_str(); }
+        const char *what() const noexcept override { return message.c_str(); }
     };
 
     class IRInterpreterException : public std::exception {
@@ -29,29 +29,29 @@ namespace luaxc {
 
         explicit IRInterpreterException(std::string message) : message(message) {}
 
-        const char* what() const noexcept override { return message.c_str(); }
+        const char *what() const noexcept override { return message.c_str(); }
     };
 
     using IRPrimValue = PrimValue;
     using IRLoadConstParam = IRPrimValue;
-    
-    struct IRLoadIdentifierParam { 
+
+    struct IRLoadIdentifierParam {
         std::string identifier;
     };
 
-    struct IRStoreIdentifierParam { 
+    struct IRStoreIdentifierParam {
         std::string identifier;
     };
 
     using IRJumpParam = size_t;
 
-    class IRInstruction { 
+    class IRInstruction {
     public:
         enum class InstructionType {
-            LOAD_CONST, // load a const to output
+            LOAD_CONST,      // load a const to output
             LOAD_IDENTIFIER, // load an identifier to output
-            STORE_IDENTIFIER, // store output to an identifier
-            ADD, // pop two values from stack, add them and push result to stack
+            STORE_IDENTIFIER,// store output to an identifier
+            ADD,             // pop two values from stack, add them and push result to stack
             SUB,
             MUL,
             DIV,
@@ -79,17 +79,16 @@ namespace luaxc {
             JMP,
             JMP_IF_FALSE,
 
-            PUSH_STACK, // push output to stack
+            PUSH_STACK,// push output to stack
             POP_STACK, // pop value from stack
         };
 
         using IRParam = std::variant<
-            std::monostate,
-            IRLoadConstParam,
-            IRLoadIdentifierParam,
-            IRStoreIdentifierParam,
-            IRJumpParam
-        >;
+                std::monostate,
+                IRLoadConstParam,
+                IRLoadIdentifierParam,
+                IRStoreIdentifierParam,
+                IRJumpParam>;
 
         IRParam param;
         InstructionType type;
@@ -101,7 +100,7 @@ namespace luaxc {
 
     using ByteCode = std::vector<IRInstruction>;
 
-    std::string dump_bytecode(const ByteCode& bytecode);
+    std::string dump_bytecode(const ByteCode &bytecode);
 
     class IRGenerator {
     public:
@@ -110,12 +109,12 @@ namespace luaxc {
         ByteCode generate();
 
     private:
-        struct WhileLoopGenerationContext { 
+        struct WhileLoopGenerationContext {
             std::vector<size_t> break_instructions;
             std::vector<size_t> continue_instructions;
             // note: do not use pointer to the ast node here,
             // for that reallocations can happen in vectors.
-            
+
             void register_break_instruction(size_t instruction) { break_instructions.push_back(instruction); }
 
             void register_continue_instruction(size_t instruction) { continue_instructions.push_back(instruction); }
@@ -129,34 +128,34 @@ namespace luaxc {
 
         bool is_combinative_assignment_operator(BinaryExpressionNode::BinaryOperator op);
 
-        void generate_program_or_block(const AstNode* node, ByteCode& byte_code);
+        void generate_program_or_block(const AstNode *node, ByteCode &byte_code);
 
-        void generate_statement(const StatementNode* statement, ByteCode& byte_code);
+        void generate_statement(const StatementNode *statement, ByteCode &byte_code);
 
-        void generate_expression(const AstNode* expression, ByteCode& byte_code);
+        void generate_expression(const AstNode *expression, ByteCode &byte_code);
 
-        void generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
+        void generate_binary_expression_statement(const BinaryExpressionNode *statement, ByteCode &byte_code);
 
-        void generate_combinative_assignment_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
+        void generate_combinative_assignment_statement(const BinaryExpressionNode *statement, ByteCode &byte_code);
 
-        void generate_unary_expression_statement(const UnaryExpressionNode* statement, ByteCode& byte_code);
+        void generate_unary_expression_statement(const UnaryExpressionNode *statement, ByteCode &byte_code);
 
-        void generate_declaration_statement(const DeclarationStmtNode* statement, ByteCode& byte_code);
+        void generate_declaration_statement(const DeclarationStmtNode *statement, ByteCode &byte_code);
 
-        void generate_assignment_statement(const AssignmentStmtNode* statement, ByteCode& byte_code);
+        void generate_assignment_statement(const AssignmentStmtNode *statement, ByteCode &byte_code);
 
-        void generate_if_statement(const IfNode* statement, ByteCode& byte_code);
+        void generate_if_statement(const IfNode *statement, ByteCode &byte_code);
 
-        void generate_while_statement(const WhileNode* statement, ByteCode& byte_code);
+        void generate_while_statement(const WhileNode *statement, ByteCode &byte_code);
 
-        void generate_for_statement(const ForNode* statement, ByteCode& byte_code);
+        void generate_for_statement(const ForNode *statement, ByteCode &byte_code);
 
-        void generate_break_statement(ByteCode& byte_code);
+        void generate_break_statement(ByteCode &byte_code);
 
-        void generate_continue_statement(ByteCode& byte_code);
+        void generate_continue_statement(ByteCode &byte_code);
     };
 
-    class IRInterpreter { 
+    class IRInterpreter {
     public:
         IRInterpreter();
         explicit IRInterpreter(ByteCode byte_code) : byte_code(std::move(byte_code)) {};
@@ -164,15 +163,15 @@ namespace luaxc {
         void set_byte_code(ByteCode byte_code) { this->byte_code = std::move(byte_code); };
 
         void run();
-        
-        IRPrimValue retrieve_raw_value(const std::string& identifier);
 
-        template <typename T>
-        T retrieve_value(const std::string& identifier) {
+        IRPrimValue retrieve_raw_value(const std::string &identifier);
+
+        template<typename T>
+        T retrieve_value(const std::string &identifier) {
             return retrieve_raw_value(identifier).get_inner_value<T>();
         }
-        
-        bool has_identifier(const std::string& identifier) const;
+
+        bool has_identifier(const std::string &identifier) const;
 
     private:
         ByteCode byte_code;
@@ -189,85 +188,8 @@ namespace luaxc {
 
         void handle_to_bool();
 
-        void handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs) {
-            switch (op) {
-                case IRInstruction::InstructionType::ADD: 
-                    stack.push(detail::prim_value_add(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::SUB: 
-                    stack.push(detail::prim_value_sub(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::MUL: 
-                    stack.push(detail::prim_value_mul(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::DIV: 
-                    stack.push(detail::prim_value_div(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::MOD:
-                    stack.push(detail::prim_value_mod(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::AND:
-                    stack.push(detail::prim_value_band(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::LOGICAL_AND: {
-                    stack.push(detail::prim_value_land(lhs, rhs));
-                    break;
-                }
-                case IRInstruction::InstructionType::OR:
-                    stack.push(detail::prim_value_bor(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::LOGICAL_OR:
-                    stack.push(detail::prim_value_lor(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::XOR:
-                    stack.push(detail::prim_value_bxor(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::SHL:
-                    stack.push(detail::prim_value_shl(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::SHR:
-                    stack.push(detail::prim_value_shr(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::CMP_EQ:
-                    stack.push(detail::prim_value_eq(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::CMP_NE:
-                    stack.push(detail::prim_value_neq(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::CMP_LT:
-                    stack.push(detail::prim_value_lt(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::CMP_LE:
-                    stack.push(detail::prim_value_lte(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::CMP_GT:
-                    stack.push(detail::prim_value_gt(lhs, rhs));
-                    break;
-                case IRInstruction::InstructionType::CMP_GE:
-                    stack.push(detail::prim_value_gte(lhs, rhs));
-                    break;
-                default:
-                    throw IRInterpreterException("Invalid instruction type");
-                    return;
-            }
-        }
+        void handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs);
 
-        void handle_unary_op(IRInstruction::InstructionType op, IRPrimValue rhs) {
-            switch (op) {
-                case IRInstruction::InstructionType::NEGATE:
-                    stack.push(detail::prim_value_neg(rhs));
-                    break;
-                case IRInstruction::InstructionType::NOT: {
-                    stack.push(detail::prim_value_bnot(rhs));
-                    break;
-                }
-                case IRInstruction::InstructionType::LOGICAL_NOT: {
-                    stack.push(detail::prim_value_lnot(rhs));
-                    break;
-                }
-                default:
-                    throw IRInterpreterException("Invalid instruction type");
-            }
-        }
+        void handle_unary_op(IRInstruction::InstructionType op, IRPrimValue rhs);
     };
-}
+}// namespace luaxc

@@ -5,8 +5,8 @@ namespace luaxc {
         statements.push_back(std::move(statement));
     }
 
-    NumericLiteralNode::NumericVariant 
-    NumericLiteralNode::parse_numeric_literal(const std::string& value, NumericLiteralType type) {
+    NumericLiteralNode::NumericVariant
+    NumericLiteralNode::parse_numeric_literal(const std::string &value, NumericLiteralType type) {
         if (type == NumericLiteralType::Integer) {
             auto pos_of_u_mark = value.find_first_of('u');
             auto pos_of_i_mark = value.find_first_of('i');
@@ -23,4 +23,4 @@ namespace luaxc {
             return PrimValue::from_f64(std::stod(value));
         }
     }
-}
+}// namespace luaxc

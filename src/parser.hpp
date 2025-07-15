@@ -22,30 +22,30 @@ namespace luaxc {
                 this->message = ss.str();
             }
 
-            const char* what() const noexcept override {
+            const char *what() const noexcept override {
                 return message.c_str();
             }
         };
-    }
+    }// namespace error
 
     class Parser {
     public:
         Parser();
-        explicit Parser(Lexer& lexer) : lexer(lexer) {
+        explicit Parser(Lexer &lexer) : lexer(lexer) {
             current_token = lexer.next();
         };
 
         std::unique_ptr<AstNode> parse_program();
 
     private:
-        Lexer& lexer;
+        Lexer &lexer;
         Token current_token;
 
         std::vector<std::unordered_set<std::string>> scopes;
 
         void consume(TokenType expected);
 
-        void consume(TokenType expected, const std::string& err_message);
+        void consume(TokenType expected, const std::string &err_message);
 
         void next_token();
 
@@ -53,10 +53,10 @@ namespace luaxc {
 
         void exit_scope();
 
-        void declare_identifier(const std::string& identifier);
+        void declare_identifier(const std::string &identifier);
 
-        bool is_identifier_declared(const std::string& identifier) const;
-    
+        bool is_identifier_declared(const std::string &identifier) const;
+
         std::unique_ptr<AstNode> parse_statement();
 
         std::unique_ptr<AstNode> parse_declaration_statement(bool consume_semicolon = true);
@@ -105,4 +105,4 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> parse_continue_statement();
     };
-}
+}// namespace luaxc

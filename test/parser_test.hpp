@@ -1,11 +1,11 @@
 #pragma once
 
-#include "test_helper.hpp"
-#include "parser.hpp"
 #include "ir.hpp"
+#include "parser.hpp"
+#include "test_helper.hpp"
 
 namespace parser_test {
-    inline luaxc::IRInterpreter compile_run(const std::string& input) {
+    inline luaxc::IRInterpreter compile_run(const std::string &input) {
         auto lexer = luaxc::Lexer(input);
         auto parser = luaxc::Parser(lexer);
         auto program = parser.parse_program();
@@ -59,7 +59,7 @@ namespace parser_test {
         assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == -1);
     }
 
-    inline void test_combinative_assignment() { 
+    inline void test_combinative_assignment() {
         auto ir_interpreter = compile_run("let a = 1; a += 1;");
         assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 2);
     }
@@ -75,72 +75,72 @@ namespace parser_test {
     }
 
     inline void test_if_statement_with_else() {
-        auto ir_interpreter = 
-            compile_run("let a = 1; if (a < 0) { let b = 2; } else { let c = 3; }");
+        auto ir_interpreter =
+                compile_run("let a = 1; if (a < 0) { let b = 2; } else { let c = 3; }");
         assert(ir_interpreter.has_identifier("b") == false);
         assert(ir_interpreter.retrieve_value<luaxc::Int>("c") == 3);
     }
 
     inline void test_if_statement_else_if() {
-        auto ir_interpreter = 
-            compile_run("let a = 1; if (a < 0) { let b = 2; } "
-                "else if (a > 0) { let c = 3; } else { let d = 4; }");
+        auto ir_interpreter =
+                compile_run("let a = 1; if (a < 0) { let b = 2; } "
+                            "else if (a > 0) { let c = 3; } else { let d = 4; }");
         assert(ir_interpreter.has_identifier("b") == false);
         assert(ir_interpreter.has_identifier("d") == false);
         assert(ir_interpreter.retrieve_value<luaxc::Int>("c") == 3);
     }
 
-    inline void test_if_statement_const_condition() { 
-        auto ir_interpreter = 
-            compile_run("if (1) { let a = 1; }");
+    inline void test_if_statement_const_condition() {
+        auto ir_interpreter =
+                compile_run("if (1) { let a = 1; }");
         assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 1);
     }
 
-    inline void test_if_statement_const_false_condition() { 
-        auto ir_interpreter = 
-            compile_run("if (0) { let a = 1; }");
+    inline void test_if_statement_const_false_condition() {
+        auto ir_interpreter =
+                compile_run("if (0) { let a = 1; }");
         assert(ir_interpreter.has_identifier("a") == false);
     }
 
-    inline void test_if_statement_const_expr_condition() { 
-        auto ir_interpreter = 
-            compile_run("if (1 + 2) { let a = 1; }");
+    inline void test_if_statement_const_expr_condition() {
+        auto ir_interpreter =
+                compile_run("if (1 + 2) { let a = 1; }");
         assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 1);
     }
 
-    inline void test_if_statement_const_expr_false_condition() { 
-        auto ir_interpreter = 
-            compile_run("if (1 - 1) { let a = 1; } else { let a = 0; }");
+    inline void test_if_statement_const_expr_false_condition() {
+        auto ir_interpreter =
+                compile_run("if (1 - 1) { let a = 1; } else { let a = 0; }");
         assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 0);
     }
 
-    inline void test_while_statement() { 
-        auto ir_interpreter = 
-            compile_run("let a = 0; while (a < 10) { a = a + 1; }");
+    inline void test_while_statement() {
+        auto ir_interpreter =
+                compile_run("let a = 0; while (a < 10) { a = a + 1; }");
         assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 10);
     }
 
-    inline void test_while_statement_break() { 
-        auto ir_interpreter = 
-            compile_run("let a = 0; while (a < 10) { a = a + 1; if (a == 5) { break; } }");
+    inline void test_while_statement_break() {
+        auto ir_interpreter =
+                compile_run("let a = 0; while (a < 10) { a = a + 1; if (a == 5) { break; } }");
         assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 5);
     }
 
-    inline void test_while_statement_continue() { 
-        auto ir_interpreter = 
-            compile_run("let a = 0; while (a < 10) { a = a + 1; if (a == 5) { continue; } }");
+    inline void test_while_statement_continue() {
+        auto ir_interpreter =
+                compile_run("let a = 0; while (a < 10) { a = a + 1; if (a == 5) { continue; } }");
         assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 10);
     }
 
     inline void test_while_statement_mixed() {
-        auto ir_interpreter = 
-            compile_run(
-                "let a = 0; let b = 0; "
-                "while (a < 10) { "
-                "if (a == 5) { a = a + 1; continue; } "
-                "a = a + 1; b = b + 2; "
-                "if (a == 7) { break;} "
-                "}");
+        auto ir_interpreter =
+                compile_run(
+                        "let a = 0; let b = 0; "
+                        "while (a < 10) { "
+                        "if (a == 5) { a = a + 1; continue; } "
+                        "a = a + 1; b = b + 2; "
+                        "if (a == 7) { break;} "
+                        "}");
         assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 7);
         assert(ir_interpreter.retrieve_value<luaxc::Int>("b") == 12);
     }
@@ -249,7 +249,7 @@ namespace parser_test {
         assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 40);
     }
 
-    inline void test_scopes_error_check() { 
+    inline void test_scopes_error_check() {
         std::string input = R"(
         {
             let a = 0;
@@ -259,7 +259,7 @@ namespace parser_test {
         bool caught_error = false;
         try {
             compile_run(input);
-        } catch (std::exception& e) {
+        } catch (std::exception &e) {
             caught_error = true;
             std::cout << e.what() << std::endl;
         }
@@ -277,9 +277,10 @@ namespace parser_test {
             test(test_unary_operator_logical_not);
             test(test_unary_operator_minus);
             test(test_combinative_assignment);
-        } end_test()
+        }
+        end_test()
 
-        begin_test("parser-if stmt") {
+                begin_test("parser-if stmt") {
             test(test_if_statement);
             test(test_if_statement_false);
             test(test_if_statement_with_else);
@@ -288,25 +289,29 @@ namespace parser_test {
             test(test_if_statement_const_false_condition);
             test(test_if_statement_const_expr_condition);
             test(test_if_statement_const_expr_false_condition);
-        } end_test()
+        }
+        end_test()
 
-        begin_test("parser-while stmt") {
+                begin_test("parser-while stmt") {
             test(test_while_statement);
             test(test_while_statement_break);
             test(test_while_statement_continue);
             test(test_while_statement_mixed);
             test(test_while_statement_nested);
             test(test_while_statement_nested_break);
-        } end_test()
+        }
+        end_test()
 
-        begin_test("parser-for stmt") {
+                begin_test("parser-for stmt") {
             test(test_for_loop);
             test(test_for_loop_break);
             test(test_for_loop_continue);
-        } end_test()
+        }
+        end_test()
 
-        begin_test("parser-scopes") {
+                begin_test("parser-scopes") {
             test(test_scopes_error_check);
-        } end_test()
+        }
+        end_test()
     }
-}
+}// namespace parser_test

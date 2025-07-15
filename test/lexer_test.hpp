@@ -1,10 +1,10 @@
-#include "test_helper.hpp"
 #include "lexer.hpp"
+#include "test_helper.hpp"
 
 namespace lexer_test {
     inline void test_basic_expr() {
         luaxc::Lexer lexer("x = 5");
-        
+
         std::vector<luaxc::Token> tokens = lexer.lex();
         assert(tokens[0].type == luaxc::TokenType::IDENTIFIER);
         assert(tokens[0].value == "x");
@@ -33,14 +33,22 @@ namespace lexer_test {
         std::vector<luaxc::Token> tokens = lexer.lex();
 
         assert(tokens.size() == 9);
-        assert(tokens[0].type == luaxc::TokenType::IDENTIFIER); assert(tokens[0].value == "result");
-        assert(tokens[1].type == luaxc::TokenType::ASSIGN); assert(tokens[1].value == "=");
-        assert(tokens[2].type == luaxc::TokenType::IDENTIFIER); assert(tokens[2].value == "calc");
-        assert(tokens[3].type == luaxc::TokenType::L_PARENTHESIS); assert(tokens[3].value == "(");
-        assert(tokens[4].type == luaxc::TokenType::IDENTIFIER); assert(tokens[4].value == "a");
-        assert(tokens[5].type == luaxc::TokenType::COMMA); assert(tokens[5].value == ",");
-        assert(tokens[6].type == luaxc::TokenType::IDENTIFIER); assert(tokens[6].value == "b");
-        assert(tokens[7].type == luaxc::TokenType::R_PARENTHESIS); assert(tokens[7].value == ")");
+        assert(tokens[0].type == luaxc::TokenType::IDENTIFIER);
+        assert(tokens[0].value == "result");
+        assert(tokens[1].type == luaxc::TokenType::ASSIGN);
+        assert(tokens[1].value == "=");
+        assert(tokens[2].type == luaxc::TokenType::IDENTIFIER);
+        assert(tokens[2].value == "calc");
+        assert(tokens[3].type == luaxc::TokenType::L_PARENTHESIS);
+        assert(tokens[3].value == "(");
+        assert(tokens[4].type == luaxc::TokenType::IDENTIFIER);
+        assert(tokens[4].value == "a");
+        assert(tokens[5].type == luaxc::TokenType::COMMA);
+        assert(tokens[5].value == ",");
+        assert(tokens[6].type == luaxc::TokenType::IDENTIFIER);
+        assert(tokens[6].value == "b");
+        assert(tokens[7].type == luaxc::TokenType::R_PARENTHESIS);
+        assert(tokens[7].value == ")");
     }
 
 
@@ -49,9 +57,12 @@ namespace lexer_test {
         std::vector<luaxc::Token> tokens = lexer.lex();
 
         assert(tokens.size() == 3);
-        assert(tokens[0].type == luaxc::TokenType::NUMBER); assert(tokens[0].value == "123");
-        assert(tokens[1].type == luaxc::TokenType::NUMBER); assert(tokens[1].value == "0");
-        assert(tokens[2].type == luaxc::TokenType::NUMBER); assert(tokens[2].value == "98765");
+        assert(tokens[0].type == luaxc::TokenType::NUMBER);
+        assert(tokens[0].value == "123");
+        assert(tokens[1].type == luaxc::TokenType::NUMBER);
+        assert(tokens[1].value == "0");
+        assert(tokens[2].type == luaxc::TokenType::NUMBER);
+        assert(tokens[2].value == "98765");
     }
 
     inline void test_float_numbers() {
@@ -59,9 +70,12 @@ namespace lexer_test {
         std::vector<luaxc::Token> tokens = lexer.lex();
 
         assert(tokens.size() == 3);
-        assert(tokens[0].type == luaxc::TokenType::NUMBER); assert(tokens[0].value == "3.14");
-        assert(tokens[1].type == luaxc::TokenType::NUMBER); assert(tokens[1].value == "0.5");
-        assert(tokens[2].type == luaxc::TokenType::NUMBER); assert(tokens[2].value == "123.0");
+        assert(tokens[0].type == luaxc::TokenType::NUMBER);
+        assert(tokens[0].value == "3.14");
+        assert(tokens[1].type == luaxc::TokenType::NUMBER);
+        assert(tokens[1].value == "0.5");
+        assert(tokens[2].type == luaxc::TokenType::NUMBER);
+        assert(tokens[2].value == "123.0");
     }
 
     inline void test_scientific_notation() {
@@ -69,9 +83,12 @@ namespace lexer_test {
         std::vector<luaxc::Token> tokens = lexer.lex();
 
         assert(tokens.size() == 3);
-        assert(tokens[0].type == luaxc::TokenType::NUMBER); assert(tokens[0].value == "1e5");
-        assert(tokens[1].type == luaxc::TokenType::NUMBER); assert(tokens[1].value == "1.23e-4");
-        assert(tokens[2].type == luaxc::TokenType::NUMBER); assert(tokens[2].value == "6.02E+23");
+        assert(tokens[0].type == luaxc::TokenType::NUMBER);
+        assert(tokens[0].value == "1e5");
+        assert(tokens[1].type == luaxc::TokenType::NUMBER);
+        assert(tokens[1].value == "1.23e-4");
+        assert(tokens[2].type == luaxc::TokenType::NUMBER);
+        assert(tokens[2].value == "6.02E+23");
     }
 
     inline void test_number_suffixes() {
@@ -79,9 +96,12 @@ namespace lexer_test {
         std::vector<luaxc::Token> tokens = lexer.lex();
 
         assert(tokens.size() == 3);
-        assert(tokens[0].type == luaxc::TokenType::NUMBER); assert(tokens[0].value == "123u");
-        assert(tokens[1].type == luaxc::TokenType::NUMBER); assert(tokens[1].value == "42i");
-        assert(tokens[2].type == luaxc::TokenType::NUMBER); assert(tokens[2].value == "3.14f");
+        assert(tokens[0].type == luaxc::TokenType::NUMBER);
+        assert(tokens[0].value == "123u");
+        assert(tokens[1].type == luaxc::TokenType::NUMBER);
+        assert(tokens[1].value == "42i");
+        assert(tokens[2].type == luaxc::TokenType::NUMBER);
+        assert(tokens[2].value == "3.14f");
     }
 
     inline void test_simple_string() {
@@ -116,18 +136,28 @@ namespace lexer_test {
         std::vector<luaxc::Token> tokens = lexer.lex();
 
         assert(tokens.size() == 11);
-        assert(tokens[0].type == luaxc::TokenType::KEYWORD_IF); assert(tokens[0].value == "if");
-        assert(tokens[1].type == luaxc::TokenType::KEYWORD_ELSE); assert(tokens[1].value == "else");
-        assert(tokens[2].type == luaxc::TokenType::KEYWORD_WHILE); assert(tokens[2].value == "while");
-        assert(tokens[3].type == luaxc::TokenType::KEYWORD_FUNC); assert(tokens[3].value == "func");
-        assert(tokens[4].type == luaxc::TokenType::KEYWORD_RETURN); assert(tokens[4].value == "return");
-        assert(tokens[5].type == luaxc::TokenType::KEYWORD_ELIF); assert(tokens[5].value == "elif");
-        assert(tokens[6].type == luaxc::TokenType::KEYWORD_LET); assert(tokens[6].value == "let");
-        assert(tokens[7].type == luaxc::TokenType::KEYWORD_CONST); assert(tokens[7].value == "const");
-        assert(tokens[8].type == luaxc::TokenType::KEYWORD_BREAK); assert(tokens[8].value == "break");
-        assert(tokens[9].type == luaxc::TokenType::KEYWORD_CONTINUE); assert(tokens[9].value == "continue");
-        assert(tokens[10].type == luaxc::TokenType::KEYWORD_FOR); assert(tokens[10].value == "for");
-
+        assert(tokens[0].type == luaxc::TokenType::KEYWORD_IF);
+        assert(tokens[0].value == "if");
+        assert(tokens[1].type == luaxc::TokenType::KEYWORD_ELSE);
+        assert(tokens[1].value == "else");
+        assert(tokens[2].type == luaxc::TokenType::KEYWORD_WHILE);
+        assert(tokens[2].value == "while");
+        assert(tokens[3].type == luaxc::TokenType::KEYWORD_FUNC);
+        assert(tokens[3].value == "func");
+        assert(tokens[4].type == luaxc::TokenType::KEYWORD_RETURN);
+        assert(tokens[4].value == "return");
+        assert(tokens[5].type == luaxc::TokenType::KEYWORD_ELIF);
+        assert(tokens[5].value == "elif");
+        assert(tokens[6].type == luaxc::TokenType::KEYWORD_LET);
+        assert(tokens[6].value == "let");
+        assert(tokens[7].type == luaxc::TokenType::KEYWORD_CONST);
+        assert(tokens[7].value == "const");
+        assert(tokens[8].type == luaxc::TokenType::KEYWORD_BREAK);
+        assert(tokens[8].value == "break");
+        assert(tokens[9].type == luaxc::TokenType::KEYWORD_CONTINUE);
+        assert(tokens[9].value == "continue");
+        assert(tokens[10].type == luaxc::TokenType::KEYWORD_FOR);
+        assert(tokens[10].value == "for");
     }
 
     inline void test_identifiers() {
@@ -135,9 +165,12 @@ namespace lexer_test {
         std::vector<luaxc::Token> tokens = lexer.lex();
 
         assert(tokens.size() == 3);
-        assert(tokens[0].type == luaxc::TokenType::IDENTIFIER); assert(tokens[0].value == "myVariable");
-        assert(tokens[1].type == luaxc::TokenType::IDENTIFIER); assert(tokens[1].value == "another_one");
-        assert(tokens[2].type == luaxc::TokenType::IDENTIFIER); assert(tokens[2].value == "_temp");
+        assert(tokens[0].type == luaxc::TokenType::IDENTIFIER);
+        assert(tokens[0].value == "myVariable");
+        assert(tokens[1].type == luaxc::TokenType::IDENTIFIER);
+        assert(tokens[1].value == "another_one");
+        assert(tokens[2].type == luaxc::TokenType::IDENTIFIER);
+        assert(tokens[2].value == "_temp");
     }
 
     /*inline void test_utf8_identifiers() {
@@ -154,10 +187,14 @@ namespace lexer_test {
         std::vector<luaxc::Token> tokens = lexer.lex();
 
         assert(tokens.size() == 4);
-        assert(tokens[0].type == luaxc::TokenType::IDENTIFIER); assert(tokens[0].value == "x");
-        assert(tokens[1].type == luaxc::TokenType::ASSIGN); assert(tokens[1].value == "=");
-        assert(tokens[2].type == luaxc::TokenType::NUMBER); assert(tokens[2].value == "10");
-        assert(tokens[3].type == luaxc::TokenType::SEMICOLON); assert(tokens[3].value == ";");
+        assert(tokens[0].type == luaxc::TokenType::IDENTIFIER);
+        assert(tokens[0].value == "x");
+        assert(tokens[1].type == luaxc::TokenType::ASSIGN);
+        assert(tokens[1].value == "=");
+        assert(tokens[2].type == luaxc::TokenType::NUMBER);
+        assert(tokens[2].value == "10");
+        assert(tokens[3].type == luaxc::TokenType::SEMICOLON);
+        assert(tokens[3].value == ";");
     }
 
     inline void test_multi_line_comment() {
@@ -165,10 +202,14 @@ namespace lexer_test {
         std::vector<luaxc::Token> tokens = lexer.lex();
 
         assert(tokens.size() == 4);
-        assert(tokens[0].type == luaxc::TokenType::IDENTIFIER); assert(tokens[0].value == "y");
-        assert(tokens[1].type == luaxc::TokenType::ASSIGN); assert(tokens[1].value == "=");
-        assert(tokens[2].type == luaxc::TokenType::NUMBER); assert(tokens[2].value == "20");
-        assert(tokens[3].type == luaxc::TokenType::SEMICOLON); assert(tokens[3].value == ";");
+        assert(tokens[0].type == luaxc::TokenType::IDENTIFIER);
+        assert(tokens[0].value == "y");
+        assert(tokens[1].type == luaxc::TokenType::ASSIGN);
+        assert(tokens[1].value == "=");
+        assert(tokens[2].type == luaxc::TokenType::NUMBER);
+        assert(tokens[2].value == "20");
+        assert(tokens[3].type == luaxc::TokenType::SEMICOLON);
+        assert(tokens[3].value == ";");
     }
 
     inline void test_unterminated_multi_line_comment() {
@@ -176,7 +217,7 @@ namespace lexer_test {
         bool caught_exception = false;
         try {
             std::vector<luaxc::Token> tokens = lexer.lex();
-        } catch (const luaxc::error::LexerError& e) {
+        } catch (const luaxc::error::LexerError &e) {
             caught_exception = true;
         }
         assert(caught_exception);
@@ -187,12 +228,17 @@ namespace lexer_test {
         std::vector<luaxc::Token> tokens = lexer.lex();
 
         assert(tokens.size() == 6);
-        assert(tokens[0].type == luaxc::TokenType::IDENTIFIER); assert(tokens[0].value == "a");
-        assert(tokens[1].type == luaxc::TokenType::ASSIGN); assert(tokens[1].value == "=");
-        assert(tokens[2].type == luaxc::TokenType::NUMBER); assert(tokens[2].value == "1");
+        assert(tokens[0].type == luaxc::TokenType::IDENTIFIER);
+        assert(tokens[0].value == "a");
+        assert(tokens[1].type == luaxc::TokenType::ASSIGN);
+        assert(tokens[1].value == "=");
+        assert(tokens[2].type == luaxc::TokenType::NUMBER);
+        assert(tokens[2].value == "1");
         assert(tokens[3].type == luaxc::TokenType::PLUS);
-        assert(tokens[4].type == luaxc::TokenType::NUMBER); assert(tokens[4].value == "2");
-        assert(tokens[5].type == luaxc::TokenType::SEMICOLON); assert(tokens[5].value == ";");
+        assert(tokens[4].type == luaxc::TokenType::NUMBER);
+        assert(tokens[4].value == "2");
+        assert(tokens[5].type == luaxc::TokenType::SEMICOLON);
+        assert(tokens[5].value == ";");
     }
 
     inline void test_all_symbols() {
@@ -253,30 +299,30 @@ namespace lexer_test {
         bool caught_exception = false;
         try {
             std::vector<luaxc::Token> tokens = lexer.lex();
-        } catch (const luaxc::error::LexerError& e) {
+        } catch (const luaxc::error::LexerError &e) {
             caught_exception = true;
         }
         assert(caught_exception);
     }
 
-    inline void test_abnormal_float_numeric() { 
+    inline void test_abnormal_float_numeric() {
         luaxc::Lexer lexer("x = 1.2faabc;");
         bool caught_exception = false;
         try {
             std::vector<luaxc::Token> tokens = lexer.lex();
-        } catch (const luaxc::error::LexerError& e) {
+        } catch (const luaxc::error::LexerError &e) {
             caught_exception = true;
             test_helper::dbg_print(e.what());
         }
         assert(caught_exception);
     }
 
-    inline void test_abnormal_int_numeric() { 
+    inline void test_abnormal_int_numeric() {
         luaxc::Lexer lexer("x = 1u32abc;");
         bool caught_exception = false;
         try {
             std::vector<luaxc::Token> tokens = lexer.lex();
-        } catch (const luaxc::error::LexerError& e) {
+        } catch (const luaxc::error::LexerError &e) {
             caught_exception = true;
             test_helper::dbg_print(e.what());
         }
@@ -286,29 +332,30 @@ namespace lexer_test {
     inline void run_lexer_test() {
         begin_test("lexer") {
             test(test_basic_expr)
-            test(test_basic_assign)
-            test(test_complex_assign)
-            test(test_integer_numbers)
-            test(test_float_numbers)        
-            test(test_single_line_comment)
-            test(test_multi_line_comment)
-            test(test_unterminated_multi_line_comment)
+                    test(test_basic_assign)
+                            test(test_complex_assign)
+                                    test(test_integer_numbers)
+                                            test(test_float_numbers)
+                                                    test(test_single_line_comment)
+                                                            test(test_multi_line_comment)
+                                                                    test(test_unterminated_multi_line_comment)
 
-            test(test_mixed_whitespace)
-            test(test_all_symbols)
-            test(test_operators)
+                                                                            test(test_mixed_whitespace)
+                                                                                    test(test_all_symbols)
+                                                                                            test(test_operators)
 
-            test(test_invalid_character)
+                                                                                                    test(test_invalid_character)
 
-            test(test_identifiers)
-            test(test_keywords);
+                                                                                                            test(test_identifiers)
+                                                                                                                    test(test_keywords);
             //test(test_utf8_identifiers)
 
             test(test_simple_string)
-            test(test_string_with_escapes)
-            test(test_empty_string)
-            test(test_abnormal_float_numeric)
-            test(test_abnormal_int_numeric)
-        } end_test();
+                    test(test_string_with_escapes)
+                            test(test_empty_string)
+                                    test(test_abnormal_float_numeric)
+                                            test(test_abnormal_int_numeric)
+        }
+        end_test();
     }
-}
+}// namespace lexer_test

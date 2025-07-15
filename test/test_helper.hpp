@@ -2,8 +2,8 @@
 
 #include <cassert>
 #include <chrono>
-#include <utility>
 #include <iostream>
+#include <utility>
 
 #define DEBUG
 
@@ -15,9 +15,9 @@ namespace test_helper {
     public:
         StopWatch() = default;
 
-        StopWatch(const StopWatch&) = delete;
+        StopWatch(const StopWatch &) = delete;
 
-        StopWatch(StopWatch&&) = delete;
+        StopWatch(StopWatch &&) = delete;
 
         void start() {
             start_time = std::chrono::high_resolution_clock::now();
@@ -29,44 +29,49 @@ namespace test_helper {
 
         [[nodiscard]] double elapsed_ms() const {
             return static_cast<double>(
-                       std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count()) / 1000.0;
+                           std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time).count()) /
+                   1000.0;
         }
     };
 
 #ifdef DEBUG
-    template <typename... Args>
-    void dbg_print(Args&&... args) {
+    template<typename... Args>
+    void dbg_print(Args &&...args) {
         std::cout << "[DEBUG] ";
         (std::cout << ... << std::forward<Args>(args)) << std::endl;
     }
 #else
-    template <typename... Args>
-    void dbg_print(Args&&... args) {}
+    template<typename... Args>
+    void dbg_print(Args &&...args) {}
 #endif
 
-#define begin_test(test_name) \
+#define begin_test(test_name)                              \
     std::cout << "begin test: " << test_name << std::endl; \
-    do {\
-        int _test_count = 0; \
-        int _test_passed = 0; \
+    do {                                                   \
+        int _test_count = 0;                               \
+        int _test_passed = 0;                              \
         do
 
-#define test(fn) \
-        _test_count++;\
-        try { \
-        std::cout << "testing: " << #fn << std::endl; \
-        fn(); \
-        std::cout << "test passed" << std::endl << std::endl;\
-        _test_passed++;\
-        } catch (const std::exception& e) { \
-        std::cout << "test failed: " << e.what() << std::endl << std::endl; \
-        }
+#define test(fn)                                              \
+    _test_count++;                                            \
+    try {                                                     \
+        std::cout << "testing: " << #fn << std::endl;         \
+        fn();                                                 \
+        std::cout << "test passed" << std::endl               \
+                  << std::endl;                               \
+        _test_passed++;                                       \
+    } catch (const std::exception &e) {                       \
+        std::cout << "test failed: " << e.what() << std::endl \
+                  << std::endl;                               \
+    }
 
-#define end_test() \
-        while (false); \
-        std::cout << "test count: " << _test_count << std::endl; \
-        std::cout << "test passed: " << _test_passed << std::endl; \
-        std::cout << "test failed: " << _test_count - _test_passed << std::endl << std::endl; \
-        assert(_test_passed == _test_count);\
-    } while (false);
-}
+#define end_test()                                                          \
+    while (false);                                                          \
+    std::cout << "test count: " << _test_count << std::endl;                \
+    std::cout << "test passed: " << _test_passed << std::endl;              \
+    std::cout << "test failed: " << _test_count - _test_passed << std::endl \
+              << std::endl;                                                 \
+    assert(_test_passed == _test_count);                                    \
+    }                                                                       \
+    while (false);
+}// namespace test_helper

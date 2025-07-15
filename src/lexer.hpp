@@ -1,9 +1,9 @@
 #pragma once
 
-#include <string>
-#include <vector>
 #include <cassert>
 #include <sstream>
+#include <string>
+#include <vector>
 
 namespace luaxc {
     namespace error {
@@ -19,43 +19,43 @@ namespace luaxc {
             int line;
             int column;
 
-            const char* what() const noexcept override { 
+            const char *what() const noexcept override {
                 return message.c_str();
             }
         };
-    }
+    }// namespace error
 
     enum class TokenType {
         INVALID,
-        TERMINATOR, // eof
+        TERMINATOR,// eof
 
         NUMBER,
 
-        PLUS, // symbol: +
+        PLUS,  // symbol: +
         MINUS, // symbol: -
-        MUL, // symbol: *
-        DIV, // symbol: /
-        MOD, // symbol: %
-        ASSIGN, // symbol: =
+        MUL,   // symbol: *
+        DIV,   // symbol: /
+        MOD,   // symbol: %
+        ASSIGN,// symbol: =
 
-        BITWISE_AND, // symbol: &
+        BITWISE_AND,// symbol: &
         BITWISE_OR, // symbol: |
-        BITWISE_XOR, // symbol: ^
-        BITWISE_NOT, // symbol: ~
+        BITWISE_XOR,// symbol: ^
+        BITWISE_NOT,// symbol: ~
 
-        EQUAL, // symbol: ==
-        NOT_EQUAL, // symbol: !=
-        LESS_THAN_EQUAL, // symbol: <=
+        EQUAL,              // symbol: ==
+        NOT_EQUAL,          // symbol: !=
+        LESS_THAN_EQUAL,    // symbol: <=
         GREATER_THAN_EQUAL, // symbol: >=
-        INCREMENT, // symbol: ++
-        DECREMENT, // symbol: --
-        INCREMENT_BY, // symbol: +=
-        DECREMENT_BY, // symbol: -=
+        INCREMENT,          // symbol: ++
+        DECREMENT,          // symbol: --
+        INCREMENT_BY,       // symbol: +=
+        DECREMENT_BY,       // symbol: -=
         BITWISE_SHIFT_LEFT, // symbol: <<
-        BITWISE_SHIFT_RIGHT, // symbol: >>
-        LOGICAL_AND, // symbol: &&
-        LOGICAL_OR, // symbol: ||
-        LOGICAL_NOT, // symbol: !
+        BITWISE_SHIFT_RIGHT,// symbol: >>
+        LOGICAL_AND,        // symbol: &&
+        LOGICAL_OR,         // symbol: ||
+        LOGICAL_NOT,        // symbol: !
 
         KEYWORD_LET,
         KEYWORD_CONST,
@@ -70,24 +70,24 @@ namespace luaxc {
         KEYWORD_RETURN,
         KEYWORD_FUNC,
 
-        L_PARENTHESIS, // symbol: ()
+        L_PARENTHESIS,// symbol: ()
         R_PARENTHESIS,
 
-        L_SQUARE_BRACE, // symbol: []
+        L_SQUARE_BRACE,// symbol: []
         R_SQUARE_BRACE,
 
-        L_CURLY_BRACKET, // symbol: {}
+        L_CURLY_BRACKET,// symbol: {}
         R_CURLY_BRACKET,
 
-        LESS_THAN, // symbol: <
-        GREATER_THAN, // symbol: >
+        LESS_THAN,   // symbol: <
+        GREATER_THAN,// symbol: >
 
-        COMMA, // symbol: ,
+        COMMA,// symbol: ,
 
-        COLON, // symbol: :
-        SEMICOLON, // symbol: ;
+        COLON,    // symbol: :
+        SEMICOLON,// symbol: ;
 
-        DOT, // symbol: .
+        DOT,// symbol: .
 
         IDENTIFIER,
 
@@ -111,6 +111,7 @@ namespace luaxc {
         Token next();
 
         std::pair<size_t, size_t> get_line_and_column() const { return {statistics.line, statistics.column}; }
+
     private:
         std::string input;
         size_t pos;
@@ -129,9 +130,15 @@ namespace luaxc {
 
         bool is_peek_eof() { return pos + 1 >= len; }
 
-        char current_char() { assert(pos <= len); return input[pos]; }
+        char current_char() {
+            assert(pos <= len);
+            return input[pos];
+        }
 
-        char peek() { assert(pos + 1 <= len); return input[pos + 1]; }
+        char peek() {
+            assert(pos + 1 <= len);
+            return input[pos + 1];
+        }
 
         void skip_whitespace();
 
@@ -145,8 +152,8 @@ namespace luaxc {
 
         Token get_next_token();
 
-        bool is_keyword(const std::string& candidate);
+        bool is_keyword(const std::string &candidate);
 
-        TokenType keyword_type(const std::string& candidate);
+        TokenType keyword_type(const std::string &candidate);
     };
-}
+}// namespace luaxc

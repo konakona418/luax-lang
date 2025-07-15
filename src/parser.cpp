@@ -1,19 +1,20 @@
 #include "parser.hpp"
 #include "ast.hpp"
 
-#define LUAXC_PARSER_THROW_ERROR(message) do {  \
-        auto line_and_column = lexer.get_line_and_column(); \
+#define LUAXC_PARSER_THROW_ERROR(message)                                                 \
+    do {                                                                                  \
+        auto line_and_column = lexer.get_line_and_column();                               \
         throw error::ParserError(message, line_and_column.first, line_and_column.second); \
-    } while(0);
+    } while (0);
 
-#define LUAXC_PARSER_THROW_NOT_IMPLEMENTED(feature) LUAXC_PARSER_THROW_ERROR("Not implemented feature: " #feature )
+#define LUAXC_PARSER_THROW_NOT_IMPLEMENTED(feature) LUAXC_PARSER_THROW_ERROR("Not implemented feature: " #feature)
 
 namespace luaxc {
     void Parser::consume(TokenType expected) {
         consume(expected, "Unexpected token");
     }
 
-    void Parser::consume(TokenType expected, const std::string& err_message) {
+    void Parser::consume(TokenType expected, const std::string &err_message) {
         if (current_token.type != expected) {
             LUAXC_PARSER_THROW_ERROR(err_message);
         }
@@ -32,11 +33,11 @@ namespace luaxc {
         scopes.pop_back();
     }
 
-    void Parser::declare_identifier(const std::string& identifier) {
+    void Parser::declare_identifier(const std::string &identifier) {
         scopes.back().insert(identifier);
     }
 
-    bool Parser::is_identifier_declared(const std::string& identifier) const {
+    bool Parser::is_identifier_declared(const std::string &identifier) const {
         for (int i = static_cast<int>(scopes.size()) - 1; i >= 0; --i) {
             if (scopes[i].find(identifier) != scopes[i].end()) {
                 return true;
@@ -45,23 +46,23 @@ namespace luaxc {
         return false;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_program() { 
+    std::unique_ptr<AstNode> Parser::parse_program() {
         enter_scope();
 
         auto program = std::make_unique<ProgramNode>();
         while (current_token.type != TokenType::TERMINATOR) {
             program->add_statement(parse_statement());
         }
-        
+
         exit_scope();
         return program;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_statement() { 
+    std::unique_ptr<AstNode> Parser::parse_statement() {
         switch (current_token.type) {
             case TokenType::KEYWORD_LET:
                 return parse_declaration_statement();
-            case TokenType::L_CURLY_BRACKET: // '{': block statement start
+            case TokenType::L_CURLY_BRACKET:// '{': block statement start
                 return parse_block_statement();
             case TokenType::KEYWORD_IF:
                 return parse_if_statement();
@@ -78,7 +79,7 @@ namespace luaxc {
         }
     }
 
-    std::unique_ptr<AstNode> Parser::parse_declaration_statement(bool consume_semicolon) { 
+    std::unique_ptr<AstNode> Parser::parse_declaration_statement(bool consume_semicolon) {
         /*
         declaration_statement:
             let identifier = expression;
@@ -90,7 +91,7 @@ namespace luaxc {
 
         identifiers.push_back(std::make_unique<IdentifierNode>(current_token.value));
         declare_identifier(current_token.value);
-        
+
         consume(TokenType::IDENTIFIER, "Expected identifier after 'let' keyword");
 
 
@@ -112,11 +113,12 @@ namespace luaxc {
             consume(TokenType::SEMICOLON, "Expected a semicolon after multi declaration");
             return std::make_unique<DeclarationStmtNode>(std::move(identifiers), nullptr);
         }
-        
-        consume(TokenType::ASSIGN, "Expected '=' after identifier in declaration statement");;
+
+        consume(TokenType::ASSIGN, "Expected '=' after identifier in declaration statement");
+        ;
 
         std::unique_ptr<AstNode> value;
-        
+
         if (current_token.type == TokenType::STRING_LITERAL) {
             LUAXC_PARSER_THROW_NOT_IMPLEMENTED("Assigning strings");
             // todo
@@ -137,7 +139,7 @@ namespace luaxc {
         return identifier;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_basic_assignment_expression(std::unique_ptr<AstNode> identifier, bool consume_semicolon) { 
+    std::unique_ptr<AstNode> Parser::parse_basic_assignment_expression(std::unique_ptr<AstNode> identifier, bool consume_semicolon) {
         /*
         assignment_statement:
             identifier = expression;
@@ -160,7 +162,7 @@ namespace luaxc {
         return std::make_unique<AssignmentStmtNode>(std::move(identifier), std::move(value));
     }
 
-    std::unique_ptr<AstNode> Parser::parse_expression(bool consume_semicolon) { 
+    std::unique_ptr<AstNode> Parser::parse_expression(bool consume_semicolon) {
         // this is used for parsing a broad expression,
         // including declarations and assignments,
         // to parse a 'simple' expression,
@@ -169,19 +171,19 @@ namespace luaxc {
         if (current_token.type == TokenType::IDENTIFIER) {
             auto identifier = parse_identifier();
 
-            auto name =  static_cast<IdentifierNode *>(identifier.get())->get_name();
+            auto name = static_cast<IdentifierNode *>(identifier.get())->get_name();
             if (!is_identifier_declared(name)) {
                 LUAXC_PARSER_THROW_ERROR("Undeclared identifier '" + name + "'")
             }
 
-            if (current_token.type == TokenType::ASSIGN) { 
-                auto assignment_stmt = 
-                    parse_basic_assignment_expression(std::move(identifier), consume_semicolon);
+            if (current_token.type == TokenType::ASSIGN) {
+                auto assignment_stmt =
+                        parse_basic_assignment_expression(std::move(identifier), consume_semicolon);
                 return assignment_stmt;
-            } else if (current_token.type == TokenType::INCREMENT_BY || 
-                current_token.type == TokenType::DECREMENT_BY) {
-                auto combinative_assignment_stmt = 
-                    parse_combinative_assignment_expression(std::move(identifier), consume_semicolon);
+            } else if (current_token.type == TokenType::INCREMENT_BY ||
+                       current_token.type == TokenType::DECREMENT_BY) {
+                auto combinative_assignment_stmt =
+                        parse_combinative_assignment_expression(std::move(identifier), consume_semicolon);
                 return combinative_assignment_stmt;
             } else {
                 if (consume_semicolon) {
@@ -196,7 +198,7 @@ namespace luaxc {
         return parse_logical_and_expression();
     }
 
-    std::unique_ptr<AstNode> Parser::parse_combinative_assignment_expression(std::unique_ptr<AstNode> identifier, bool consume_semicolon) { 
+    std::unique_ptr<AstNode> Parser::parse_combinative_assignment_expression(std::unique_ptr<AstNode> identifier, bool consume_semicolon) {
         // only one combinative assignment expression is allowed
         if (current_token.type == TokenType::INCREMENT_BY || current_token.type == TokenType::DECREMENT_BY) {
             BinaryExpressionNode::BinaryOperator op;
@@ -244,9 +246,9 @@ namespace luaxc {
 
     std::unique_ptr<AstNode> Parser::parse_multiplicative_expression() {
         auto node = parse_unary_expression();
-        
-        while (current_token.type == TokenType::MUL || current_token.type == TokenType::DIV || 
-            current_token.type == TokenType::MOD) {
+
+        while (current_token.type == TokenType::MUL || current_token.type == TokenType::DIV ||
+               current_token.type == TokenType::MOD) {
             BinaryExpressionNode::BinaryOperator op;
             if (current_token.type == TokenType::MUL) {
                 consume(TokenType::MUL);
@@ -261,7 +263,7 @@ namespace luaxc {
             auto right = parse_unary_expression();
             node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), op);
         }
-        
+
         return node;
     }
 
@@ -289,11 +291,11 @@ namespace luaxc {
         return node;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_relational_expression() { 
+    std::unique_ptr<AstNode> Parser::parse_relational_expression() {
         std::unique_ptr<AstNode> node = parse_additive_expression();
 
-        while (current_token.type == TokenType::GREATER_THAN || current_token.type == TokenType::GREATER_THAN_EQUAL || 
-            current_token.type == TokenType::LESS_THAN || current_token.type == TokenType::LESS_THAN_EQUAL) {
+        while (current_token.type == TokenType::GREATER_THAN || current_token.type == TokenType::GREATER_THAN_EQUAL ||
+               current_token.type == TokenType::LESS_THAN || current_token.type == TokenType::LESS_THAN_EQUAL) {
             BinaryExpressionNode::BinaryOperator op;
 
             switch (current_token.type) {
@@ -306,7 +308,7 @@ namespace luaxc {
                 case TokenType::LESS_THAN:
                     op = BinaryExpressionNode::BinaryOperator::LessThan;
                     break;
-                case TokenType::LESS_THAN_EQUAL: 
+                case TokenType::LESS_THAN_EQUAL:
                     op = BinaryExpressionNode::BinaryOperator::LessThanEqual;
                     break;
                 default:
@@ -322,11 +324,11 @@ namespace luaxc {
     std::unique_ptr<AstNode> Parser::parse_logical_and_expression() {
         auto node = parse_logical_or_expression();
 
-        while (current_token.type == TokenType::LOGICAL_AND) { 
+        while (current_token.type == TokenType::LOGICAL_AND) {
             next_token();
             auto right = parse_logical_or_expression();
-            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), 
-                BinaryExpressionNode::BinaryOperator::LogicalAnd);
+            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right),
+                                                          BinaryExpressionNode::BinaryOperator::LogicalAnd);
         }
         return node;
     }
@@ -336,46 +338,45 @@ namespace luaxc {
         while (current_token.type == TokenType::LOGICAL_OR) {
             next_token();
             auto right = parse_comparison_expression();
-            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), 
-                BinaryExpressionNode::BinaryOperator::LogicalOr);
+            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right),
+                                                          BinaryExpressionNode::BinaryOperator::LogicalOr);
         }
         return node;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_bitwise_and_expression() { 
+    std::unique_ptr<AstNode> Parser::parse_bitwise_and_expression() {
         // todo: testing
         auto node = parse_bitwise_or_expression();
         while (current_token.type == TokenType::BITWISE_AND) {
             next_token();
             auto right = parse_bitwise_or_expression();
-            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), 
-                BinaryExpressionNode::BinaryOperator::BitwiseAnd); 
+            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right),
+                                                          BinaryExpressionNode::BinaryOperator::BitwiseAnd);
         }
         return node;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_bitwise_or_expression() { 
+    std::unique_ptr<AstNode> Parser::parse_bitwise_or_expression() {
         // todo: testing
         auto node = parse_bitwise_shift_expression();
         while (current_token.type == TokenType::BITWISE_OR) {
             next_token();
             auto right = parse_bitwise_shift_expression();
-            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right), 
-                BinaryExpressionNode::BinaryOperator::BitwiseOr);
+            node = std::make_unique<BinaryExpressionNode>(std::move(node), std::move(right),
+                                                          BinaryExpressionNode::BinaryOperator::BitwiseOr);
         }
         return node;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_bitwise_shift_expression() { 
+    std::unique_ptr<AstNode> Parser::parse_bitwise_shift_expression() {
         // todo: testing
         auto node = parse_relational_expression();
-        while (current_token.type == TokenType::BITWISE_SHIFT_LEFT
-            || current_token.type == TokenType::BITWISE_SHIFT_RIGHT) { 
+        while (current_token.type == TokenType::BITWISE_SHIFT_LEFT || current_token.type == TokenType::BITWISE_SHIFT_RIGHT) {
             BinaryExpressionNode::BinaryOperator op;
-            
-            if (current_token.type == TokenType::BITWISE_SHIFT_LEFT) { 
+
+            if (current_token.type == TokenType::BITWISE_SHIFT_LEFT) {
                 op = BinaryExpressionNode::BinaryOperator::BitwiseShiftLeft;
-            } else { 
+            } else {
                 op = BinaryExpressionNode::BinaryOperator::BitwiseShiftRight;
             }
 
@@ -390,19 +391,19 @@ namespace luaxc {
         // todo: testing
         // todo: other unary operators
         if (current_token.type == TokenType::MINUS || current_token.type == TokenType::LOGICAL_NOT ||
-            current_token.type == TokenType::BITWISE_NOT || current_token.type == TokenType::PLUS) { 
+            current_token.type == TokenType::BITWISE_NOT || current_token.type == TokenType::PLUS) {
             UnaryExpressionNode::UnaryOperator op;
-            switch (current_token.type) { 
+            switch (current_token.type) {
                 case TokenType::MINUS:
                     op = UnaryExpressionNode::UnaryOperator::Minus;
                     break;
-                case TokenType::BITWISE_NOT: 
+                case TokenType::BITWISE_NOT:
                     op = UnaryExpressionNode::UnaryOperator::BitwiseNot;
                     break;
-                case TokenType::PLUS: 
+                case TokenType::PLUS:
                     op = UnaryExpressionNode::UnaryOperator::Plus;
                     break;
-                case TokenType::LOGICAL_NOT: 
+                case TokenType::LOGICAL_NOT:
                     op = UnaryExpressionNode::UnaryOperator::LogicalNot;
                     break;
                 default:
@@ -416,15 +417,15 @@ namespace luaxc {
         return parse_primary();
     }
 
-    std::unique_ptr<AstNode> Parser::parse_primary() { 
+    std::unique_ptr<AstNode> Parser::parse_primary() {
         std::unique_ptr<AstNode> node;
         if (current_token.type == TokenType::NUMBER) {
             if (current_token.value.find('.') != std::string::npos) {
                 node = std::make_unique<NumericLiteralNode>(
-                    NumericLiteralNode::NumericLiteralType::Float, current_token.value);
+                        NumericLiteralNode::NumericLiteralType::Float, current_token.value);
             } else {
                 node = std::make_unique<NumericLiteralNode>(
-                    NumericLiteralNode::NumericLiteralType::Integer, current_token.value);
+                        NumericLiteralNode::NumericLiteralType::Integer, current_token.value);
             }
             consume(TokenType::NUMBER);
         } else if (current_token.type == TokenType::IDENTIFIER) {
@@ -440,7 +441,7 @@ namespace luaxc {
         }
         return node;
     }
-    
+
     std::unique_ptr<AstNode> Parser::parse_block_statement() {
         std::vector<std::unique_ptr<AstNode>> statements;
 
@@ -484,7 +485,7 @@ namespace luaxc {
             exit_scope();
         }
         return std::make_unique<IfNode>(
-            std::move(condition), std::move(body), std::move(else_body));
+                std::move(condition), std::move(body), std::move(else_body));
     }
 
     std::unique_ptr<AstNode> Parser::parse_for_statement() {
@@ -505,7 +506,7 @@ namespace luaxc {
         } else {
             initializer = parse_basic_assignment_expression(parse_identifier(), false);
         }
-        consume(TokenType::SEMICOLON, "Expected ';' after iterator initializer"); // consume semicolon.
+        consume(TokenType::SEMICOLON, "Expected ';' after iterator initializer");// consume semicolon.
 
         std::unique_ptr<AstNode> condition = parse_simple_expression();
         consume(TokenType::SEMICOLON, "Expected ';' after iterator condition");
@@ -518,8 +519,8 @@ namespace luaxc {
 
         exit_scope();
 
-        return std::make_unique<ForNode>(std::move(initializer), 
-            std::move(condition), std::move(update), std::move(body));
+        return std::make_unique<ForNode>(std::move(initializer),
+                                         std::move(condition), std::move(update), std::move(body));
     }
 
     std::unique_ptr<AstNode> Parser::parse_while_statement() {
@@ -549,4 +550,4 @@ namespace luaxc {
         consume(TokenType::SEMICOLON, "Expected ';' after 'continue'");
         return std::make_unique<ContinueNode>();
     }
-}
+}// namespace luaxc
