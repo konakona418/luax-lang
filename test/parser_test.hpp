@@ -266,6 +266,17 @@ namespace parser_test {
         assert(caught_error);
     }
 
+
+    inline void test_function_invocation() {
+        std::string input = R"(
+        use println;
+        let a = 114514;
+        println(a);
+        )";
+
+        auto ir_interpreter = compile_run(input);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -278,9 +289,9 @@ namespace parser_test {
             test(test_unary_operator_minus);
             test(test_combinative_assignment);
         }
-        end_test()
+        end_test();
 
-                begin_test("parser-if stmt") {
+        begin_test("parser-if stmt") {
             test(test_if_statement);
             test(test_if_statement_false);
             test(test_if_statement_with_else);
@@ -290,9 +301,9 @@ namespace parser_test {
             test(test_if_statement_const_expr_condition);
             test(test_if_statement_const_expr_false_condition);
         }
-        end_test()
+        end_test();
 
-                begin_test("parser-while stmt") {
+        begin_test("parser-while stmt") {
             test(test_while_statement);
             test(test_while_statement_break);
             test(test_while_statement_continue);
@@ -300,18 +311,23 @@ namespace parser_test {
             test(test_while_statement_nested);
             test(test_while_statement_nested_break);
         }
-        end_test()
+        end_test();
 
-                begin_test("parser-for stmt") {
+        begin_test("parser-for stmt") {
             test(test_for_loop);
             test(test_for_loop_break);
             test(test_for_loop_continue);
         }
-        end_test()
+        end_test();
 
-                begin_test("parser-scopes") {
+        begin_test("parser-scopes") {
             test(test_scopes_error_check);
         }
-        end_test()
+        end_test();
+
+        begin_test("parser-fn invoke") {
+            test(test_function_invocation);
+        }
+        end_test();
     }
 }// namespace parser_test

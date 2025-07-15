@@ -46,6 +46,7 @@ namespace luaxc {
     public:
         enum class StatementType {
             DeclarationStmt,
+            ForwardDeclarationStmt,// use
             AssignmentStmt,
             BinaryExprStmt,
             UnaryExprStmt,
@@ -80,6 +81,18 @@ namespace luaxc {
     private:
         std::vector<std::unique_ptr<AstNode>> identifiers;
         std::unique_ptr<AstNode> value_or_initializer;
+    };
+
+    class ForwardDeclarationStmtNode : public StatementNode {
+    public:
+        explicit ForwardDeclarationStmtNode(std::unique_ptr<AstNode> identifier)
+            : StatementNode(StatementNode::StatementType::ForwardDeclarationStmt),
+              identifier(std::move(identifier)) {}
+
+        const AstNode* get_identifier() const { return identifier.get(); }
+
+    private:
+        std::unique_ptr<AstNode> identifier;
     };
 
     // assign -> identifier = expr ';'

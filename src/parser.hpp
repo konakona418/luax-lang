@@ -61,9 +61,13 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> parse_declaration_statement(bool consume_semicolon = true);
 
+        std::unique_ptr<AstNode> parse_forward_declaration_statement();
+
         std::unique_ptr<AstNode> parse_identifier();
 
         std::unique_ptr<AstNode> parse_expression(bool consume_semicolon = true);
+
+        std::unique_ptr<AstNode> parse_assignment_expression(bool consume_semicolon = true);
 
         std::unique_ptr<AstNode> parse_basic_assignment_expression(std::unique_ptr<AstNode> identifier, bool consume_semicolon = true);
 

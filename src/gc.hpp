@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <variant>
+
 
 namespace luaxc {
     namespace error {
@@ -34,6 +36,7 @@ namespace luaxc {
         Array,
         Object,
         Null,
+        Unit,
         Unknown
     };
 
@@ -61,6 +64,15 @@ namespace luaxc {
         bool operator!=(const NullObject&) const { return false; }
     };
 
+    class UnitObject {
+    public:
+        UnitObject() = default;
+
+        bool operator==(const UnitObject&) const { return true; }
+
+        bool operator!=(const UnitObject&) const { return false; }
+    };
+
     class PrimValue {
     public:
         using Value = std::variant<
@@ -72,7 +84,8 @@ namespace luaxc {
                 GCObject*,
                 ArrayObject*,
                 FunctionObject*,
-                NullObject>;
+                NullObject,
+                UnitObject>;
 
         PrimValue() : type(ValueType::Unknown) {}
 
@@ -92,9 +105,13 @@ namespace luaxc {
 
         static PrimValue from_bool(bool b) { return PrimValue(ValueType::Boolean, b); }
 
-        static PrimValue null() { return PrimValue(ValueType::Null); }
+        static PrimValue null() { return PrimValue(ValueType::Null, NullObject()); }
+
+        static PrimValue unit() { return PrimValue(ValueType::Unit, UnitObject()); }
 
         bool is_null() const { return type == ValueType::Null; }
+
+        bool is_unit() const { return type == ValueType::Unit; }
 
         bool is_int() const { return type == ValueType::Int; }
 
@@ -127,6 +144,28 @@ namespace luaxc {
     private:
         ValueType type;
         Value value;
+    };
+
+    class FunctionObject {
+    public:
+        FunctionObject() = default;
+
+        template<typename Fn,
+                 typename = std::enable_if_t<std::is_invocable_r_v<PrimValue, Fn, std::vector<PrimValue>>>>
+        static FunctionObject* create_native_function(Fn function) {
+            auto* func = new FunctionObject();
+            func->native_function = std::move(function);
+            func->is_native = true;
+            return func;
+        }
+
+        bool is_native_function() const { return is_native; }
+
+        PrimValue call_native(std::vector<PrimValue> args) { return native_function(std::move(args)); };
+
+    private:
+        bool is_native;
+        std::function<PrimValue(std::vector<PrimValue>)> native_function;
     };
 
     namespace detail {

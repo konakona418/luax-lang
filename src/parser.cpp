@@ -62,6 +62,8 @@ namespace luaxc {
         switch (current_token.type) {
             case TokenType::KEYWORD_LET:
                 return parse_declaration_statement();
+            case luaxc::TokenType::KEYWORD_USE:
+                return parse_forward_declaration_statement();
             case TokenType::L_CURLY_BRACKET:// '{': block statement start
                 return parse_block_statement();
             case TokenType::KEYWORD_IF:
@@ -105,7 +107,10 @@ namespace luaxc {
         bool is_multi_declaration = current_token.type == TokenType::COMMA;
         while (current_token.type == TokenType::COMMA) {
             consume(TokenType::COMMA, "Expected comma after declaration identifier");
+
             identifiers.push_back(std::make_unique<IdentifierNode>(current_token.value));
+            declare_identifier(current_token.value);
+
             consume(TokenType::IDENTIFIER, "Expected identifier after comma in declaration statement");
         }
 
@@ -131,6 +136,16 @@ namespace luaxc {
         }
 
         return std::make_unique<DeclarationStmtNode>(std::move(identifiers), std::move(value));
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_forward_declaration_statement() {
+        consume(TokenType::KEYWORD_USE, "Expected 'use'");
+
+        declare_identifier(current_token.value);
+        std::unique_ptr<AstNode> identifier = parse_identifier();
+        consume(TokenType::SEMICOLON, "Expected ';' after forward declaration");
+
+        return std::make_unique<ForwardDeclarationStmtNode>(std::move(identifier));
     }
 
     std::unique_ptr<AstNode> Parser::parse_identifier() {
@@ -163,35 +178,23 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_expression(bool consume_semicolon) {
-        // this is used for parsing a broad expression,
-        // including declarations and assignments,
-        // to parse a 'simple' expression,
-        // use parse_simple_expression() instead
-
-        if (current_token.type == TokenType::IDENTIFIER) {
-            auto identifier = parse_identifier();
-
-            auto name = static_cast<IdentifierNode*>(identifier.get())->get_name();
-            if (!is_identifier_declared(name)) {
-                LUAXC_PARSER_THROW_ERROR("Undeclared identifier '" + name + "'")
-            }
-
-            if (current_token.type == TokenType::ASSIGN) {
-                auto assignment_stmt =
-                        parse_basic_assignment_expression(std::move(identifier), consume_semicolon);
-                return assignment_stmt;
-            } else if (current_token.type == TokenType::INCREMENT_BY ||
-                       current_token.type == TokenType::DECREMENT_BY) {
-                auto combinative_assignment_stmt =
-                        parse_combinative_assignment_expression(std::move(identifier), consume_semicolon);
-                return combinative_assignment_stmt;
-            } else {
-                if (consume_semicolon) {
-                    consume(TokenType::SEMICOLON, "Expected ';");
-                }
-            }
+        auto node = parse_assignment_expression(false);
+        if (consume_semicolon) {
+            consume(TokenType::SEMICOLON, "Expected ';' after expression");
         }
-        return parse_simple_expression();
+        return node;
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_assignment_expression(bool consume_semicolon) {
+        auto left = parse_simple_expression();
+
+        if (current_token.type == TokenType::ASSIGN) {
+            return parse_basic_assignment_expression(std::move(left), consume_semicolon);
+        } else if (current_token.type == TokenType::INCREMENT_BY || current_token.type == TokenType::DECREMENT_BY) {
+            return parse_combinative_assignment_expression(std::move(left), consume_semicolon);
+        }
+
+        return left;
     }
 
     std::unique_ptr<AstNode> Parser::parse_simple_expression() {
@@ -214,9 +217,9 @@ namespace luaxc {
             if (consume_semicolon) {
                 consume(TokenType::SEMICOLON, "Expected semicolon after assignment statement");
             } else {
-                if (current_token.type == TokenType::SEMICOLON) {
+                /*if (current_token.type == TokenType::SEMICOLON) {
                     LUAXC_PARSER_THROW_ERROR("Unexpected semicolon after assignment statement")
-                }
+                }*/
             }
 
             return std::make_unique<BinaryExpressionNode>(std::move(identifier), std::move(right), op);
@@ -430,6 +433,12 @@ namespace luaxc {
             consume(TokenType::NUMBER);
         } else if (current_token.type == TokenType::IDENTIFIER) {
             node = std::make_unique<IdentifierNode>(current_token.value);
+
+            auto name = static_cast<IdentifierNode*>(node.get())->get_name();
+            if (!is_identifier_declared(name)) {
+                LUAXC_PARSER_THROW_ERROR("Identifier not declared: '" + name + "'")
+            }
+
             consume(TokenType::IDENTIFIER);
 
             // potential function invocation

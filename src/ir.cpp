@@ -99,6 +99,10 @@ namespace luaxc {
             case IRInstruction::InstructionType::TO_BOOL:
                 out = "TO_BOOL";
                 break;
+            case IRInstruction::InstructionType::CALL:
+                out = "CALL";
+                out += " " + std::to_string(std::get<IRCallParam>(param).arguments_count);
+                break;
             default:
                 out = "UNKNOWN";
                 break;
@@ -151,6 +155,9 @@ namespace luaxc {
                 generate_declaration_statement(
                         static_cast<const DeclarationStmtNode*>(statement_node), byte_code);
                 break;
+            case StatementNode::StatementType::ForwardDeclarationStmt:
+                // todo: in the future this may be used to handle imports.
+                break;
             case StatementNode::StatementType::AssignmentStmt:
                 generate_assignment_statement(
                         static_cast<const AssignmentStmtNode*>(statement_node), byte_code);
@@ -175,6 +182,9 @@ namespace luaxc {
                 return generate_break_statement(byte_code);
             case StatementNode::StatementType::ContinueStmt:
                 return generate_continue_statement(byte_code);
+            case StatementNode::StatementType::FuncInvokeStmt:
+                return generate_function_invocation_statement(
+                        static_cast<const FunctionInvocationNode*>(statement_node), byte_code);
             default:
                 throw IRGeneratorException("Unsupported statement type");
         }
@@ -554,11 +564,35 @@ namespace luaxc {
 
     IRInterpreter::IRInterpreter() {
         push_stack_frame();// global scope
+        preload_native_functions();
     }
 
     IRInterpreter::~IRInterpreter() {
         assert(stack_frames.size() == 1);
         pop_stack_frame();
+        free_native_functions();
+    }
+
+    void IRGenerator::generate_function_invocation_statement(const FunctionInvocationNode* node, ByteCode& byte_code) {
+        const auto& args = node->get_arguments();
+        size_t arguments_count = args.size();
+
+        for (int i = arguments_count - 1; i >= 0; i--) {
+            // the arguments are pushed in reverse order
+            // so the first argument is at the top of the stack
+            generate_expression(args[i].get(), byte_code);
+        }
+
+        // load the function object
+        auto func_identifier = static_cast<IdentifierNode*>(node->get_function_identifier().get());
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::LOAD_IDENTIFIER, IRLoadIdentifierParam{func_identifier->get_name()}));
+
+        // push function object onto the stack
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::PUSH_STACK, {std::monostate()}));
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::CALL, IRCallParam{arguments_count}));
     }
 
     void IRInterpreter::run() {
@@ -630,6 +664,12 @@ namespace luaxc {
                     jumped = handle_jump(instruction.type, std::get<IRJumpParam>(instruction.param));
                     break;
 
+                case IRInstruction::InstructionType::CALL: {
+                    auto param = std::get<IRCallParam>(instruction.param);
+                    handle_function_invocation(param);
+                    break;
+                }
+
                 default:
                     throw IRInterpreterException("Invalid instruction type");
             }
@@ -664,6 +704,28 @@ namespace luaxc {
     void IRInterpreter::handle_to_bool() {
         auto& top = stack.top();
         top = PrimValue::from_bool(top.to_bool());
+    }
+
+    void IRInterpreter::handle_function_invocation(IRCallParam param) {
+        auto fn_obj = stack.top();
+        stack.pop();
+
+        if (fn_obj.get_type() != ValueType::Function) {
+            throw IRInterpreterException("Cannot invoke non-function");
+        }
+
+        auto fn = fn_obj.get_inner_value<FunctionObject*>();
+        if (fn->is_native_function()) {
+            std::vector<IRPrimValue> args(param.arguments_count);
+            for (size_t i = 0; i < param.arguments_count; i++) {
+                args[i] = stack.top();
+                stack.pop();
+            }
+            auto ret = fn->call_native(args);
+            stack.push(ret);
+        } else {
+            throw IRInterpreterException("Cannot invoke non-native function");
+        }
     }
 
     void IRInterpreter::handle_binary_op(IRInstruction::InstructionType op) {
@@ -783,6 +845,22 @@ namespace luaxc {
 
     bool IRInterpreter::has_identifier(const std::string& identifier) {
         return has_identifier_in_stack_frame(identifier);
+    }
+
+    void IRInterpreter::preload_native_functions() {
+        FunctionObject* println = FunctionObject::create_native_function(
+                [](std::vector<PrimValue> args) -> PrimValue {
+                    printf("%s\n", args[0].to_string().c_str());
+                    return PrimValue::unit();
+                });
+        native_functions.push_back(println);
+        store_value_in_stack_frame("println", PrimValue(ValueType::Function, println));
+    }
+
+    void IRInterpreter::free_native_functions() {
+        for (auto function: native_functions) {
+            delete function;
+        }
     }
 
     void IRInterpreter::push_stack_frame() {

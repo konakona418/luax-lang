@@ -161,6 +161,8 @@ namespace luaxc {
         void generate_break_statement(ByteCode& byte_code);
 
         void generate_continue_statement(ByteCode& byte_code);
+
+        void generate_function_invocation_statement(const FunctionInvocationNode* statement, ByteCode& byte_code);
     };
 
     class IRInterpreter {
@@ -190,6 +192,7 @@ namespace luaxc {
     private:
         struct StackFrame {
             std::unordered_map<std::string, IRPrimValue> variables;
+            size_t return_addr;
         };
 
         ByteCode byte_code;
@@ -197,6 +200,12 @@ namespace luaxc {
         std::vector<StackFrame> stack_frames;
         std::stack<IRPrimValue> stack;
         IRPrimValue output;
+
+        std::vector<FunctionObject*> native_functions;
+
+        void preload_native_functions();
+
+        void free_native_functions();
 
         void push_stack_frame();
 
@@ -219,6 +228,8 @@ namespace luaxc {
         bool handle_jump(IRInstruction::InstructionType op, IRJumpParam param);
 
         void handle_to_bool();
+
+        void handle_function_invocation(IRCallParam param);
 
         void handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs);
 
