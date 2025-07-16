@@ -147,12 +147,7 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> value;
 
-        if (current_token.type == TokenType::STRING_LITERAL) {
-            LUAXC_PARSER_THROW_NOT_IMPLEMENTED("Assigning strings");
-            // todo
-        } else {
-            value = parse_simple_expression();
-        }
+        value = parse_simple_expression();
 
         if (consume_semicolon) {
             consume(TokenType::SEMICOLON, "Expected ';' after assignment");
@@ -234,11 +229,8 @@ namespace luaxc {
         consume(TokenType::ASSIGN, "Expected '=' after identifier in assignment statement");
 
         std::unique_ptr<AstNode> value;
-        if (current_token.type == TokenType::STRING_LITERAL) {
-            LUAXC_PARSER_THROW_NOT_IMPLEMENTED("Assigning strings")
-        } else {
-            value = parse_simple_expression();
-        }
+
+        value = parse_simple_expression();
 
         if (consume_semicolon) {
             consume(TokenType::SEMICOLON, "Expected ';' after assignment statement");
@@ -526,8 +518,10 @@ namespace luaxc {
             node = parse_simple_expression();
             consume(TokenType::R_PARENTHESIS);
         } else if (current_token.type == TokenType::STRING_LITERAL) {
-            // todo: string literal
-            LUAXC_PARSER_THROW_NOT_IMPLEMENTED("String literals are not implemented yet.")
+            auto& str = current_token.value;
+            // remove the prefix and postfix quotation marks.
+            node = std::make_unique<StringLiteralNode>(str.substr(1, str.length() - 2));
+            consume(TokenType::STRING_LITERAL);
         }
         return node;
     }

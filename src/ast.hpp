@@ -165,9 +165,9 @@ namespace luaxc {
 
     class StringLiteralNode : public ExpressionNode {
     public:
-        StringLiteralNode(std::string value)
+        StringLiteralNode(const std::string& value)
             : ExpressionNode(ExpressionType::StringLiteral),
-              value(std::move(value)) {}
+              value(value) {}
 
         const std::string& get_value() const { return value; }
 

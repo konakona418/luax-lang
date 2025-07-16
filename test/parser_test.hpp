@@ -369,6 +369,16 @@ namespace parser_test {
         assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 3);
     }
 
+    inline void test_string_literal() {
+        std::string input = R"(
+        use println;
+        let str = "hello world!";
+        println(str);
+        )";
+
+        auto ir_interpreter = compile_run(input);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -380,6 +390,7 @@ namespace parser_test {
             test(test_unary_operator_logical_not);
             test(test_unary_operator_minus);
             test(test_combinative_assignment);
+            test(test_string_literal)
         }
         end_test();
 

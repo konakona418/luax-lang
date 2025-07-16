@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <functional>
 #include <sstream>
 #include <string>
@@ -44,8 +45,50 @@ namespace luaxc {
     using Int = int64_t;
     using Float = double;
 
-    class GCObject {};
-    using StringObject = std::string;
+    class GCObject {
+    public:
+        virtual std::string to_string() const { return "[gc object]"; };
+    };
+
+    template<typename Encoding>
+    class BasicStringObject : public GCObject {
+    public:
+        explicit BasicStringObject<Encoding>(const std::basic_string<Encoding>& str) {
+            length = str.length();// no null terminator.
+            this->data = static_cast<Encoding*>(std::malloc(sizeof(Encoding) * (length + 1)));
+            std::memcpy(this->data, str.data(), length + 1);
+        }
+
+        BasicStringObject<Encoding> operator=(const BasicStringObject<Encoding>& other) {
+            length = other.length;
+            this->data = static_cast<Encoding*>(std::malloc(sizeof(Encoding) * (length + 1)));
+            std::memcpy(this->data, other.data, length + 1);
+            return *this;
+        }
+
+        ~BasicStringObject<Encoding>() {
+            length = 0;
+            std::free(this->data);
+        }
+
+        const Encoding* c_str() const { return static_cast<const char*>(data); }
+
+        static BasicStringObject<Encoding>* from_string(const std::basic_string<Encoding>& str) {
+            return new BasicStringObject<Encoding>(str);
+        }
+
+        std::string to_string() const override {
+            return std::string(c_str());
+        }
+
+    private:
+        Encoding* data;
+        size_t length;
+    };
+
+    class StringObject : public BasicStringObject<char> {
+    };
+
     class ArrayObject;
     class FunctionObject;
 
@@ -80,10 +123,7 @@ namespace luaxc {
                 Bool,
                 Int,
                 Float,
-                StringObject,
                 GCObject*,
-                ArrayObject*,
-                FunctionObject*,
                 NullObject,
                 UnitObject>;
 
@@ -93,7 +133,7 @@ namespace luaxc {
 
         PrimValue(ValueType type, Value value) : type(type), value(std::move(value)) {}
 
-        static PrimValue from_string(const std::string& str) { return PrimValue(ValueType::String, std::move(str)); };
+        static PrimValue from_string(const std::string& str) { return PrimValue(ValueType::String, StringObject::from_string(str)); };
 
         static PrimValue from_i32(int32_t i) { return PrimValue(ValueType::Int, i); }
 
@@ -149,6 +189,10 @@ namespace luaxc {
     class FunctionObject : public GCObject {
     public:
         FunctionObject() = default;
+
+        std::string to_string() const override {
+            return "[function object]";
+        }
 
         template<typename Fn,
                  typename = std::enable_if_t<std::is_invocable_r_v<PrimValue, Fn, std::vector<PrimValue>>>>

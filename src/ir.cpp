@@ -7,15 +7,17 @@ namespace luaxc {
     std::string IRInstruction::dump() const {
         std::string out;
 
-        const auto cvt_numeric = [](IRPrimValue value) {
-            return value.to_string();
-        };
-
         switch (type) {
-            case IRInstruction::InstructionType::LOAD_CONST:
+            case IRInstruction::InstructionType::LOAD_CONST: {
                 out = "LOAD_CONST";
-                out += " " + (cvt_numeric(std::get<IRLoadConstParam>(param)));
+                auto& p = std::get<IRLoadConstParam>(param);
+                if (p.is_string()) {
+                    out += " [string object \"" + p.to_string() + "\"]";
+                } else {
+                    out += " " + p.to_string();
+                }
                 break;
+            }
             case IRInstruction::InstructionType::LOAD_IDENTIFIER:
                 out = "LOAD_IDENTIFIER";
                 out += " " + std::get<IRLoadIdentifierParam>(param).identifier;
@@ -204,8 +206,14 @@ namespace luaxc {
                 break;
             }
             case ExpressionNode::ExpressionType::StringLiteral: {
-                // todo: support strings
-                throw IRGeneratorException("String literals are not supported yet");
+                byte_code.push_back(
+                        IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
+                                      {IRLoadConstParam(
+                                              IRPrimValue(ValueType::String,
+                                                          StringObject::from_string(static_cast<const StringLiteralNode*>(node)->get_value())))}));
+                byte_code.push_back(
+                        IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
+                                      {std::monostate()}));
                 break;
             }
             case ExpressionNode::ExpressionType::AssignmentExpr: {
@@ -792,7 +800,8 @@ namespace luaxc {
             throw IRInterpreterException("Cannot invoke non-function");
         }
 
-        auto fn = fn_obj.get_inner_value<FunctionObject*>();
+        auto fn =
+                dynamic_cast<FunctionObject*>(fn_obj.get_inner_value<GCObject*>());
 
         if (fn->is_native_function()) {
             // only non-native functions generate RET command
