@@ -189,6 +189,15 @@ namespace luaxc {
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' enclosing function parameters");
 
+        if (current_token.type != TokenType::L_CURLY_BRACKET) {
+            // forward function declaration
+            consume(TokenType::SEMICOLON, "Expected ';' after forward function declaraton");
+            return std::make_unique<FunctionDeclarationNode>(
+                    std::move(identifier),
+                    std::move(parameters),
+                    nullptr);
+        }
+
         auto body = parse_block_statement();
 
         exit_scope();

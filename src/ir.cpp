@@ -627,6 +627,12 @@ namespace luaxc {
     void IRGenerator::generate_function_declaration_statement(
             const FunctionDeclarationNode* statement,
             ByteCode& byte_code) {
+        // forward declaration
+        if (statement->get_function_body() == nullptr) {
+            // todo: i'm not sure if this requires further handling.
+            return;
+        }
+
         size_t jump_over_function_instruction_index = byte_code.size();
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::JMP,

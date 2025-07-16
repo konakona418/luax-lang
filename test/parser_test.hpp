@@ -328,7 +328,7 @@ namespace parser_test {
     inline void test_deferred_function_declarations() {
         std::string input = R"(
         use println;
-        use add;
+        func add(a, b);
 
         let result;
 
