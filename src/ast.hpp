@@ -413,7 +413,7 @@ namespace luaxc {
               field_identifier(std::move(identifier)) {}
 
         FieldDeclarationStatementNode(std::unique_ptr<AstNode> identifier, std::unique_ptr<AstNode> type_decl)
-            : StatementNode(StatementType::FieldDeclarationStmt),
+            : StatementNode(StatementType::FieldDeclarationStmt), field_identifier(std::move(identifier)),
               type_declaration_expr(std::move(type_decl)) {}
 
         const std::unique_ptr<AstNode>& get_field_identifier() const { return field_identifier; }

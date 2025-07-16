@@ -173,7 +173,7 @@ namespace luaxc {
 
     std::unique_ptr<AstNode> Parser::parse_field_declaration_statement() {
         // 'field' identifier ('=' expr)? ';'
-        if (is_in_scope(ParserState::InTypeDeclarationScope)) {
+        if (!is_in_scope(ParserState::InTypeDeclarationScope)) {
             LUAXC_PARSER_THROW_ERROR("Field declaration outside of a type declaration")
         }
 
@@ -601,6 +601,7 @@ namespace luaxc {
             }
             case (TokenType::KEYWORD_TYPE): {
                 node = parse_type_declaration_expression();
+                break;
             }
             default:
                 LUAXC_PARSER_THROW_NOT_IMPLEMENTED("unknown primary expr")
@@ -645,10 +646,6 @@ namespace luaxc {
         exit_scope();
 
         consume(TokenType::R_CURLY_BRACKET, "Block statement not closed with '}'");
-
-        if (current_token.type == TokenType::SEMICOLON) {
-            LUAXC_PARSER_THROW_ERROR("Unexpected semicolon after block")
-        }
 
         return std::make_unique<BlockNode>(std::move(statements));
     }

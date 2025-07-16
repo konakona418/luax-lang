@@ -134,9 +134,11 @@ namespace luaxc {
             TypeObject* type_ptr;
         };
 
+        TypeObject() : type_name("<anonymous>") {};
+
         explicit TypeObject(const std::string& type_name) : type_name(type_name) {}
 
-        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(any, "_Any")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(any, "Any")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(int_, "Int")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(float_, "Float")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(bool_, "Bool")
@@ -149,7 +151,7 @@ namespace luaxc {
 
         static std::vector<std::pair<std::string, TypeObject*>> get_all_static_type_info() {
             return {
-                    {"_Any", any()},
+                    {"Any", any()},
                     {"Int", int_()},
                     {"Float", float_()},
                     {"Bool", bool_()},
@@ -168,6 +170,8 @@ namespace luaxc {
         bool has_field(const std::string& name) { return fields.find(name) != fields.end(); }
 
         static TypeObject* create(const std::string& type_name) { return new TypeObject(type_name); }
+
+        static TypeObject* create() { return new TypeObject(); }
 
     private:
         std::string type_name;

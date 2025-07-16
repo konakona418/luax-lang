@@ -379,6 +379,20 @@ namespace parser_test {
         auto ir_interpreter = compile_run(input);
     }
 
+    inline void test_type_decl() {
+        std::string input = R"(
+        use println;
+        use Int;
+
+        let MyType = type {
+            field x = Int();
+            field y = Int();
+        };
+        )";
+
+        auto ir_interpreter = compile_run(input);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -437,5 +451,10 @@ namespace parser_test {
             test(test_nested_function_declaration);
         }
         end_test();
+
+        begin_test("parser-type") {
+            test(test_type_decl);
+        }
+        end_test()
     }
 }// namespace parser_test

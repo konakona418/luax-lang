@@ -86,6 +86,11 @@ namespace luaxc {
             PUSH_STACK,// push output to stack
             POP_STACK, // pop value from stack
 
+            MAKE_TYPE,// make a type using stack frame local vars
+
+            BEGIN_LOCAL,// force push a stack frame
+            END_LOCAL,  // force pop
+
             CALL,
             RET,
         };
@@ -146,6 +151,8 @@ namespace luaxc {
         void generate_statement(const StatementNode* statement, ByteCode& byte_code);
 
         void generate_expression(const ExpressionNode* expression, ByteCode& byte_code);
+
+        void generate_type_decl_expression(const TypeDeclarationExpressionNode* expression, ByteCode& byte_code);
 
         void generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code);
 
@@ -254,6 +261,8 @@ namespace luaxc {
         void handle_unary_op(IRInstruction::InstructionType op);
 
         bool handle_jump(IRInstruction::InstructionType op, IRJumpParam param);
+
+        void handle_type_creation();
 
         void handle_to_bool();
 

@@ -107,6 +107,15 @@ namespace luaxc {
             case IRInstruction::InstructionType::RET:
                 out += "RET";
                 break;
+            case IRInstruction::InstructionType::BEGIN_LOCAL:
+                out += "BEGIN_LOCAL";
+                break;
+            case IRInstruction::InstructionType::END_LOCAL:
+                out += "END_LOCAL";
+                break;
+            case IRInstruction::InstructionType::MAKE_TYPE:
+                out += "MAKE_TYPE";
+                break;
             default:
                 out = "UNKNOWN";
                 break;
@@ -220,6 +229,10 @@ namespace luaxc {
                 generate_function_invocation_statement(static_cast<const FunctionInvocationExpressionNode*>(node), byte_code);
                 break;
             }
+            case ExpressionNode::ExpressionType::TypeDecl: {
+                generate_type_decl_expression(static_cast<const TypeDeclarationExpressionNode*>(node), byte_code);
+                break;
+            }
             default:
                 throw IRGeneratorException("Unsupported expression type");
         }
@@ -229,6 +242,49 @@ namespace luaxc {
             byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
         }
+    }
+
+    void IRGenerator::generate_type_decl_expression(const TypeDeclarationExpressionNode* expression, ByteCode& byte_code) {
+        auto* decl_block = static_cast<BlockNode*>(expression->get_type_statements_block().get());
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::BEGIN_LOCAL,
+                              {std::monostate()}));
+
+        // recursively assign all
+        for (auto& s: decl_block->get_statements()) {
+            auto stmt = static_cast<StatementNode*>(s.get());
+            if (stmt->get_statement_type() == StatementNode::StatementType::FieldDeclarationStmt) {
+                auto field = static_cast<FieldDeclarationStatementNode*>(stmt);
+                auto field_name = static_cast<IdentifierNode*>(field->get_field_identifier().get())->get_name();
+
+                TypeObject* type_info;
+
+                if (field->get_type_declaration_expr() == nullptr) {
+                    throw IRGeneratorException("Any type is not supported");
+                }
+
+                generate_expression(static_cast<ExpressionNode*>(field->get_type_declaration_expr().get()), byte_code);
+
+                byte_code.push_back(
+                        IRInstruction(IRInstruction::InstructionType::POP_STACK,
+                                      {std::monostate()}));
+
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::STORE_IDENTIFIER,
+                        IRStoreIdentifierParam{field_name}));
+            } else {
+                throw IRGeneratorException("Unknown type declaration statement");
+            }
+        }
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::MAKE_TYPE,
+                              {std::monostate()}));
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::END_LOCAL,
+                              {std::monostate()}));
     }
 
 
@@ -783,6 +839,20 @@ namespace luaxc {
                     break;
                 }
 
+                case IRInstruction::InstructionType::MAKE_TYPE: {
+                    handle_type_creation();
+                    break;
+                }
+
+                case IRInstruction::InstructionType::BEGIN_LOCAL: {
+                    push_stack_frame();
+                    break;
+                }
+                case IRInstruction::InstructionType::END_LOCAL: {
+                    pop_stack_frame();
+                    break;
+                }
+
                 default:
                     throw IRInterpreterException("Invalid instruction type");
             }
@@ -812,6 +882,24 @@ namespace luaxc {
                 throw IRInterpreterException("Unknown instruction type");
         }
         return false;
+    }
+
+    void IRInterpreter::handle_type_creation() {
+        TypeObject* type_info = TypeObject::create();
+
+        for (auto& [name, value]: current_stack_frame().variables) {
+            if (value.get_type() != ValueType::Type) {
+                throw IRInterpreterException("Not a valid type");
+            }
+
+            type_info->add_field(
+                    name,
+                    TypeObject::TypeField{
+                            static_cast<TypeObject*>(value.get_inner_value<GCObject*>())});
+        }
+
+        runtime.push_gc_object(type_info);
+        stack.push(IRPrimValue(ValueType::Type, static_cast<GCObject*>(type_info)));
     }
 
     void IRInterpreter::handle_to_bool() {
@@ -993,7 +1081,7 @@ namespace luaxc {
                     return PrimValue::unit();
                 });
         runtime.push_gc_object(println);
-        store_value_in_stack_frame("println", PrimValue(ValueType::Function, println));
+        store_value_in_global_scope("println", PrimValue(ValueType::Function, println));
 
         FunctionObject* print = FunctionObject::create_native_function(
                 [](std::vector<PrimValue> args) -> PrimValue {
@@ -1003,7 +1091,13 @@ namespace luaxc {
                     return PrimValue::unit();
                 });
         runtime.push_gc_object(print);
-        store_value_in_stack_frame("print", PrimValue(ValueType::Function, print));
+        store_value_in_global_scope("print", PrimValue(ValueType::Function, print));
+
+        FunctionObject* int_type = FunctionObject::create_native_function([this](std::vector<PrimValue>) -> PrimValue {
+            return PrimValue(ValueType::Type, runtime.get_type_info("Int"));
+        });
+        runtime.push_gc_object(int_type);
+        store_value_in_global_scope("Int", PrimValue(ValueType::Function, int_type));
     }
 
     void IRInterpreter::push_stack_frame() {
