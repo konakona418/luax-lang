@@ -43,6 +43,8 @@ namespace luaxc {
     public:
         enum class StatementType {
             DeclarationStmt,
+            FieldDeclarationStmt,
+            MethodDeclarationStmt,
             ForwardDeclarationStmt,// use
             ExpressionStmt,
             BlockStmt,
@@ -70,6 +72,7 @@ namespace luaxc {
             Identifier,
             NumericLiteral,
             StringLiteral,
+            TypeDecl,
             AssignmentExpr,
             BinaryExpr,
             UnaryExpr,
@@ -390,4 +393,40 @@ namespace luaxc {
         std::unique_ptr<AstNode> function_identifier;
         std::vector<std::unique_ptr<AstNode>> arguments_expr;
     };
+
+    class TypeDeclarationExpressionNode : public ExpressionNode {
+    public:
+        explicit TypeDeclarationExpressionNode(std::unique_ptr<AstNode> type_statements_block)
+            : ExpressionNode(ExpressionType::TypeDecl),
+              type_statements_block(std::move(type_statements_block)) {};
+
+        const std::unique_ptr<AstNode>& get_type_statements_block() const { return type_statements_block; }
+
+    private:
+        std::unique_ptr<AstNode> type_statements_block;
+    };
+
+    class FieldDeclarationStatementNode : public StatementNode {
+    public:
+        explicit FieldDeclarationStatementNode(std::unique_ptr<AstNode> identifier)
+            : StatementNode(StatementType::FieldDeclarationStmt),
+              field_identifier(std::move(identifier)) {}
+
+        FieldDeclarationStatementNode(std::unique_ptr<AstNode> identifier, std::unique_ptr<AstNode> type_decl)
+            : StatementNode(StatementType::FieldDeclarationStmt),
+              type_declaration_expr(std::move(type_decl)) {}
+
+        const std::unique_ptr<AstNode>& get_field_identifier() const { return field_identifier; }
+
+        const std::unique_ptr<AstNode>& get_type_declaration_expr() const { return type_declaration_expr; }
+
+    private:
+        std::unique_ptr<AstNode> field_identifier;
+        std::unique_ptr<AstNode> type_declaration_expr;// nullable
+    };
+
+    class MethodDeclarationStatementNode : public StatementNode {
+        // todo
+    };
+
 }// namespace luaxc

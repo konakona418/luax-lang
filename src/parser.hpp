@@ -38,10 +38,24 @@ namespace luaxc {
         std::unique_ptr<AstNode> parse_program();
 
     private:
+        enum class ParserState {
+            Start,
+            InScope,
+            InTypeDeclarationScope,
+            // todo: add when needed
+        };
+
+        struct ParserStackFrame {
+            ParserState state;
+            std::unordered_set<std::string> identifiers;
+
+            explicit ParserStackFrame(ParserState state) : state(state) {}
+        };
+
         Lexer& lexer;
         Token current_token;
 
-        std::vector<std::unordered_set<std::string>> scopes;
+        std::vector<ParserStackFrame> scopes;
 
         void consume(TokenType expected);
 
@@ -49,7 +63,7 @@ namespace luaxc {
 
         void next_token();
 
-        void enter_scope();
+        void enter_scope(ParserState state = ParserState::InScope);
 
         void exit_scope();
 
@@ -57,9 +71,15 @@ namespace luaxc {
 
         bool is_identifier_declared(const std::string& identifier) const;
 
+        bool is_in_scope(ParserState state) const;
+
         std::unique_ptr<AstNode> parse_statement();
 
         std::unique_ptr<AstNode> parse_declaration_statement(bool consume_semicolon = true);
+
+        std::unique_ptr<AstNode> parse_field_declaration_statement();
+
+        std::unique_ptr<AstNode> parse_method_declaration_statement();
 
         std::unique_ptr<AstNode> parse_forward_declaration_statement();
 
@@ -70,6 +90,8 @@ namespace luaxc {
         std::unique_ptr<AstNode> parse_identifier();
 
         std::unique_ptr<AstNode> parse_expression(bool consume_semicolon = true);
+
+        std::unique_ptr<AstNode> parse_type_declaration_expression();
 
         std::unique_ptr<AstNode> parse_assignment_expression(bool consume_semicolon = true);
 

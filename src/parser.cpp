@@ -26,8 +26,8 @@ namespace luaxc {
         current_token = lexer.next();
     }
 
-    void Parser::enter_scope() {
-        scopes.emplace_back();
+    void Parser::enter_scope(Parser::ParserState state) {
+        scopes.emplace_back(state);
     }
 
     void Parser::exit_scope() {
@@ -35,12 +35,21 @@ namespace luaxc {
     }
 
     void Parser::declare_identifier(const std::string& identifier) {
-        scopes.back().insert(identifier);
+        scopes.back().identifiers.insert(identifier);
     }
 
     bool Parser::is_identifier_declared(const std::string& identifier) const {
-        for (int i = static_cast<int>(scopes.size()) - 1; i >= 0; --i) {
-            if (scopes[i].find(identifier) != scopes[i].end()) {
+        for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+            if (it->identifiers.find(identifier) != it->identifiers.end()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool Parser::is_in_scope(ParserState state) const {
+        for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+            if (it->state == state) {
                 return true;
             }
         }
@@ -48,7 +57,7 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_program() {
-        enter_scope();
+        enter_scope(ParserState::Start);
 
         auto program = std::make_unique<ProgramNode>();
         while (current_token.type != TokenType::TERMINATOR) {
@@ -65,6 +74,12 @@ namespace luaxc {
         switch (current_token.type) {
             case TokenType::KEYWORD_LET:
                 parsed = parse_declaration_statement();
+                break;
+            case TokenType::KEYWORD_FIELD:
+                parsed = parse_field_declaration_statement();
+                break;
+            case TokenType::KEYWORD_METHOD:
+                parsed = parse_method_declaration_statement();
                 break;
             case TokenType::KEYWORD_USE:
                 parsed = parse_forward_declaration_statement();
@@ -154,6 +169,36 @@ namespace luaxc {
         }
 
         return std::make_unique<DeclarationStmtNode>(std::move(identifiers), std::move(value));
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_field_declaration_statement() {
+        // 'field' identifier ('=' expr)? ';'
+        if (is_in_scope(ParserState::InTypeDeclarationScope)) {
+            LUAXC_PARSER_THROW_ERROR("Field declaration outside of a type declaration")
+        }
+
+        consume(TokenType::KEYWORD_FIELD, "Expected keyword 'field'");
+
+        auto identifier = std::make_unique<IdentifierNode>(current_token.value);
+        declare_identifier(current_token.value);
+
+        consume(TokenType::IDENTIFIER, "Expected identifier in field declaration");
+
+        std::unique_ptr<AstNode> type_decl_expr = nullptr;
+        if (current_token.type == TokenType::ASSIGN) {
+            consume(TokenType::ASSIGN);
+
+            type_decl_expr = parse_simple_expression();
+        }
+
+        consume(TokenType::SEMICOLON, "Expected semicolon after field declaration");
+
+        return std::make_unique<FieldDeclarationStatementNode>(
+                std::move(identifier), std::move(type_decl_expr));
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_method_declaration_statement() {
+        LUAXC_PARSER_THROW_NOT_IMPLEMENTED("method declaration");
     }
 
     std::unique_ptr<AstNode> Parser::parse_forward_declaration_statement() {
@@ -254,6 +299,16 @@ namespace luaxc {
             consume(TokenType::SEMICOLON, "Expected ';' after expression");
         }
         return node;
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_type_declaration_expression() {
+        consume(TokenType::KEYWORD_TYPE, "Expected keyword 'type'");
+
+        enter_scope(ParserState::InTypeDeclarationScope);
+        auto type_decl = parse_block_statement();
+        exit_scope();
+
+        return std::make_unique<TypeDeclarationExpressionNode>(std::move(type_decl));
     }
 
     std::unique_ptr<AstNode> Parser::parse_assignment_expression(bool consume_semicolon) {
@@ -499,39 +554,58 @@ namespace luaxc {
 
     std::unique_ptr<AstNode> Parser::parse_primary() {
         std::unique_ptr<AstNode> node;
-        if (current_token.type == TokenType::NUMBER) {
-            if (current_token.value.find('.') != std::string::npos) {
-                node = std::make_unique<NumericLiteralNode>(
-                        NumericLiteralNode::NumericLiteralType::Float, current_token.value);
-            } else {
-                node = std::make_unique<NumericLiteralNode>(
-                        NumericLiteralNode::NumericLiteralType::Integer, current_token.value);
-            }
-            consume(TokenType::NUMBER);
-        } else if (current_token.type == TokenType::IDENTIFIER) {
-            node = std::make_unique<IdentifierNode>(current_token.value);
+        switch (current_token.type) {
+            case (TokenType::NUMBER): {
+                if (current_token.value.find('.') != std::string::npos) {
+                    node = std::make_unique<NumericLiteralNode>(
+                            NumericLiteralNode::NumericLiteralType::Float, current_token.value);
+                } else {
+                    node = std::make_unique<NumericLiteralNode>(
+                            NumericLiteralNode::NumericLiteralType::Integer, current_token.value);
+                }
+                consume(TokenType::NUMBER);
 
-            auto name = static_cast<IdentifierNode*>(node.get())->get_name();
-            if (!is_identifier_declared(name)) {
-                LUAXC_PARSER_THROW_ERROR("Identifier not declared: '" + name + "'")
+                break;
             }
+            case (TokenType::IDENTIFIER): {
+                node = std::make_unique<IdentifierNode>(current_token.value);
 
-            consume(TokenType::IDENTIFIER);
+                auto name = static_cast<IdentifierNode*>(node.get())->get_name();
+                if (!is_identifier_declared(name)) {
+                    LUAXC_PARSER_THROW_ERROR("Identifier not declared: '" + name + "'")
+                }
 
-            // potential function invocation
-            if (current_token.type == TokenType::L_PARENTHESIS) {
-                node = parse_function_invocation_statement(std::move(node));
+                consume(TokenType::IDENTIFIER);
+
+                // potential function invocation
+                if (current_token.type == TokenType::L_PARENTHESIS) {
+                    node = parse_function_invocation_statement(std::move(node));
+                }
+
+                break;
             }
-        } else if (current_token.type == TokenType::L_PARENTHESIS) {
-            consume(TokenType::L_PARENTHESIS);
-            node = parse_simple_expression();
-            consume(TokenType::R_PARENTHESIS);
-        } else if (current_token.type == TokenType::STRING_LITERAL) {
-            auto& str = current_token.value;
-            // remove the prefix and postfix quotation marks.
-            node = std::make_unique<StringLiteralNode>(str.substr(1, str.length() - 2));
-            consume(TokenType::STRING_LITERAL);
+            case (TokenType::L_PARENTHESIS): {
+                consume(TokenType::L_PARENTHESIS);
+                node = parse_simple_expression();
+                consume(TokenType::R_PARENTHESIS);
+
+                break;
+            }
+            case (TokenType::STRING_LITERAL): {
+                auto& str = current_token.value;
+                // remove the prefix and postfix quotation marks.
+                node = std::make_unique<StringLiteralNode>(str.substr(1, str.length() - 2));
+                consume(TokenType::STRING_LITERAL);
+
+                break;
+            }
+            case (TokenType::KEYWORD_TYPE): {
+                node = parse_type_declaration_expression();
+            }
+            default:
+                LUAXC_PARSER_THROW_NOT_IMPLEMENTED("unknown primary expr")
         }
+
         return node;
     }
 
@@ -558,7 +632,7 @@ namespace luaxc {
 
         consume(TokenType::L_CURLY_BRACKET, "Expected '{'");
 
-        enter_scope();
+        enter_scope(ParserState::InScope);
 
         while (current_token.type != TokenType::R_CURLY_BRACKET) {
             statements.push_back(parse_statement());
