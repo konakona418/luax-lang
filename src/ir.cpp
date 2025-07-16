@@ -197,26 +197,11 @@ namespace luaxc {
                 break;
             }
             case ExpressionNode::ExpressionType::NumericLiteral: {
-                byte_code.push_back(
-                        IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
-                                      {IRLoadConstParam(static_cast<const NumericLiteralNode*>(node)->get_value())}));
-                byte_code.push_back(
-                        IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
-                                      {std::monostate()}));
+                generate_numeric_literal(static_cast<const NumericLiteralNode*>(node), byte_code);
                 break;
             }
             case ExpressionNode::ExpressionType::StringLiteral: {
-                auto* string_obj =
-                        StringObject::from_string(static_cast<const StringLiteralNode*>(node)->get_value());
-                runtime.push_gc_object(string_obj);
-
-                byte_code.push_back(
-                        IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
-                                      {IRLoadConstParam(
-                                              IRPrimValue(ValueType::String, string_obj))}));
-                byte_code.push_back(
-                        IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
-                                      {std::monostate()}));
+                generate_string_literal(static_cast<const StringLiteralNode*>(node), byte_code);
                 break;
             }
             case ExpressionNode::ExpressionType::AssignmentExpr: {
@@ -244,6 +229,39 @@ namespace luaxc {
             byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
         }
+    }
+
+
+    void IRGenerator::generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code) {
+        auto type = statement->get_type();
+        auto value = IRLoadConstParam(statement->get_value());
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
+                              {value}));
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
+                              {std::monostate()}));
+    }
+
+    void IRGenerator::generate_string_literal(const StringLiteralNode* statement, ByteCode& byte_code) {
+        StringObject* string_obj;
+
+        if (runtime.is_string_in_pool(statement->get_value())) {
+            string_obj = runtime.get_string_from_pool(statement->get_value());
+        } else {
+            string_obj = static_cast<StringObject*>(StringObject::from_string(statement->get_value()));
+            runtime.push_gc_object(string_obj);
+            runtime.push_string_to_pool(statement->get_value(), string_obj);
+        }
+
+        auto value = IRPrimValue(ValueType::String, string_obj);
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
+                              {IRLoadConstParam(value)}));
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
+                              {std::monostate()}));
     }
 
     void IRGenerator::generate_declaration_statement(const DeclarationStmtNode* node, ByteCode& byte_code) {
@@ -1035,5 +1053,13 @@ namespace luaxc {
 
     void IRInterpreter::store_value_in_global_scope(const std::string& identifier, IRPrimValue value) {
         global_stack_frame().variables[identifier] = value;
+    }
+
+    void IRRuntime::init_builtin_type_info() {
+        auto static_type_info = TypeObject::get_all_static_type_info();
+
+        for (const auto [name, type]: static_type_info) {
+            type_info.emplace(name, type);
+        }
     }
 }// namespace luaxc

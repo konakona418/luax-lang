@@ -36,6 +36,7 @@ namespace luaxc {
         Function,
         Array,
         Object,
+        Type,
         Null,
         Unit,
         Unknown
@@ -45,9 +46,14 @@ namespace luaxc {
     using Int = int64_t;
     using Float = double;
 
+    class TypeObject;
+
     class GCObject {
     public:
         virtual std::string to_string() const { return "[gc object]"; };
+
+    protected:
+        TypeObject* object_type_info;
     };
 
     template<typename Encoding>
@@ -116,6 +122,58 @@ namespace luaxc {
         bool operator!=(const UnitObject&) const { return false; }
     };
 
+#define LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(fn_name, type_name) \
+    static TypeObject* fn_name() {                                  \
+        static TypeObject int_type = TypeObject(type_name);         \
+        return &int_type;                                           \
+    }
+
+    class TypeObject : public GCObject {
+    public:
+        struct TypeField {
+            TypeObject* type_ptr;
+        };
+
+        explicit TypeObject(const std::string& type_name) : type_name(type_name) {}
+
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(any, "_Any")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(int_, "Int")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(float_, "Float")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(bool_, "Bool")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(function, "Function")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(gc_string, "String")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(gc_object, "Object")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(unit, "Unit")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(null, "Null")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(type, "Type")
+
+        static std::vector<std::pair<std::string, TypeObject*>> get_all_static_type_info() {
+            return {
+                    {"_Any", any()},
+                    {"Int", int_()},
+                    {"Float", float_()},
+                    {"Bool", bool_()},
+                    {"Function", function()},
+                    {"String", gc_string()},
+                    {"Object", gc_object()},
+                    {"Unit", unit()},
+                    {"Null", null()},
+                    {"Type", type()}};
+        }
+
+        void add_field(const std::string& name, TypeField field) { fields.emplace(name, field); }
+
+        TypeField get_field(const std::string& name) { return fields.at(name); }
+
+        bool has_field(const std::string& name) { return fields.find(name) != fields.end(); }
+
+        static TypeObject* create(const std::string& type_name) { return new TypeObject(type_name); }
+
+    private:
+        std::string type_name;
+        std::unordered_map<std::string, TypeField> fields;
+    };
+
     class PrimValue {
     public:
         using Value = std::variant<
@@ -127,11 +185,17 @@ namespace luaxc {
                 NullObject,
                 UnitObject>;
 
-        PrimValue() : type(ValueType::Unknown) {}
+        PrimValue() : type(ValueType::Unknown) {
+            type_info = TypeObject::any();
+        }
 
-        explicit PrimValue(ValueType type) : type(type), value(std::monostate()) {}
+        explicit PrimValue(ValueType type) : type(type), value(std::monostate()) {
+            type_info = select_value_type_info(type);
+        }
 
-        PrimValue(ValueType type, Value value) : type(type), value(std::move(value)) {}
+        PrimValue(ValueType type, Value value) : type(type), value(std::move(value)) {
+            type_info = select_value_type_info(type);
+        }
 
         static PrimValue from_string(const std::string& str) { return PrimValue(ValueType::String, StringObject::from_string(str)); };
 
@@ -181,9 +245,17 @@ namespace luaxc {
 
         bool operator==(const PrimValue& other) const;
 
+        void set_type_info(TypeObject* info) { type_info = info; }
+
+        TypeObject* get_type_info() const { return type_info; }
+
     private:
         ValueType type;
         Value value;
+
+        TypeObject* type_info;
+
+        static TypeObject* select_value_type_info(ValueType type);
     };
 
     class FunctionObject : public GCObject {

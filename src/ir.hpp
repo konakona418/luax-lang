@@ -147,6 +147,10 @@ namespace luaxc {
 
         void generate_expression(const ExpressionNode* expression, ByteCode& byte_code);
 
+        void generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code);
+
+        void generate_string_literal(const StringLiteralNode* statement, ByteCode& byte_code);
+
         void generate_binary_expression_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
 
         void generate_combinative_assignment_statement(const BinaryExpressionNode* statement, ByteCode& byte_code);
@@ -262,7 +266,9 @@ namespace luaxc {
 
     class IRRuntime {
     public:
-        IRRuntime() = default;
+        IRRuntime() {
+            init_builtin_type_info();
+        }
 
         ~IRRuntime() {
             for (auto* object: objects) {
@@ -296,9 +302,33 @@ namespace luaxc {
 
         const ByteCode& get_byte_code() const { return byte_code; }
 
+        void init_builtin_type_info();
+
+        TypeObject* get_type_info(const std::string& name) { return type_info[name]; }
+
+        bool has_type_info(const std::string& name) { return type_info.find(name) != type_info.end(); }
+
+        void push_string_to_pool(const std::string& name, StringObject* obj) {
+            constant_pools.string_const_pool.emplace(name, obj);
+        }
+
+        StringObject* get_string_from_pool(const std::string& name) {
+            return constant_pools.string_const_pool.at(name);
+        }
+
+        bool is_string_in_pool(const std::string& name) {
+            return constant_pools.string_const_pool.find(name) != constant_pools.string_const_pool.end();
+        }
+
     private:
+        struct {
+            std::unordered_map<std::string, StringObject*> string_const_pool;
+        } constant_pools;
+
         std::unique_ptr<IRGenerator> generator = nullptr;
         std::unique_ptr<IRInterpreter> interpreter = nullptr;
+
+        std::unordered_map<std::string, TypeObject*> type_info;
 
         std::vector<GCObject*> objects;
 

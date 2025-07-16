@@ -150,6 +150,31 @@ namespace luaxc {
         return std::visit(to_bool_impl, value);
     }
 
+    TypeObject* PrimValue::select_value_type_info(ValueType type) {
+        switch (type) {
+            case ValueType::Int:
+                return TypeObject::int_();
+            case ValueType::Float:
+                return TypeObject::float_();
+            case ValueType::Boolean:
+                return TypeObject::bool_();
+            case ValueType::Unit:
+                return TypeObject::unit();
+            case ValueType::Null:
+                return TypeObject::null();
+            case ValueType::String:
+                return TypeObject::gc_string();
+            case ValueType::Function:
+                return TypeObject::function();
+            case ValueType::Type:
+                return TypeObject::type();
+            case ValueType::Object:
+                return TypeObject::gc_object();
+            default:
+                return TypeObject::any();
+        }
+    }
+
     namespace detail {
         LUAXC_GC_VALUE_DEFINE_PRIM_BINARY_COMPARE(prim_value_eq, ==)
         LUAXC_GC_VALUE_DEFINE_PRIM_BINARY_COMPARE(prim_value_neq, !=)
