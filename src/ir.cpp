@@ -206,11 +206,14 @@ namespace luaxc {
                 break;
             }
             case ExpressionNode::ExpressionType::StringLiteral: {
+                auto* string_obj =
+                        StringObject::from_string(static_cast<const StringLiteralNode*>(node)->get_value());
+                runtime.push_gc_object(string_obj);
+
                 byte_code.push_back(
                         IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
                                       {IRLoadConstParam(
-                                              IRPrimValue(ValueType::String,
-                                                          StringObject::from_string(static_cast<const StringLiteralNode*>(node)->get_value())))}));
+                                              IRPrimValue(ValueType::String, string_obj))}));
                 byte_code.push_back(
                         IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
                                       {std::monostate()}));
