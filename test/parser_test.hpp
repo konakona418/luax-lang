@@ -393,6 +393,24 @@ namespace parser_test {
         auto ir_interpreter = compile_run(input);
     }
 
+    inline void test_generic_type_factory() {
+        std::string input = R"(
+        use println;
+        use Int;
+
+        func Vector2(TData) {
+            return type {
+                field x = TData;
+                field y = TData;
+            };
+        }
+
+        let Vector2Int = Vector2(Int());
+        )";
+
+        auto ir_interpreter = compile_run(input);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -454,6 +472,7 @@ namespace parser_test {
 
         begin_test("parser-type") {
             test(test_type_decl);
+            test(test_generic_type_factory);
         }
         end_test()
     }

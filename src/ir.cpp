@@ -113,6 +113,9 @@ namespace luaxc {
             case IRInstruction::InstructionType::END_LOCAL:
                 out += "END_LOCAL";
                 break;
+            case IRInstruction::InstructionType::BEGIN_LOCAL_DERIVED:
+                out += "BEGIN_LOCAL_DERIVED";
+                break;
             case IRInstruction::InstructionType::MAKE_TYPE:
                 out += "MAKE_TYPE";
                 break;
@@ -248,7 +251,7 @@ namespace luaxc {
         auto* decl_block = static_cast<BlockNode*>(expression->get_type_statements_block().get());
 
         byte_code.push_back(
-                IRInstruction(IRInstruction::InstructionType::BEGIN_LOCAL,
+                IRInstruction(IRInstruction::InstructionType::BEGIN_LOCAL_DERIVED,
                               {std::monostate()}));
 
         // recursively assign all
@@ -845,11 +848,16 @@ namespace luaxc {
                 }
 
                 case IRInstruction::InstructionType::BEGIN_LOCAL: {
-                    push_stack_frame();
+                    push_stack_frame(false);
                     break;
                 }
                 case IRInstruction::InstructionType::END_LOCAL: {
                     pop_stack_frame();
+                    break;
+                }
+
+                case IRInstruction::InstructionType::BEGIN_LOCAL_DERIVED: {
+                    push_stack_frame(true);
                     break;
                 }
 
@@ -1038,8 +1046,8 @@ namespace luaxc {
     }
 
     IRPrimValue IRInterpreter::retrieve_raw_value(const std::string& identifier) {
-        if (has_identifier_in_stack_frame(identifier)) {
-            return retrieve_raw_value_in_stack_frame(identifier);
+        if (auto idx = has_identifier_in_stack_frame(identifier)) {
+            return retrieve_raw_value_in_desired_stack_frame(identifier, idx.value());
         } else if (has_identifier_in_global_scope(identifier)) {
             return retrieve_raw_value_in_global_scope(identifier);
         } else {
@@ -1048,8 +1056,8 @@ namespace luaxc {
     }
 
     IRPrimValue& IRInterpreter::retrieve_raw_value_ref(const std::string& identifier) {
-        if (has_identifier_in_stack_frame(identifier)) {
-            return retrieve_value_ref_in_stack_frame(identifier);
+        if (auto idx = has_identifier_in_stack_frame(identifier)) {
+            return retrieve_value_ref_in_desired_stack_frame(identifier, idx.value());
         } else if (has_identifier_in_global_scope(identifier)) {
             return retrieve_value_ref_in_global_scope(identifier);
         } else {
@@ -1100,9 +1108,9 @@ namespace luaxc {
         store_value_in_global_scope("Int", PrimValue(ValueType::Function, int_type));
     }
 
-    void IRInterpreter::push_stack_frame() {
+    void IRInterpreter::push_stack_frame(bool allow_propagation) {
         size_t return_addr = pc + 1;
-        stack_frames.emplace_back(return_addr);
+        stack_frames.emplace_back(return_addr, allow_propagation);
     }
 
     void IRInterpreter::pop_stack_frame() {
@@ -1117,19 +1125,36 @@ namespace luaxc {
         return stack_frames[0];
     }
 
-    bool IRInterpreter::has_identifier_in_stack_frame(const std::string& identifier) {
-        return current_stack_frame().variables.find(identifier) != current_stack_frame().variables.end();
+    std::optional<size_t> IRInterpreter::has_identifier_in_stack_frame(const std::string& identifier) {
+        for (int idx = stack_frames.size() - 1; idx >= 0; idx--) {
+            if (stack_frames[idx].variables.find(identifier) != stack_frames[idx].variables.end()) {
+                return {static_cast<size_t>(idx)};
+            }
+
+            if (!stack_frames[idx].allow_upward_propagation) {
+                break;
+            }
+        }
+        return std::nullopt;
     }
 
     bool IRInterpreter::has_identifier_in_global_scope(const std::string& identifier) {
         return global_stack_frame().variables.find(identifier) != stack_frames[0].variables.end();
     }
 
-    IRPrimValue IRInterpreter::retrieve_raw_value_in_stack_frame(const std::string& identifier) {
+    IRPrimValue IRInterpreter::retrieve_raw_value_in_desired_stack_frame(const std::string& identifier, size_t idx) {
+        return stack_frames[idx].variables.at(identifier);
+    }
+
+    IRPrimValue& IRInterpreter::retrieve_value_ref_in_desired_stack_frame(const std::string& identifier, size_t idx) {
+        return stack_frames[idx].variables.at(identifier);
+    }
+
+    IRPrimValue IRInterpreter::retrieve_raw_value_in_current_stack_frame(const std::string& identifier) {
         return current_stack_frame().variables.at(identifier);
     }
 
-    IRPrimValue& IRInterpreter::retrieve_value_ref_in_stack_frame(const std::string& identifier) {
+    IRPrimValue& IRInterpreter::retrieve_value_ref_in_current_stack_frame(const std::string& identifier) {
         return current_stack_frame().variables.at(identifier);
     }
 

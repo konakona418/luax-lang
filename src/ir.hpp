@@ -1,11 +1,13 @@
 #pragma once
 
 #include <cmath>
+#include <optional>
 #include <stack>
 #include <string>
 #include <unordered_map>
 #include <variant>
 #include <vector>
+
 
 #include "ast.hpp"
 #include "gc.hpp"
@@ -90,6 +92,8 @@ namespace luaxc {
 
             BEGIN_LOCAL,// force push a stack frame
             END_LOCAL,  // force pop
+
+            BEGIN_LOCAL_DERIVED,// force push a stack frame, allow upward propagation
 
             CALL,
             RET,
@@ -219,8 +223,12 @@ namespace luaxc {
         struct StackFrame {
             std::unordered_map<std::string, IRPrimValue> variables;
             size_t return_addr;
+            bool allow_upward_propagation = false;
 
             explicit StackFrame(size_t return_addr) : return_addr(return_addr) {};
+            StackFrame(size_t return_addr, bool allow_propagation)
+                : return_addr(return_addr),
+                  allow_upward_propagation(allow_propagation) {};
         };
 
         ByteCode byte_code;
@@ -232,7 +240,7 @@ namespace luaxc {
 
         void preload_native_functions();
 
-        void push_stack_frame();
+        void push_stack_frame(bool allow_propagation = false);
 
         void pop_stack_frame();
 
@@ -240,13 +248,17 @@ namespace luaxc {
 
         StackFrame& global_stack_frame();
 
-        bool has_identifier_in_stack_frame(const std::string& identifier);
+        std::optional<size_t> has_identifier_in_stack_frame(const std::string& identifier);
 
         bool has_identifier_in_global_scope(const std::string& identifier);
 
-        IRPrimValue retrieve_raw_value_in_stack_frame(const std::string& identifier);
+        IRPrimValue retrieve_raw_value_in_desired_stack_frame(const std::string& identifier, size_t idx);
 
-        IRPrimValue& retrieve_value_ref_in_stack_frame(const std::string& identifier);
+        IRPrimValue& retrieve_value_ref_in_desired_stack_frame(const std::string& identifier, size_t idx);
+
+        IRPrimValue retrieve_raw_value_in_current_stack_frame(const std::string& identifier);
+
+        IRPrimValue& retrieve_value_ref_in_current_stack_frame(const std::string& identifier);
 
         IRPrimValue retrieve_raw_value_in_global_scope(const std::string& identifier);
 
