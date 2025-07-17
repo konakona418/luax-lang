@@ -77,6 +77,7 @@ namespace luaxc {
             BinaryExpr,
             UnaryExpr,
             FuncInvokeExpr,
+            MemberAccessExpr,
         };
 
         ExpressionNode(ExpressionType expression_type)
@@ -404,6 +405,21 @@ namespace luaxc {
 
     private:
         std::unique_ptr<AstNode> type_statements_block;
+    };
+
+    class MemberAccessExpressionNode : public ExpressionNode {
+    public:
+        explicit MemberAccessExpressionNode(std::unique_ptr<AstNode> object, std::unique_ptr<AstNode> member)
+            : ExpressionNode(ExpressionType::MemberAccessExpr),
+              object_expr(std::move(object)), member_identifier(std::move(member)) {}
+
+        const std::unique_ptr<AstNode>& get_object_expr() const { return object_expr; }
+
+        const std::unique_ptr<AstNode>& get_member_identifier() const { return member_identifier; }
+
+    private:
+        std::unique_ptr<AstNode> object_expr;
+        std::unique_ptr<AstNode> member_identifier;
     };
 
     class FieldDeclarationStatementNode : public StatementNode {

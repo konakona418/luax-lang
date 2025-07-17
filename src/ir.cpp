@@ -119,6 +119,12 @@ namespace luaxc {
             case IRInstruction::InstructionType::MAKE_TYPE:
                 out += "MAKE_TYPE";
                 break;
+            case IRInstruction::InstructionType::LOAD_MEMBER:
+                out += "LOAD_MEMBER";
+                break;
+            case IRInstruction::InstructionType::STORE_MEMBER:
+                out += "STORE_MEMBER";
+                break;
             default:
                 out = "UNKNOWN";
                 break;
@@ -142,6 +148,20 @@ namespace luaxc {
         generate_program_or_block(ast.get(), byte_code);
 
         return byte_code;
+    }
+
+    StringObject* IRGenerator::push_string_pool_if_not_exists(const std::string& str) {
+        StringObject* string_obj;
+
+        if (runtime.is_string_in_pool(str)) {
+            string_obj = runtime.get_string_from_pool(str);
+        } else {
+            string_obj = static_cast<StringObject*>(StringObject::from_string(str));
+            runtime.push_gc_object(string_obj);
+            runtime.push_string_to_pool(str, string_obj);
+        }
+
+        return string_obj;
     }
 
     void IRGenerator::generate_program_or_block(const AstNode* node, ByteCode& byte_code) {
@@ -206,6 +226,10 @@ namespace luaxc {
                 byte_code.push_back(
                         IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
                                       {std::monostate()}));
+                break;
+            }
+            case ExpressionNode::ExpressionType::MemberAccessExpr: {
+                generate_member_access_statement(static_cast<const MemberAccessExpressionNode*>(node), byte_code);
                 break;
             }
             case ExpressionNode::ExpressionType::NumericLiteral: {
@@ -303,15 +327,7 @@ namespace luaxc {
     }
 
     void IRGenerator::generate_string_literal(const StringLiteralNode* statement, ByteCode& byte_code) {
-        StringObject* string_obj;
-
-        if (runtime.is_string_in_pool(statement->get_value())) {
-            string_obj = runtime.get_string_from_pool(statement->get_value());
-        } else {
-            string_obj = static_cast<StringObject*>(StringObject::from_string(statement->get_value()));
-            runtime.push_gc_object(string_obj);
-            runtime.push_string_to_pool(statement->get_value(), string_obj);
-        }
+        StringObject* string_obj = push_string_pool_if_not_exists(statement->get_value());
 
         auto value = IRPrimValue(ValueType::String, string_obj);
 
@@ -354,9 +370,24 @@ namespace luaxc {
     }
 
     void IRGenerator::generate_assignment_statement(const AssignmentExpressionNode* node, ByteCode& byte_code) {
-        auto expr = static_cast<const StatementNode*>(node->get_value().get());
-        auto identifier = static_cast<const IdentifierNode*>(node->get_identifier().get());
+        auto lvalue = static_cast<ExpressionNode*>(node->get_identifier().get());
+        switch (lvalue->get_expression_type()) {
+            case ExpressionNode::ExpressionType::Identifier:
+                generate_assignment_statement_identifier_lvalue(node, byte_code);
+                break;
+            case ExpressionNode::ExpressionType::MemberAccessExpr:
+                generate_assignment_statement_member_access_lvalue(node, byte_code);
+                break;
+            default:
+                throw IRGeneratorException("Assigning value to an invalid lvalue expr");
+        }
+    }
 
+    void IRGenerator::generate_assignment_statement_identifier_lvalue(
+            const AssignmentExpressionNode* statement, ByteCode& byte_code) {
+        auto identifier = static_cast<const IdentifierNode*>(statement->get_identifier().get());
+
+        auto expr = static_cast<const StatementNode*>(statement->get_value().get());
         generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         byte_code.push_back(IRInstruction(
@@ -366,6 +397,90 @@ namespace luaxc {
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_IDENTIFIER,
                 IRStoreIdentifierParam{identifier->get_name()}));
+    }
+
+    void IRGenerator::generate_member_access(const ExpressionNode* expression, ByteCode& byte_code) {
+        // two possiblities of 'expression': an identifier, or another member access expression.
+        if (expression->get_expression_type() == ExpressionNode::ExpressionType::Identifier) {
+            auto identifier = static_cast<const IdentifierNode*>(expression)->get_name();
+
+            // loads the identifier
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::LOAD_IDENTIFIER,
+                    IRStoreIdentifierParam{identifier}));
+
+            // push onto the stack
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::PUSH_STACK,
+                    {std::monostate()}));
+        } else if (expression->get_expression_type() == ExpressionNode::ExpressionType::MemberAccessExpr) {
+            auto* member_access = static_cast<const MemberAccessExpressionNode*>(expression);
+            auto* left = static_cast<const ExpressionNode*>(member_access->get_object_expr().get());
+
+            generate_member_access(left, byte_code);
+
+            auto identifier =
+                    push_string_pool_if_not_exists(
+                            static_cast<const IdentifierNode*>(
+                                    member_access->get_member_identifier().get())
+                                    ->get_name());
+
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::LOAD_MEMBER,
+                    IRStoreMemberParam{identifier}));
+
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::PUSH_STACK,
+                    {std::monostate()}));
+        } else {
+            throw IRGeneratorException("Neither a valid identifier nor a member access expr");
+        }
+    }
+
+    void IRGenerator::generate_member_access_statement(const MemberAccessExpressionNode* statement, ByteCode& byte_code) {
+        auto* left_member_access = static_cast<const ExpressionNode*>(statement->get_object_expr().get());
+        generate_member_access(left_member_access, byte_code);
+
+        auto identifier =
+                push_string_pool_if_not_exists(
+                        static_cast<const IdentifierNode*>(
+                                statement->get_member_identifier().get())
+                                ->get_name());
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::LOAD_MEMBER,
+                IRStoreMemberParam{identifier}));
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::PUSH_STACK,
+                {std::monostate()}));
+    }
+
+    void IRGenerator::generate_assignment_statement_member_access_lvalue(
+            const AssignmentExpressionNode* statement, ByteCode& byte_code) {
+        auto* member_access = static_cast<const MemberAccessExpressionNode*>(statement->get_identifier().get());
+        auto* left_member_access =
+                static_cast<const ExpressionNode*>(member_access->get_object_expr().get());
+
+        // till now, we only generated the byte code for accessing all the parts before the final member access.
+        generate_member_access(left_member_access, byte_code);
+
+        // now generate the rvalue, which will be popped from the stack first when assigning
+        auto* right_expr = static_cast<const ExpressionNode*>(statement->get_value().get());
+        generate_expression(right_expr, byte_code);
+
+        auto* identifier = push_string_pool_if_not_exists(
+                static_cast<const IdentifierNode*>(
+                        member_access->get_member_identifier().get())
+                        ->get_name());
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::POP_STACK,
+                {std::monostate()}));
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::STORE_MEMBER,
+                IRStoreMemberParam{identifier}));
     }
 
     bool IRGenerator::is_binary_logical_operator(BinaryExpressionNode::BinaryOperator op) {
@@ -861,6 +976,15 @@ namespace luaxc {
                     break;
                 }
 
+                case IRInstruction::InstructionType::LOAD_MEMBER: {
+                    handle_member_load(std::get<IRLoadMemberParam>(instruction.param));
+                    break;
+                }
+                case IRInstruction::InstructionType::STORE_MEMBER: {
+                    handle_member_store(std::get<IRStoreMemberParam>(instruction.param));
+                    break;
+                }
+
                 default:
                     throw IRInterpreterException("Invalid instruction type");
             }
@@ -908,6 +1032,44 @@ namespace luaxc {
 
         runtime.push_gc_object(type_info);
         stack.push(IRPrimValue(ValueType::Type, static_cast<GCObject*>(type_info)));
+    }
+
+    void IRInterpreter::handle_member_load(IRLoadMemberParam param) {
+        auto name = param.identifier;
+        auto object = stack.top();
+        stack.pop();
+
+        if (!object.is_gc_object()) {
+            throw IRInterpreterException("Not a valid object");
+        }
+
+        auto* object_ptr = object.get_inner_value<GCObject*>();
+
+        if (object_ptr->storage.fields.find(name) == object_ptr->storage.fields.end()) {
+            std::string name_str = name->to_string();
+            throw IRInterpreterException("Object does not contain such field: " + name_str);
+        }
+
+        output = object_ptr->storage.fields[name];
+    }
+
+    void IRInterpreter::handle_member_store(IRStoreMemberParam param) {
+        auto name = param.identifier;
+        auto object = stack.top();
+        stack.pop();
+
+        if (!object.is_gc_object()) {
+            throw IRInterpreterException("Not a valid object");
+        }
+
+        auto* object_ptr = object.get_inner_value<GCObject*>();
+
+        if (object_ptr->storage.fields.find(name) == object_ptr->storage.fields.end()) {
+            std::string name_str = name->to_string();
+            throw IRInterpreterException("Object does not contain such field: " + name_str);
+        }
+
+        object_ptr->storage.fields[name] = output;
     }
 
     void IRInterpreter::handle_to_bool() {

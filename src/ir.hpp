@@ -45,6 +45,14 @@ namespace luaxc {
         std::string identifier;
     };
 
+    struct IRLoadMemberParam {
+        StringObject* identifier;
+    };
+
+    struct IRStoreMemberParam {
+        StringObject* identifier;
+    };
+
     using IRJumpParam = size_t;
 
     struct IRCallParam {
@@ -95,6 +103,9 @@ namespace luaxc {
 
             BEGIN_LOCAL_DERIVED,// force push a stack frame, allow upward propagation
 
+            LOAD_MEMBER, // pop object, store member in output. member name in param
+            STORE_MEMBER,// pop object. store the output. member name in param
+
             CALL,
             RET,
         };
@@ -105,7 +116,9 @@ namespace luaxc {
                 IRLoadIdentifierParam,
                 IRStoreIdentifierParam,
                 IRJumpParam,
-                IRCallParam>;
+                IRCallParam,
+                IRLoadMemberParam,
+                IRStoreMemberParam>;
 
         IRParam param;
         InstructionType type;
@@ -146,6 +159,8 @@ namespace luaxc {
 
         IRRuntime& runtime;
 
+        StringObject* push_string_pool_if_not_exists(const std::string& str);
+
         bool is_binary_logical_operator(BinaryExpressionNode::BinaryOperator op);
 
         bool is_combinative_assignment_operator(BinaryExpressionNode::BinaryOperator op);
@@ -171,6 +186,14 @@ namespace luaxc {
         void generate_declaration_statement(const DeclarationStmtNode* statement, ByteCode& byte_code);
 
         void generate_assignment_statement(const AssignmentExpressionNode* statement, ByteCode& byte_code);
+
+        void generate_assignment_statement_identifier_lvalue(const AssignmentExpressionNode* statement, ByteCode& byte_code);
+
+        void generate_assignment_statement_member_access_lvalue(const AssignmentExpressionNode* statement, ByteCode& byte_code);
+
+        void generate_member_access_statement(const MemberAccessExpressionNode* statement, ByteCode& byte_code);
+
+        void generate_member_access(const ExpressionNode* expression, ByteCode& byte_code);
 
         void generate_if_statement(const IfNode* statement, ByteCode& byte_code);
 
@@ -275,6 +298,10 @@ namespace luaxc {
         bool handle_jump(IRInstruction::InstructionType op, IRJumpParam param);
 
         void handle_type_creation();
+
+        void handle_member_load(IRLoadMemberParam param);
+
+        void handle_member_store(IRStoreMemberParam param);
 
         void handle_to_bool();
 

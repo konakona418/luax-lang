@@ -5,6 +5,7 @@
 #include <functional>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <variant>
 
 
@@ -47,10 +48,16 @@ namespace luaxc {
     using Float = double;
 
     class TypeObject;
+    class PrimValue;
+    class StringObject;
 
     class GCObject {
     public:
         virtual std::string to_string() const { return "[gc object]"; };
+
+        struct {
+            std::unordered_map<StringObject*, PrimValue> fields;
+        } storage;
 
     protected:
         TypeObject* object_type_info;
@@ -232,6 +239,14 @@ namespace luaxc {
         bool is_string() const { return type == ValueType::String; }
 
         bool is_boolean() const { return type == ValueType::Boolean; }
+
+        bool is_gc_object() const {
+            static std::unordered_set<ValueType> types = {
+                    ValueType::Type, ValueType::String, ValueType::Function,
+                    ValueType::Array, ValueType::Object};
+
+            return types.find(type) != types.end();
+        }
 
         std::string to_string() const;
 
