@@ -176,6 +176,8 @@ namespace luaxc {
     private:
         std::string type_name;
         std::unordered_map<std::string, TypeField> fields;
+        std::unordered_map<std::string, FunctionObject*> member_funcs;
+        std::unordered_map<std::string, FunctionObject*> static_funcs;
     };
 
     class PrimValue {

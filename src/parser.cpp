@@ -198,7 +198,49 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_method_declaration_statement() {
-        LUAXC_PARSER_THROW_NOT_IMPLEMENTED("method declaration");
+        if (!is_in_scope(ParserState::InTypeDeclarationScope)) {
+            LUAXC_PARSER_THROW_ERROR("Method declaration must be in a scope of a type declaration");
+        }
+
+        consume(TokenType::KEYWORD_METHOD, "Expected 'method'");
+        std::unique_ptr<AstNode> identifier = parse_identifier();
+        declare_identifier(static_cast<IdentifierNode*>(identifier.get())->get_name());
+
+        consume(TokenType::L_PARENTHESIS, "Expected '(' after method name");
+        std::vector<std::unique_ptr<AstNode>> parameters;
+
+        enter_scope();
+
+        while (current_token.type != TokenType::R_PARENTHESIS) {
+            auto param = parse_identifier();
+            declare_identifier(static_cast<IdentifierNode*>(param.get())->get_name());
+
+            parameters.push_back(std::move(param));
+
+            if (current_token.type == TokenType::COMMA) {
+                consume(TokenType::COMMA, "Expected ','");
+            }
+        }
+
+        consume(TokenType::R_PARENTHESIS, "Expected ')' enclosing method parameters");
+
+        if (current_token.type != TokenType::L_CURLY_BRACKET) {
+            // forward function declaration
+            consume(TokenType::SEMICOLON, "Expected ';' after forward method declaraton");
+            return std::make_unique<MethodDeclarationNode>(
+                    std::move(identifier),
+                    std::move(parameters),
+                    nullptr);
+        }
+
+        auto body = parse_block_statement();
+
+        exit_scope();
+
+        return std::make_unique<FunctionDeclarationNode>(
+                std::move(identifier),
+                std::move(parameters),
+                std::move(body));
     }
 
     std::unique_ptr<AstNode> Parser::parse_forward_declaration_statement() {

@@ -425,8 +425,26 @@ namespace luaxc {
         std::unique_ptr<AstNode> type_declaration_expr;// nullable
     };
 
-    class MethodDeclarationStatementNode : public StatementNode {
-        // todo
+    class MethodDeclarationNode : public StatementNode {
+    public:
+        MethodDeclarationNode(
+                std::unique_ptr<AstNode> identifier,
+                std::vector<std::unique_ptr<AstNode>> parameters,
+                std::unique_ptr<AstNode> function_body)
+            : StatementNode(StatementType::MethodDeclarationStmt),
+              identifier(std::move(identifier)), parameters(std::move(parameters)),
+              body(std::move(function_body)) {}
+
+        const std::unique_ptr<AstNode>& get_identifier() const { return identifier; }
+
+        const std::vector<std::unique_ptr<AstNode>>& get_parameters() const { return parameters; }
+
+        const std::unique_ptr<AstNode>& get_function_body() const { return body; }
+
+    private:
+        std::unique_ptr<AstNode> identifier;
+        std::vector<std::unique_ptr<AstNode>> parameters;
+        std::unique_ptr<AstNode> body;
     };
 
 }// namespace luaxc
