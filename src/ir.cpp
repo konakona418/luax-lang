@@ -1052,6 +1052,11 @@ namespace luaxc {
             stack.push(ret);
             return false;
         } else {
+            size_t arg_size = fn->get_arity();
+            if (param.arguments_count != arg_size) {
+                throw IRInterpreterException("Function argument count mismatch");
+            }
+
             push_stack_frame();
             size_t jump_target = fn->get_begin_offset();
             pc = jump_target;
