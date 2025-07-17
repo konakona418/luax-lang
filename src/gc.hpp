@@ -58,9 +58,6 @@ namespace luaxc {
         struct {
             std::unordered_map<StringObject*, PrimValue> fields;
         } storage;
-
-    protected:
-        TypeObject* object_type_info;
     };
 
     template<typename Encoding>

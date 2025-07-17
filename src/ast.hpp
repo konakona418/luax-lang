@@ -78,6 +78,7 @@ namespace luaxc {
             UnaryExpr,
             FuncInvokeExpr,
             MemberAccessExpr,
+            InitializerListExpr,
         };
 
         ExpressionNode(ExpressionType expression_type)
@@ -461,6 +462,21 @@ namespace luaxc {
         std::unique_ptr<AstNode> identifier;
         std::vector<std::unique_ptr<AstNode>> parameters;
         std::unique_ptr<AstNode> body;
+    };
+
+    class InitializerListExpressionNode : public ExpressionNode {
+    public:
+        InitializerListExpressionNode(std::unique_ptr<AstNode> type, std::unique_ptr<AstNode> initializers)
+            : ExpressionNode(ExpressionType::InitializerListExpr),
+              type_expr(std::move(type)), initializer_list_block(std::move(initializers)) {}
+
+        const std::unique_ptr<AstNode>& get_type_expr() const { return type_expr; }
+
+        const std::unique_ptr<AstNode>& get_initializer_list_block() const { return initializer_list_block; }
+
+    private:
+        std::unique_ptr<AstNode> type_expr;
+        std::unique_ptr<AstNode> initializer_list_block;
     };
 
 }// namespace luaxc

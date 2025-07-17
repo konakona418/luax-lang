@@ -116,6 +116,9 @@ namespace luaxc {
             case IRInstruction::InstructionType::MAKE_TYPE:
                 out += "MAKE_TYPE";
                 break;
+            case IRInstruction::InstructionType::MAKE_OBJECT:
+                out += "MAKE_OBJECT";
+                break;
             case IRInstruction::InstructionType::LOAD_MEMBER:
                 out += "LOAD_MEMBER";
                 break;
@@ -254,6 +257,10 @@ namespace luaxc {
                 generate_type_decl_expression(static_cast<const TypeDeclarationExpressionNode*>(node), byte_code);
                 break;
             }
+            case ExpressionNode::ExpressionType::InitializerListExpr: {
+                generate_initializer_list_expression(static_cast<const InitializerListExpressionNode*>(node), byte_code);
+                break;
+            }
             default:
                 throw IRGeneratorException("Unsupported expression type");
         }
@@ -383,13 +390,14 @@ namespace luaxc {
 
     void IRGenerator::generate_member_access(const ExpressionNode* expression, ByteCode& byte_code) {
         // two possiblities of 'expression': an identifier, or another member access expression.
+        // todo: another possibility is a function expr, consider handle MemberAccessExpr as a special case, and use generate_expression for 'else'
         if (expression->get_expression_type() == ExpressionNode::ExpressionType::Identifier) {
             auto identifier = static_cast<const IdentifierNode*>(expression)->get_name();
 
             // loads the identifier
             byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::LOAD_IDENTIFIER,
-                    IRStoreIdentifierParam{identifier}));
+                    IRLoadIdentifierParam{identifier}));
 
         } else if (expression->get_expression_type() == ExpressionNode::ExpressionType::MemberAccessExpr) {
             auto* member_access = static_cast<const MemberAccessExpressionNode*>(expression);
@@ -397,6 +405,7 @@ namespace luaxc {
 
             generate_member_access(left, byte_code);
 
+            // todo: this also needs handling method invocation
             auto identifier =
                     push_string_pool_if_not_exists(
                             static_cast<const IdentifierNode*>(
@@ -405,10 +414,44 @@ namespace luaxc {
 
             byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::LOAD_MEMBER,
-                    IRStoreMemberParam{identifier}));
+                    IRLoadMemberParam{identifier}));
         } else {
             throw IRGeneratorException("Neither a valid identifier nor a member access expr");
         }
+    }
+
+    void IRGenerator::generate_initializer_list_expression(const InitializerListExpressionNode* expression, ByteCode& byte_code) {
+        auto* type_expr = static_cast<const ExpressionNode*>(expression->get_type_expr().get());
+        auto* block = static_cast<const BlockNode*>(expression->get_initializer_list_block().get());
+
+        std::vector<StringObject*> fields;
+        for (auto& stmt: block->get_statements()) {
+            if (static_cast<const StatementNode*>(stmt.get())->get_statement_type() != StatementNode::StatementType::ExpressionStmt) {
+                throw IRGeneratorException("Initializer list requires valid expressions");
+            }
+
+            auto* expr = static_cast<const ExpressionNode*>(stmt.get());
+            if (expr->get_expression_type() != ExpressionNode::ExpressionType::AssignmentExpr) {
+                throw IRGeneratorException("Initializer list requires valid assignment expressions");
+            }
+
+            auto* assign = static_cast<const AssignmentExpressionNode*>(expr);
+            auto* field = static_cast<const IdentifierNode*>(assign->get_identifier().get());
+            auto* value = static_cast<const ExpressionNode*>(assign->get_value().get());
+
+            auto* field_name = push_string_pool_if_not_exists(field->get_name());
+
+            fields.push_back(field_name);
+
+            generate_expression(value, byte_code);
+        }
+
+        // push the type info onto the stack
+        generate_expression(type_expr, byte_code);
+
+        // load the field names in reverse order, as we will acquire the values in reverse order
+        auto fields_rev = std::vector<StringObject*>(fields.rbegin(), fields.rend());
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::MAKE_OBJECT, IRMakeObjectParam{fields_rev}));
     }
 
     void IRGenerator::generate_member_access_statement(const MemberAccessExpressionNode* statement, ByteCode& byte_code) {
@@ -423,7 +466,7 @@ namespace luaxc {
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::LOAD_MEMBER,
-                IRStoreMemberParam{identifier}));
+                IRLoadMemberParam{identifier}));
     }
 
     void IRGenerator::generate_assignment_statement_member_access_lvalue(
@@ -910,6 +953,11 @@ namespace luaxc {
                     break;
                 }
 
+                case IRInstruction::InstructionType::MAKE_OBJECT: {
+                    handle_make_object(std::get<IRMakeObjectParam>(instruction.param));
+                    break;
+                }
+
                 case IRInstruction::InstructionType::BEGIN_LOCAL: {
                     push_stack_frame(false);
                     break;
@@ -1021,6 +1069,28 @@ namespace luaxc {
         }
 
         object_ptr->storage.fields[name] = value;
+    }
+
+    void IRInterpreter::handle_make_object(IRMakeObjectParam param) {
+        auto type = stack.top();
+        if (type.get_type() != ValueType::Type) {
+            throw IRInterpreterException("Not a valid type for object creation");
+        }
+        stack.pop();
+
+        auto& fields = param.fields;
+        auto* gc_object = new GCObject();
+        runtime.push_gc_object(gc_object);
+
+        for (auto* field: fields) {
+            gc_object->storage.fields[field] = stack.top();
+            stack.pop();
+        }
+
+        auto value = PrimValue(ValueType::Object, (GCObject*){gc_object});
+        value.set_type_info(static_cast<TypeObject*>(type.get_inner_value<GCObject*>()));
+
+        stack.push(value);
     }
 
     void IRInterpreter::handle_to_bool() {

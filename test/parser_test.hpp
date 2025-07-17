@@ -428,6 +428,50 @@ namespace parser_test {
         auto ir_interpreter = compile_run(input);
     }
 
+    inline void test_object_construction() {
+        std::string input = R"(
+        use println;
+        use Int;
+
+        let MyType = type {
+            field x = Int();
+            field y = Int();
+        };
+
+        let myObject = MyType { x = 1, y = 2, };
+        )";
+
+        auto ir_interpreter = compile_run(input);
+    }
+
+    inline void test_object_member_access_basic() {
+        std::string input = R"(
+        use println;
+        use Int;
+
+        let MyType = type {
+            field x = Int();
+            field y = Int();
+        };
+
+        let myObject = MyType { x = 1, y = 2, };
+
+        let x = myObject.x;
+        println(x);
+
+        let y = myObject.y;
+        println(myObject.y);
+
+        myObject.y = 3;
+        println(myObject.y);
+        y = myObject.y;
+        )";
+
+        auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("x") == 1);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("y") == 3);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -491,6 +535,8 @@ namespace parser_test {
         begin_test("parser-type") {
             test(test_type_decl);
             test(test_generic_type_factory);
+            test(test_object_construction);
+            test(test_object_member_access_basic);
         }
         end_test()
     }

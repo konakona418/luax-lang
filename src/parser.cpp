@@ -158,7 +158,6 @@ namespace luaxc {
         }
 
         consume(TokenType::ASSIGN, "Expected '=' after identifier in declaration statement");
-        ;
 
         std::unique_ptr<AstNode> value;
 
@@ -598,7 +597,6 @@ namespace luaxc {
         consume(TokenType::DOT, "Expected dot");
 
         auto identifier = parse_identifier();
-        consume(TokenType::IDENTIFIER, "Expected identifier after member access '.'");
 
         if (current_token.type == TokenType::L_PARENTHESIS) {
             identifier = parse_function_invocation_statement(std::move(identifier));
@@ -612,6 +610,35 @@ namespace luaxc {
         }*/
 
         return member_access;
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_initializer_list_expression(std::unique_ptr<AstNode> type_expr) {
+        std::vector<std::unique_ptr<AstNode>> statements;
+
+        consume(TokenType::L_CURLY_BRACKET, "Expected '{'");
+
+        enter_scope(ParserState::InInitializerListScope);
+
+        while (current_token.type != TokenType::R_CURLY_BRACKET) {
+            statements.push_back(parse_assignment_expression(false));
+
+            if (current_token.type != TokenType::COMMA) {
+                break;
+            }
+            consume(TokenType::COMMA, "Expected ','");
+
+            if (current_token.type == TokenType::TERMINATOR) {
+                consume(TokenType::R_CURLY_BRACKET, "Expected '}' but meet unexpected EOF");
+            }
+        }
+
+        exit_scope();
+
+        consume(TokenType::R_CURLY_BRACKET, "Block statement not closed with '}'");
+
+        auto block = std::make_unique<BlockNode>(std::move(statements));
+
+        return std::make_unique<InitializerListExpressionNode>(std::move(type_expr), std::move(block));
     }
 
     std::unique_ptr<AstNode> Parser::parse_primary() {
@@ -633,11 +660,18 @@ namespace luaxc {
                 node = std::make_unique<IdentifierNode>(current_token.value);
 
                 auto name = static_cast<IdentifierNode*>(node.get())->get_name();
-                if (!is_identifier_declared(name)) {
+                if (!is_identifier_declared(name) &&
+                    !is_in_scope(ParserState::InInitializerListScope)) {
                     LUAXC_PARSER_THROW_ERROR("Identifier not declared: '" + name + "'")
                 }
 
                 consume(TokenType::IDENTIFIER);
+
+                // initializer list
+                if (current_token.type == TokenType::L_CURLY_BRACKET) {
+                    node = parse_initializer_list_expression(std::move(node));
+                }
+
                 break;
             }
             case (TokenType::L_PARENTHESIS): {

@@ -42,6 +42,7 @@ namespace luaxc {
             Start,
             InScope,
             InTypeDeclarationScope,
+            InInitializerListScope,
             // todo: add when needed
         };
 
@@ -122,6 +123,8 @@ namespace luaxc {
         std::unique_ptr<AstNode> parse_unary_expression();
 
         std::unique_ptr<AstNode> parse_member_access_expression(std::unique_ptr<AstNode> initial_expr);
+
+        std::unique_ptr<AstNode> parse_initializer_list_expression(std::unique_ptr<AstNode> type_expr);
 
         std::unique_ptr<AstNode> parse_primary();
 

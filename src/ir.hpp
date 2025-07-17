@@ -49,6 +49,10 @@ namespace luaxc {
         StringObject* identifier;
     };
 
+    struct IRMakeObjectParam {
+        std::vector<StringObject*> fields;
+    };
+
     struct IRStoreMemberParam {
         StringObject* identifier;
     };
@@ -97,6 +101,8 @@ namespace luaxc {
 
             MAKE_TYPE,// make a type using stack frame local vars
 
+            MAKE_OBJECT,// make an object. pop a sequence of values from stack
+
             BEGIN_LOCAL,// force push a stack frame
             END_LOCAL,  // force pop
 
@@ -117,7 +123,8 @@ namespace luaxc {
                 IRJumpParam,
                 IRCallParam,
                 IRLoadMemberParam,
-                IRStoreMemberParam>;
+                IRStoreMemberParam,
+                IRMakeObjectParam>;
 
         IRParam param;
         InstructionType type;
@@ -193,6 +200,8 @@ namespace luaxc {
         void generate_member_access_statement(const MemberAccessExpressionNode* statement, ByteCode& byte_code);
 
         void generate_member_access(const ExpressionNode* expression, ByteCode& byte_code);
+
+        void generate_initializer_list_expression(const InitializerListExpressionNode* expression, ByteCode& byte_code);
 
         void generate_if_statement(const IfNode* statement, ByteCode& byte_code);
 
@@ -300,6 +309,8 @@ namespace luaxc {
         void handle_member_load(IRLoadMemberParam param);
 
         void handle_member_store(IRStoreMemberParam param);
+
+        void handle_make_object(IRMakeObjectParam param);
 
         void handle_to_bool();
 
