@@ -167,11 +167,11 @@ namespace luaxc {
                     {"Type", type()}};
         }
 
-        void add_field(const std::string& name, TypeField field) { fields.emplace(name, field); }
+        void add_field(StringObject* name, TypeField field) { fields.emplace(name, field); }
 
-        TypeField get_field(const std::string& name) { return fields.at(name); }
+        TypeField get_field(StringObject* name) { return fields.at(name); }
 
-        bool has_field(const std::string& name) { return fields.find(name) != fields.end(); }
+        bool has_field(StringObject*& name) { return fields.find(name) != fields.end(); }
 
         static TypeObject* create(const std::string& type_name) { return new TypeObject(type_name); }
 
@@ -179,9 +179,9 @@ namespace luaxc {
 
     private:
         std::string type_name;
-        std::unordered_map<std::string, TypeField> fields;
-        std::unordered_map<std::string, FunctionObject*> member_funcs;
-        std::unordered_map<std::string, FunctionObject*> static_funcs;
+        std::unordered_map<StringObject*, TypeField> fields;
+        std::unordered_map<StringObject*, FunctionObject*> member_funcs;
+        std::unordered_map<StringObject*, FunctionObject*> static_funcs;
     };
 
     class PrimValue {

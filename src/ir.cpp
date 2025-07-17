@@ -150,15 +150,15 @@ namespace luaxc {
         return byte_code;
     }
 
-    StringObject* IRGenerator::push_string_pool_if_not_exists(const std::string& str) {
+    StringObject* IRRuntime::push_string_pool_if_not_exists(const std::string& str) {
         StringObject* string_obj;
 
-        if (runtime.is_string_in_pool(str)) {
-            string_obj = runtime.get_string_from_pool(str);
+        if (is_string_in_pool(str)) {
+            string_obj = get_string_from_pool(str);
         } else {
             string_obj = static_cast<StringObject*>(StringObject::from_string(str));
-            runtime.push_gc_object(string_obj);
-            runtime.push_string_to_pool(str, string_obj);
+            push_gc_object(string_obj);
+            push_string_to_pool(str, string_obj);
         }
 
         return string_obj;
@@ -321,7 +321,7 @@ namespace luaxc {
     }
 
     void IRGenerator::generate_string_literal(const StringLiteralNode* statement, ByteCode& byte_code) {
-        StringObject* string_obj = push_string_pool_if_not_exists(statement->get_value());
+        StringObject* string_obj = runtime.push_string_pool_if_not_exists(statement->get_value());
 
         auto value = IRPrimValue(ValueType::String, string_obj);
 
@@ -407,7 +407,7 @@ namespace luaxc {
 
             // todo: this also needs handling method invocation
             auto identifier =
-                    push_string_pool_if_not_exists(
+                    runtime.push_string_pool_if_not_exists(
                             static_cast<const IdentifierNode*>(
                                     member_access->get_member_identifier().get())
                                     ->get_name());
@@ -439,7 +439,7 @@ namespace luaxc {
             auto* field = static_cast<const IdentifierNode*>(assign->get_identifier().get());
             auto* value = static_cast<const ExpressionNode*>(assign->get_value().get());
 
-            auto* field_name = push_string_pool_if_not_exists(field->get_name());
+            auto* field_name = runtime.push_string_pool_if_not_exists(field->get_name());
 
             fields.push_back(field_name);
 
@@ -459,7 +459,7 @@ namespace luaxc {
         generate_member_access(left_member_access, byte_code);
 
         auto identifier =
-                push_string_pool_if_not_exists(
+                runtime.push_string_pool_if_not_exists(
                         static_cast<const IdentifierNode*>(
                                 statement->get_member_identifier().get())
                                 ->get_name());
@@ -482,7 +482,7 @@ namespace luaxc {
         auto* right_expr = static_cast<const ExpressionNode*>(statement->get_value().get());
         generate_expression(right_expr, byte_code);
 
-        auto* identifier = push_string_pool_if_not_exists(
+        auto* identifier = runtime.push_string_pool_if_not_exists(
                 static_cast<const IdentifierNode*>(
                         member_access->get_member_identifier().get())
                         ->get_name());
@@ -1021,8 +1021,10 @@ namespace luaxc {
                 throw IRInterpreterException("Not a valid type");
             }
 
+            auto* string_obj = runtime.push_string_pool_if_not_exists(name);
+
             type_info->add_field(
-                    name,
+                    string_obj,
                     TypeObject::TypeField{
                             static_cast<TypeObject*>(value.get_inner_value<GCObject*>())});
         }
@@ -1078,17 +1080,24 @@ namespace luaxc {
         }
         stack.pop();
 
+        auto* type_info = static_cast<TypeObject*>(type.get_inner_value<GCObject*>());
+
         auto& fields = param.fields;
         auto* gc_object = new GCObject();
         runtime.push_gc_object(gc_object);
 
         for (auto* field: fields) {
+            // validation
+            if (!type_info->has_field(field)) {
+                throw IRInterpreterException("Object has no field named: " + field->to_string());
+            }
+
             gc_object->storage.fields[field] = stack.top();
             stack.pop();
         }
 
         auto value = PrimValue(ValueType::Object, (GCObject*){gc_object});
-        value.set_type_info(static_cast<TypeObject*>(type.get_inner_value<GCObject*>()));
+        value.set_type_info(type_info);
 
         stack.push(value);
     }

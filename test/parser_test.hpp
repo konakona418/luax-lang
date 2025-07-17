@@ -472,6 +472,25 @@ namespace parser_test {
         assert(ir_interpreter.retrieve_value<luaxc::Int>("y") == 3);
     }
 
+    inline void test_object_member_access_nested() {
+        std::string input = R"(
+        use println;
+        use Int;
+
+        let Nested = type { field z = Int(); };
+
+        let MyType = type {
+            field x = Int();
+            field y = Nested;
+        };
+
+        let myObject = MyType { x = 1, y = Nested { z = 2 } };
+        println(myObject.y.z);
+        )";
+
+        auto ir_interpreter = compile_run(input);
+    }
+
     inline void run_parser_test() {
         begin_test("parser-basics") {
             test(test_declaration);
@@ -537,6 +556,7 @@ namespace parser_test {
             test(test_generic_type_factory);
             test(test_object_construction);
             test(test_object_member_access_basic);
+            test(test_object_member_access_nested);
         }
         end_test()
     }

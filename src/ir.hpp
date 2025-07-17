@@ -165,8 +165,6 @@ namespace luaxc {
 
         IRRuntime& runtime;
 
-        StringObject* push_string_pool_if_not_exists(const std::string& str);
-
         bool is_binary_logical_operator(BinaryExpressionNode::BinaryOperator op);
 
         bool is_combinative_assignment_operator(BinaryExpressionNode::BinaryOperator op);
@@ -356,6 +354,8 @@ namespace luaxc {
         void push_gc_object(GCObject* object) {
             objects.push_back(object);
         }
+
+        StringObject* push_string_pool_if_not_exists(const std::string& str);
 
         const ByteCode& get_byte_code() const { return byte_code; }
 
