@@ -763,9 +763,7 @@ namespace luaxc {
         }
 
         // load the function object
-        auto func_identifier = static_cast<IdentifierNode*>(node->get_function_identifier().get());
-        byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::LOAD_IDENTIFIER, IRLoadIdentifierParam{func_identifier->get_name()}));
+        generate_expression(static_cast<const ExpressionNode*>(node->get_function_identifier().get()), byte_code);
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::CALL, IRCallParam{arguments_count}));

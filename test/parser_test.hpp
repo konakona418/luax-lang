@@ -314,7 +314,7 @@ namespace parser_test {
         func _anonymous(a, b) {
             return a + b;
         }
-        func add(a, b) {
+        func add() {
             return _anonymous;
         }
         let result = add()(1, 2);
@@ -481,7 +481,7 @@ namespace parser_test {
             test(test_function_invocation);
             test(test_function_invocation_multiple_args);
             test(test_function_declaration);
-            //test(test_function_chain_invoke);
+            test(test_function_chain_invoke);
             test(test_multiple_function_declarations);
             test(test_deferred_function_declarations);
             test(test_nested_function_declaration);
