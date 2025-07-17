@@ -65,9 +65,6 @@ namespace luaxc {
             case IRInstruction::InstructionType::NEGATE:
                 out = "NEGATE";
                 break;
-            case IRInstruction::InstructionType::PUSH_STACK:
-                out = "PUSH_STACK";
-                break;
             case IRInstruction::InstructionType::POP_STACK:
                 out = "POP_STACK";
                 break;
@@ -223,9 +220,6 @@ namespace luaxc {
                 byte_code.push_back(
                         IRInstruction(IRInstruction::InstructionType::LOAD_IDENTIFIER,
                                       {IRLoadIdentifierParam{static_cast<const IdentifierNode*>(node)->get_name()}}));
-                byte_code.push_back(
-                        IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
-                                      {std::monostate()}));
                 break;
             }
             case ExpressionNode::ExpressionType::MemberAccessExpr: {
@@ -293,10 +287,6 @@ namespace luaxc {
 
                 generate_expression(static_cast<ExpressionNode*>(field->get_type_declaration_expr().get()), byte_code);
 
-                byte_code.push_back(
-                        IRInstruction(IRInstruction::InstructionType::POP_STACK,
-                                      {std::monostate()}));
-
                 byte_code.push_back(IRInstruction(
                         IRInstruction::InstructionType::STORE_IDENTIFIER,
                         IRStoreIdentifierParam{field_name}));
@@ -321,9 +311,6 @@ namespace luaxc {
         byte_code.push_back(
                 IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
                               {value}));
-        byte_code.push_back(
-                IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
-                              {std::monostate()}));
     }
 
     void IRGenerator::generate_string_literal(const StringLiteralNode* statement, ByteCode& byte_code) {
@@ -334,9 +321,6 @@ namespace luaxc {
         byte_code.push_back(
                 IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
                               {IRLoadConstParam(value)}));
-        byte_code.push_back(
-                IRInstruction(IRInstruction::InstructionType::PUSH_STACK,
-                              {std::monostate()}));
     }
 
     void IRGenerator::generate_declaration_statement(const DeclarationStmtNode* node, ByteCode& byte_code) {
@@ -349,6 +333,12 @@ namespace luaxc {
 
             for (auto& identifier: identifiers) {
                 auto* identifier_node = static_cast<IdentifierNode*>(identifier.get());
+
+                // placeholder value, or the vm will read random stuff from stack top
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::LOAD_CONST,
+                        IRLoadConstParam{IRPrimValue::unit()}));
+
                 byte_code.push_back(IRInstruction(
                         IRInstruction::InstructionType::STORE_IDENTIFIER,
                         IRStoreIdentifierParam{identifier_node->get_name()}));
@@ -359,10 +349,6 @@ namespace luaxc {
         generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         auto* identifier_node = static_cast<IdentifierNode*>(identifiers[0].get());
-
-        byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::POP_STACK,
-                {std::monostate()}));
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_IDENTIFIER,
@@ -391,10 +377,6 @@ namespace luaxc {
         generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::POP_STACK,
-                {std::monostate()}));
-
-        byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_IDENTIFIER,
                 IRStoreIdentifierParam{identifier->get_name()}));
     }
@@ -409,10 +391,6 @@ namespace luaxc {
                     IRInstruction::InstructionType::LOAD_IDENTIFIER,
                     IRStoreIdentifierParam{identifier}));
 
-            // push onto the stack
-            byte_code.push_back(IRInstruction(
-                    IRInstruction::InstructionType::PUSH_STACK,
-                    {std::monostate()}));
         } else if (expression->get_expression_type() == ExpressionNode::ExpressionType::MemberAccessExpr) {
             auto* member_access = static_cast<const MemberAccessExpressionNode*>(expression);
             auto* left = static_cast<const ExpressionNode*>(member_access->get_object_expr().get());
@@ -428,10 +406,6 @@ namespace luaxc {
             byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::LOAD_MEMBER,
                     IRStoreMemberParam{identifier}));
-
-            byte_code.push_back(IRInstruction(
-                    IRInstruction::InstructionType::PUSH_STACK,
-                    {std::monostate()}));
         } else {
             throw IRGeneratorException("Neither a valid identifier nor a member access expr");
         }
@@ -450,10 +424,6 @@ namespace luaxc {
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::LOAD_MEMBER,
                 IRStoreMemberParam{identifier}));
-
-        byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::PUSH_STACK,
-                {std::monostate()}));
     }
 
     void IRGenerator::generate_assignment_statement_member_access_lvalue(
@@ -473,10 +443,6 @@ namespace luaxc {
                 static_cast<const IdentifierNode*>(
                         member_access->get_member_identifier().get())
                         ->get_name());
-
-        byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::POP_STACK,
-                {std::monostate()}));
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_MEMBER,
@@ -598,9 +564,6 @@ namespace luaxc {
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::LOAD_IDENTIFIER,
                 IRLoadIdentifierParam{left_identifier}));
-        byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::PUSH_STACK,
-                {std::monostate()}));
 
         // load the operator
         auto op = statement->get_op();
@@ -614,8 +577,6 @@ namespace luaxc {
         }
         byte_code.push_back(IRInstruction(instruction_type, {std::monostate()}));
 
-        // write back
-        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_IDENTIFIER,
                 IRStoreIdentifierParam{left_identifier}));
@@ -654,7 +615,6 @@ namespace luaxc {
         generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
-        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE, {std::monostate()}));
 
         bool has_else_clause = statement->get_else_body().get() != nullptr;
@@ -689,7 +649,6 @@ namespace luaxc {
         generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
-        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE, {std::monostate()}));
 
         while_start_jmp_index = byte_code.size() - 1;
@@ -736,7 +695,6 @@ namespace luaxc {
         generate_expression(static_cast<const ExpressionNode*>(cond_expr), byte_code);
 
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
-        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE, {std::monostate()}));
 
         size_t jump_to_end_of_loop = byte_code.size() - 1;// jmp_if_false
@@ -809,9 +767,6 @@ namespace luaxc {
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::LOAD_IDENTIFIER, IRLoadIdentifierParam{func_identifier->get_name()}));
 
-        // push function object onto the stack
-        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::PUSH_STACK, {std::monostate()}));
-
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::CALL, IRCallParam{arguments_count}));
     }
@@ -834,9 +789,6 @@ namespace luaxc {
 
         for (auto& param: statement->get_parameters()) {
             auto identifier = dynamic_cast<IdentifierNode*>(param.get())->get_name();
-            // the arguments are pushed onto stack in reverse order
-            byte_code.push_back(IRInstruction(
-                    IRInstruction::InstructionType::POP_STACK, {std::monostate()}));
             byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::STORE_IDENTIFIER,
                     IRStoreIdentifierParam{identifier}));
@@ -848,8 +800,6 @@ namespace luaxc {
         if (byte_code.back().type != IRInstruction::InstructionType::RET) {
             byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::LOAD_CONST, IRLoadConstParam{IRPrimValue::unit()}));
-            byte_code.push_back(IRInstruction(
-                    IRInstruction::InstructionType::PUSH_STACK, {std::monostate()}));
             byte_code.push_back(IRInstruction(IRInstruction::InstructionType::RET, {std::monostate()}));
         }
 
@@ -882,24 +832,24 @@ namespace luaxc {
             auto& instruction = byte_code[pc];
             switch (instruction.type) {
                 case IRInstruction::InstructionType::LOAD_CONST:
-                    output = std::get<IRLoadConstParam>(instruction.param);
+                    stack.push(std::get<IRLoadConstParam>(instruction.param));
                     break;
                 case IRInstruction::InstructionType::LOAD_IDENTIFIER: {
                     auto param = std::get<IRLoadIdentifierParam>(instruction.param);
-                    output = retrieve_raw_value(param.identifier);
+                    stack.push(retrieve_raw_value(param.identifier));
                     break;
                 }
                 case IRInstruction::InstructionType::STORE_IDENTIFIER: {
                     auto param = std::get<IRStoreIdentifierParam>(instruction.param);
-                    store_raw_value(param.identifier, output);
+
+                    auto value = stack.top();
+                    stack.pop();
+
+                    store_raw_value(param.identifier, value);
                     break;
                 }
-                case IRInstruction::InstructionType::PUSH_STACK: {
-                    stack.push(output);
-                    break;
-                }
+
                 case IRInstruction::InstructionType::POP_STACK: {
-                    output = stack.top();
                     stack.pop();
                     break;
                 }
@@ -1001,7 +951,8 @@ namespace luaxc {
                 pc = param;
                 return true;
             case IRInstruction::InstructionType::JMP_IF_FALSE: {
-                auto cond = output.to_bool();
+                auto cond = stack.top().to_bool();
+                stack.pop();
                 if (!(cond & 1)) {
                     // we only care about the first bit
                     // as, if everything works fine, there should be a TO_BOOL before this.
@@ -1050,11 +1001,13 @@ namespace luaxc {
             throw IRInterpreterException("Object does not contain such field: " + name_str);
         }
 
-        output = object_ptr->storage.fields[name];
+        stack.push(object_ptr->storage.fields[name]);
     }
 
     void IRInterpreter::handle_member_store(IRStoreMemberParam param) {
         auto name = param.identifier;
+        auto value = stack.top();
+        stack.pop();
         auto object = stack.top();
         stack.pop();
 
@@ -1069,7 +1022,7 @@ namespace luaxc {
             throw IRInterpreterException("Object does not contain such field: " + name_str);
         }
 
-        object_ptr->storage.fields[name] = output;
+        object_ptr->storage.fields[name] = value;
     }
 
     void IRInterpreter::handle_to_bool() {

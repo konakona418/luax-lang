@@ -62,9 +62,9 @@ namespace luaxc {
     class IRInstruction {
     public:
         enum class InstructionType {
-            LOAD_CONST,      // load a const to output
-            LOAD_IDENTIFIER, // load an identifier to output
-            STORE_IDENTIFIER,// store output to an identifier
+            LOAD_CONST,      // load a const to stack
+            LOAD_IDENTIFIER, // load an identifier to stack
+            STORE_IDENTIFIER,// store stack top to an identifier
             ADD,             // pop two values from stack, add them and push result to stack
             SUB,
             MUL,
@@ -93,8 +93,7 @@ namespace luaxc {
             JMP,
             JMP_IF_FALSE,
 
-            PUSH_STACK,// push output to stack
-            POP_STACK, // pop value from stack
+            POP_STACK,// pop value from stack
 
             MAKE_TYPE,// make a type using stack frame local vars
 
@@ -103,8 +102,8 @@ namespace luaxc {
 
             BEGIN_LOCAL_DERIVED,// force push a stack frame, allow upward propagation
 
-            LOAD_MEMBER, // pop object, store member in output. member name in param
-            STORE_MEMBER,// pop object. store the output. member name in param
+            LOAD_MEMBER, // pop object, store member onto stack. member name in param
+            STORE_MEMBER,// pop value, pop object, store. member name in param
 
             CALL,
             RET,
@@ -258,7 +257,6 @@ namespace luaxc {
         size_t pc = 0;
         std::vector<StackFrame> stack_frames;
         std::stack<IRPrimValue> stack;
-        IRPrimValue output;
         IRRuntime& runtime;
 
         void preload_native_functions();

@@ -607,9 +607,9 @@ namespace luaxc {
         auto member_access = std::make_unique<MemberAccessExpressionNode>(
                 std::move(initial_expr), std::move(identifier));
 
-        if (current_token.type == TokenType::DOT) {
+        /*if (current_token.type == TokenType::DOT) {
             return parse_member_access_expression(std::move(member_access));
-        }
+        }*/
 
         return member_access;
     }
@@ -638,17 +638,6 @@ namespace luaxc {
                 }
 
                 consume(TokenType::IDENTIFIER);
-
-                // potential function invocation
-                if (current_token.type == TokenType::L_PARENTHESIS) {
-                    node = parse_function_invocation_statement(std::move(node));
-                }
-
-                // potential member access
-                if (current_token.type == TokenType::DOT) {
-                    node = parse_member_access_expression(std::move(node));
-                }
-
                 break;
             }
             case (TokenType::L_PARENTHESIS): {
@@ -672,6 +661,18 @@ namespace luaxc {
             }
             default:
                 LUAXC_PARSER_THROW_NOT_IMPLEMENTED("unknown primary expr")
+        }
+
+        while (true) {
+            if (current_token.type == TokenType::L_PARENTHESIS) {
+                // potential function invocation
+                node = parse_function_invocation_statement(std::move(node));
+            } else if (current_token.type == TokenType::DOT) {
+                // potential member access
+                node = parse_member_access_expression(std::move(node));
+            } else {
+                break;
+            }
         }
 
         return node;
