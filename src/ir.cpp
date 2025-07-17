@@ -422,6 +422,8 @@ namespace luaxc {
 
     void IRGenerator::generate_initializer_list_expression(const InitializerListExpressionNode* expression, ByteCode& byte_code) {
         auto* type_expr = static_cast<const ExpressionNode*>(expression->get_type_expr().get());
+        // nullable
+
         auto* block = static_cast<const BlockNode*>(expression->get_initializer_list_block().get());
 
         std::vector<StringObject*> fields;
@@ -446,8 +448,15 @@ namespace luaxc {
             generate_expression(value, byte_code);
         }
 
-        // push the type info onto the stack
-        generate_expression(type_expr, byte_code);
+        if (type_expr == nullptr) {
+            // anonymous initializer list
+            auto* any_type = TypeObject::any();
+            auto type_value = PrimValue(ValueType::Type, (GCObject*){any_type});
+            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::LOAD_CONST, IRLoadConstParam(type_value)));
+        } else {
+            // push the type info onto the stack
+            generate_expression(type_expr, byte_code);
+        }
 
         // load the field names in reverse order, as we will acquire the values in reverse order
         auto fields_rev = std::vector<StringObject*>(fields.rbegin(), fields.rend());
@@ -1086,9 +1095,11 @@ namespace luaxc {
         auto* gc_object = new GCObject();
         runtime.push_gc_object(gc_object);
 
+        bool validation_enabled = type_info != TypeObject::any();
+
         for (auto* field: fields) {
             // validation
-            if (!type_info->has_field(field)) {
+            if (validation_enabled && !type_info->has_field(field)) {
                 throw IRInterpreterException("Object has no field named: " + field->to_string());
             }
 

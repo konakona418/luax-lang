@@ -667,7 +667,7 @@ namespace luaxc {
 
                 consume(TokenType::IDENTIFIER);
 
-                // initializer list
+                // initializer list - named
                 if (current_token.type == TokenType::L_CURLY_BRACKET) {
                     node = parse_initializer_list_expression(std::move(node));
                 }
@@ -679,6 +679,14 @@ namespace luaxc {
                 node = parse_simple_expression();
                 consume(TokenType::R_PARENTHESIS);
 
+                break;
+            }
+            case (TokenType::L_CURLY_BRACKET): {
+                if (is_in_scope(ParserState::InInitializerListScope)) {
+                    // anonymous initializer list
+                    // only allowed in an existing initializer list
+                    node = parse_initializer_list_expression(nullptr);
+                }
                 break;
             }
             case (TokenType::STRING_LITERAL): {

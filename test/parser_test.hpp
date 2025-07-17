@@ -486,9 +486,58 @@ namespace parser_test {
 
         let myObject = MyType { x = 1, y = Nested { z = 2 } };
         println(myObject.y.z);
+
+        let z = myObject.y.z;
         )";
 
         auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("z") == 2);
+    }
+
+    inline void test_object_member_access_anonymous() {
+        std::string input = R"(
+        use println;
+        use Int;
+
+        let MyType = type {
+            field x = Int();
+            field y = type { field z = Int(); };
+        };
+
+        let myObject = MyType { x = 1, y = { z = 2 } };
+        println(myObject.y.z);
+        
+        let z = myObject.y.z;
+        )";
+
+        auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("z") == 2);
+    }
+
+    inline void test_generic_type_object() {
+        std::string input = R"(
+        use println;
+        use Int;
+
+        func Vector2(TData) {
+            return type {
+                field x = TData;
+                field y = TData;
+            };
+        }
+
+        let Vector2Int = Vector2(Int());
+
+        let vec = Vector2Int { x = 1, y = 2 };
+        println(vec.x, vec.y);
+
+        let x = vec.x;
+        let y = vec.y;
+        )";
+
+        auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("x") == 1);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("y") == 2);
     }
 
     inline void run_parser_test() {
@@ -557,6 +606,8 @@ namespace parser_test {
             test(test_object_construction);
             test(test_object_member_access_basic);
             test(test_object_member_access_nested);
+            test(test_object_member_access_anonymous);
+            test(test_generic_type_object);
         }
         end_test()
     }
