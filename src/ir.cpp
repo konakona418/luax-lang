@@ -21,11 +21,11 @@ namespace luaxc {
             }
             case IRInstruction::InstructionType::LOAD_IDENTIFIER:
                 out = "LOAD_IDENTIFIER";
-                out += " " + std::get<IRLoadIdentifierParam>(param).identifier;
+                out += " " + std::get<IRLoadIdentifierParam>(param).identifier->to_string();
                 break;
             case IRInstruction::InstructionType::STORE_IDENTIFIER:
                 out = "STORE_IDENTIFIER";
-                out += " " + std::get<IRStoreIdentifierParam>(param).identifier;
+                out += " " + std::get<IRStoreIdentifierParam>(param).identifier->to_string();
                 break;
             case IRInstruction::InstructionType::ADD:
                 out = "ADD";
@@ -236,9 +236,11 @@ namespace luaxc {
     void IRGenerator::generate_expression(const ExpressionNode* node, ByteCode& byte_code) {
         switch (node->get_expression_type()) {
             case ExpressionNode::ExpressionType::Identifier: {
+                auto* cached_string =
+                        runtime.push_string_pool_if_not_exists(static_cast<const IdentifierNode*>(node)->get_name());
                 byte_code.push_back(
                         IRInstruction(IRInstruction::InstructionType::LOAD_IDENTIFIER,
-                                      {IRLoadIdentifierParam{static_cast<const IdentifierNode*>(node)->get_name()}}));
+                                      {IRLoadIdentifierParam{cached_string}}));
                 break;
             }
             case ExpressionNode::ExpressionType::MemberAccessExpr: {
@@ -314,9 +316,10 @@ namespace luaxc {
 
                 generate_expression(static_cast<ExpressionNode*>(field->get_type_declaration_expr().get()), byte_code);
 
+                auto* cached_string = runtime.push_string_pool_if_not_exists(field_name);
                 byte_code.push_back(IRInstruction(
                         IRInstruction::InstructionType::STORE_IDENTIFIER,
-                        IRStoreIdentifierParam{field_name}));
+                        IRStoreIdentifierParam{cached_string}));
             } else if (stmt->get_statement_type() == StatementNode::StatementType::MethodDeclarationStmt) {
                 generate_method_declaration_statement(static_cast<const MethodDeclarationNode*>(stmt), byte_code);
             } else {
@@ -368,9 +371,10 @@ namespace luaxc {
                         IRInstruction::InstructionType::LOAD_CONST,
                         IRLoadConstParam{IRPrimValue::unit()}));
 
+                auto* cached_string = runtime.push_string_pool_if_not_exists(identifier_node->get_name());
                 byte_code.push_back(IRInstruction(
                         IRInstruction::InstructionType::STORE_IDENTIFIER,
-                        IRStoreIdentifierParam{identifier_node->get_name()}));
+                        IRStoreIdentifierParam{cached_string}));
             }
             return;
         }
@@ -378,10 +382,11 @@ namespace luaxc {
         generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         auto* identifier_node = static_cast<IdentifierNode*>(identifiers[0].get());
+        auto* cached_string = runtime.push_string_pool_if_not_exists(identifier_node->get_name());
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_IDENTIFIER,
-                IRStoreIdentifierParam{identifier_node->get_name()}));
+                IRStoreIdentifierParam{cached_string}));
     }
 
     void IRGenerator::generate_assignment_statement(const AssignmentExpressionNode* node, ByteCode& byte_code) {
@@ -405,9 +410,10 @@ namespace luaxc {
         auto expr = static_cast<const StatementNode*>(statement->get_value().get());
         generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
+        auto* cached_string = runtime.push_string_pool_if_not_exists(identifier->get_name());
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_IDENTIFIER,
-                IRStoreIdentifierParam{identifier->get_name()}));
+                IRStoreIdentifierParam{cached_string}));
     }
 
     void IRGenerator::generate_initializer_list_expression(const InitializerListExpressionNode* expression, ByteCode& byte_code) {
@@ -642,9 +648,10 @@ namespace luaxc {
         auto& left_identifier = dynamic_cast<IdentifierNode*>(left.get())->get_name();
 
         // load the identifier and push onto the stack
+        auto* cached_string = runtime.push_string_pool_if_not_exists(left_identifier);
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::LOAD_IDENTIFIER,
-                IRLoadIdentifierParam{left_identifier}));
+                IRLoadIdentifierParam{cached_string}));
 
         // load the operator
         auto op = statement->get_op();
@@ -660,7 +667,7 @@ namespace luaxc {
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_IDENTIFIER,
-                IRStoreIdentifierParam{left_identifier}));
+                IRStoreIdentifierParam{cached_string}));
     }
 
     void IRGenerator::generate_unary_expression_statement(const UnaryExpressionNode* statement, ByteCode& byte_code) {
@@ -874,7 +881,8 @@ namespace luaxc {
         size_t fn_start_index = byte_code.size();
 
         for (auto& param: statement->get_parameters()) {
-            auto identifier = dynamic_cast<IdentifierNode*>(param.get())->get_name();
+            auto identifier =
+                    runtime.push_string_pool_if_not_exists(dynamic_cast<IdentifierNode*>(param.get())->get_name());
             byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::STORE_IDENTIFIER,
                     IRStoreIdentifierParam{identifier}));
@@ -901,8 +909,11 @@ namespace luaxc {
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::LOAD_CONST, IRPrimValue(ValueType::Function, func_obj)));
+
+        auto* cached_function_identifier = runtime.push_string_pool_if_not_exists(function_identifier);
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::STORE_IDENTIFIER, IRStoreIdentifierParam{function_identifier}));
+                IRInstruction::InstructionType::STORE_IDENTIFIER,
+                IRStoreIdentifierParam{cached_function_identifier}));
     }
 
     void IRGenerator::generate_method_declaration_statement(const MethodDeclarationNode* statement, ByteCode& byte_code) {
@@ -919,7 +930,8 @@ namespace luaxc {
         size_t fn_start_index = byte_code.size();
 
         for (auto& param: statement->get_parameters()) {
-            auto identifier = dynamic_cast<IdentifierNode*>(param.get())->get_name();
+            auto identifier =
+                    runtime.push_string_pool_if_not_exists(dynamic_cast<IdentifierNode*>(param.get())->get_name());
             byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::STORE_IDENTIFIER,
                     IRStoreIdentifierParam{identifier}));
@@ -946,8 +958,10 @@ namespace luaxc {
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::LOAD_CONST, IRPrimValue(ValueType::Function, func_obj)));
+
+        auto* cached_function_identifier = runtime.push_string_pool_if_not_exists(function_identifier);
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::STORE_IDENTIFIER, IRStoreIdentifierParam{function_identifier}));
+                IRInstruction::InstructionType::STORE_IDENTIFIER, IRStoreIdentifierParam{cached_function_identifier}));
     }
 
     void IRGenerator::generate_return_statement(const ReturnNode* statement, ByteCode& byte_code) {
@@ -1140,17 +1154,15 @@ namespace luaxc {
         TypeObject* type_info = TypeObject::create();
 
         for (auto& [name, value]: current_stack_frame().variables) {
-            auto* string_obj = runtime.push_string_pool_if_not_exists(name);
-
             if (value.get_type() == ValueType::Type) {
                 type_info->add_field(
-                        string_obj,
+                        name,
                         TypeObject::TypeField{
                                 static_cast<TypeObject*>(value.get_inner_value<GCObject*>())});
             } else if (value.get_type() == ValueType::Function) {
-                type_info->add_field(string_obj, TypeObject::TypeField{TypeObject::function()});
+                type_info->add_field(name, TypeObject::TypeField{TypeObject::function()});
                 type_info->add_method(
-                        string_obj,
+                        name,
                         static_cast<FunctionObject*>(value.get_inner_value<GCObject*>()));
             } else {
                 throw IRInterpreterException("Not a valid type");
@@ -1396,27 +1408,35 @@ namespace luaxc {
         }
     }
 
-    IRPrimValue IRInterpreter::retrieve_raw_value(const std::string& identifier) {
+    IRPrimValue IRInterpreter::retrieve_raw_value(StringObject* identifier) {
         if (auto idx = has_identifier_in_stack_frame(identifier)) {
             return retrieve_raw_value_in_desired_stack_frame(identifier, idx.value());
         } else if (has_identifier_in_global_scope(identifier)) {
             return retrieve_raw_value_in_global_scope(identifier);
         } else {
-            throw IRInterpreterException("Identifier not found: " + identifier);
+            throw IRInterpreterException("Identifier not found: " + identifier->to_string());
         }
     }
 
-    IRPrimValue& IRInterpreter::retrieve_raw_value_ref(const std::string& identifier) {
+    IRPrimValue IRInterpreter::retrieve_raw_value(const std::string& identifier) {
+        return retrieve_raw_value(runtime.push_string_pool_if_not_exists(identifier));
+    }
+
+    IRPrimValue& IRInterpreter::retrieve_raw_value_ref(StringObject* identifier) {
         if (auto idx = has_identifier_in_stack_frame(identifier)) {
             return retrieve_value_ref_in_desired_stack_frame(identifier, idx.value());
         } else if (has_identifier_in_global_scope(identifier)) {
             return retrieve_value_ref_in_global_scope(identifier);
         } else {
-            throw IRInterpreterException("Identifier not found: " + identifier);
+            throw IRInterpreterException("Identifier not found: " + identifier->to_string());
         }
     }
 
-    void IRInterpreter::store_raw_value(const std::string& identifier, IRPrimValue value) {
+    IRPrimValue& IRInterpreter::retrieve_raw_value_ref(const std::string& identifier) {
+        return retrieve_raw_value_ref(runtime.push_string_pool_if_not_exists(identifier));
+    }
+
+    void IRInterpreter::store_raw_value(StringObject* identifier, IRPrimValue value) {
         if (has_identifier_in_stack_frame(identifier)) {
             store_value_in_stack_frame(identifier, value);
         } else if (has_identifier_in_global_scope(identifier)) {
@@ -1426,8 +1446,12 @@ namespace luaxc {
         }
     }
 
-    bool IRInterpreter::has_identifier(const std::string& identifier) {
+    bool IRInterpreter::has_identifier(StringObject* identifier) {
         return has_identifier_in_stack_frame(identifier) || has_identifier_in_global_scope(identifier);
+    }
+
+    bool IRInterpreter::has_identifier(const std::string& identifier) {
+        return has_identifier(runtime.push_string_pool_if_not_exists(identifier));
     }
 
     void IRInterpreter::preload_native_functions() {
@@ -1440,7 +1464,8 @@ namespace luaxc {
                     return PrimValue::unit();
                 });
         runtime.push_gc_object(println);
-        store_value_in_global_scope("println", PrimValue(ValueType::Function, println));
+        auto* println_identifier = runtime.push_string_pool_if_not_exists("println");
+        store_value_in_global_scope(println_identifier, PrimValue(ValueType::Function, println));
 
         FunctionObject* print = FunctionObject::create_native_function(
                 [](std::vector<PrimValue> args) -> PrimValue {
@@ -1450,13 +1475,15 @@ namespace luaxc {
                     return PrimValue::unit();
                 });
         runtime.push_gc_object(print);
-        store_value_in_global_scope("print", PrimValue(ValueType::Function, print));
+        auto* print_identifier = runtime.push_string_pool_if_not_exists("print");
+        store_value_in_global_scope(print_identifier, PrimValue(ValueType::Function, print));
 
         FunctionObject* int_type = FunctionObject::create_native_function([this](std::vector<PrimValue>) -> PrimValue {
             return PrimValue(ValueType::Type, runtime.get_type_info("Int"));
         });
         runtime.push_gc_object(int_type);
-        store_value_in_global_scope("Int", PrimValue(ValueType::Function, int_type));
+        auto* int_identifier = runtime.push_string_pool_if_not_exists("Int");
+        store_value_in_global_scope(int_identifier, PrimValue(ValueType::Function, int_type));
     }
 
     void IRInterpreter::push_stack_frame(bool allow_propagation) {
@@ -1476,7 +1503,7 @@ namespace luaxc {
         return stack_frames[0];
     }
 
-    std::optional<size_t> IRInterpreter::has_identifier_in_stack_frame(const std::string& identifier) {
+    std::optional<size_t> IRInterpreter::has_identifier_in_stack_frame(StringObject* identifier) {
         for (int idx = stack_frames.size() - 1; idx >= 0; idx--) {
             if (stack_frames[idx].variables.find(identifier) != stack_frames[idx].variables.end()) {
                 return {static_cast<size_t>(idx)};
@@ -1489,39 +1516,39 @@ namespace luaxc {
         return std::nullopt;
     }
 
-    bool IRInterpreter::has_identifier_in_global_scope(const std::string& identifier) {
+    bool IRInterpreter::has_identifier_in_global_scope(StringObject* identifier) {
         return global_stack_frame().variables.find(identifier) != stack_frames[0].variables.end();
     }
 
-    IRPrimValue IRInterpreter::retrieve_raw_value_in_desired_stack_frame(const std::string& identifier, size_t idx) {
+    IRPrimValue IRInterpreter::retrieve_raw_value_in_desired_stack_frame(StringObject* identifier, size_t idx) {
         return stack_frames[idx].variables.at(identifier);
     }
 
-    IRPrimValue& IRInterpreter::retrieve_value_ref_in_desired_stack_frame(const std::string& identifier, size_t idx) {
+    IRPrimValue& IRInterpreter::retrieve_value_ref_in_desired_stack_frame(StringObject* identifier, size_t idx) {
         return stack_frames[idx].variables.at(identifier);
     }
 
-    IRPrimValue IRInterpreter::retrieve_raw_value_in_current_stack_frame(const std::string& identifier) {
+    IRPrimValue IRInterpreter::retrieve_raw_value_in_current_stack_frame(StringObject* identifier) {
         return current_stack_frame().variables.at(identifier);
     }
 
-    IRPrimValue& IRInterpreter::retrieve_value_ref_in_current_stack_frame(const std::string& identifier) {
+    IRPrimValue& IRInterpreter::retrieve_value_ref_in_current_stack_frame(StringObject* identifier) {
         return current_stack_frame().variables.at(identifier);
     }
 
-    IRPrimValue IRInterpreter::retrieve_raw_value_in_global_scope(const std::string& identifier) {
+    IRPrimValue IRInterpreter::retrieve_raw_value_in_global_scope(StringObject* identifier) {
         return global_stack_frame().variables.at(identifier);
     }
 
-    IRPrimValue& IRInterpreter::retrieve_value_ref_in_global_scope(const std::string& identifier) {
+    IRPrimValue& IRInterpreter::retrieve_value_ref_in_global_scope(StringObject* identifier) {
         return global_stack_frame().variables.at(identifier);
     }
 
-    void IRInterpreter::store_value_in_stack_frame(const std::string& identifier, IRPrimValue value) {
+    void IRInterpreter::store_value_in_stack_frame(StringObject* identifier, IRPrimValue value) {
         current_stack_frame().variables[identifier] = value;
     }
 
-    void IRInterpreter::store_value_in_global_scope(const std::string& identifier, IRPrimValue value) {
+    void IRInterpreter::store_value_in_global_scope(StringObject* identifier, IRPrimValue value) {
         global_stack_frame().variables[identifier] = value;
     }
 

@@ -38,11 +38,11 @@ namespace luaxc {
     using IRLoadConstParam = IRPrimValue;
 
     struct IRLoadIdentifierParam {
-        std::string identifier;
+        StringObject* identifier;
     };
 
     struct IRStoreIdentifierParam {
-        std::string identifier;
+        StringObject* identifier;
     };
 
     struct IRLoadMemberParam {
@@ -243,22 +243,33 @@ namespace luaxc {
 
         void run();
 
+        IRPrimValue retrieve_raw_value(StringObject* identifier);
+
         IRPrimValue retrieve_raw_value(const std::string& identifier);
+
+        IRPrimValue& retrieve_raw_value_ref(StringObject* identifier);
 
         IRPrimValue& retrieve_raw_value_ref(const std::string& identifier);
 
-        void store_raw_value(const std::string& identifier, IRPrimValue value);
+        void store_raw_value(StringObject* identifier, IRPrimValue value);
+
+        template<typename T>
+        T retrieve_value(StringObject* identifier) {
+            return retrieve_raw_value(identifier).get_inner_value<T>();
+        }
 
         template<typename T>
         T retrieve_value(const std::string& identifier) {
             return retrieve_raw_value(identifier).get_inner_value<T>();
         }
 
+        bool has_identifier(StringObject* identifier);
+
         bool has_identifier(const std::string& identifier);
 
     private:
         struct StackFrame {
-            std::unordered_map<std::string, IRPrimValue> variables;
+            std::unordered_map<StringObject*, IRPrimValue> variables;
             size_t return_addr;
             bool allow_upward_propagation = false;
 
@@ -284,25 +295,25 @@ namespace luaxc {
 
         StackFrame& global_stack_frame();
 
-        std::optional<size_t> has_identifier_in_stack_frame(const std::string& identifier);
+        std::optional<size_t> has_identifier_in_stack_frame(StringObject* identifier);
 
-        bool has_identifier_in_global_scope(const std::string& identifier);
+        bool has_identifier_in_global_scope(StringObject* identifier);
 
-        IRPrimValue retrieve_raw_value_in_desired_stack_frame(const std::string& identifier, size_t idx);
+        IRPrimValue retrieve_raw_value_in_desired_stack_frame(StringObject* identifier, size_t idx);
 
-        IRPrimValue& retrieve_value_ref_in_desired_stack_frame(const std::string& identifier, size_t idx);
+        IRPrimValue& retrieve_value_ref_in_desired_stack_frame(StringObject* identifier, size_t idx);
 
-        IRPrimValue retrieve_raw_value_in_current_stack_frame(const std::string& identifier);
+        IRPrimValue retrieve_raw_value_in_current_stack_frame(StringObject* identifier);
 
-        IRPrimValue& retrieve_value_ref_in_current_stack_frame(const std::string& identifier);
+        IRPrimValue& retrieve_value_ref_in_current_stack_frame(StringObject* identifier);
 
-        IRPrimValue retrieve_raw_value_in_global_scope(const std::string& identifier);
+        IRPrimValue retrieve_raw_value_in_global_scope(StringObject* identifier);
 
-        IRPrimValue& retrieve_value_ref_in_global_scope(const std::string& identifier);
+        IRPrimValue& retrieve_value_ref_in_global_scope(StringObject* identifier);
 
-        void store_value_in_stack_frame(const std::string& identifier, IRPrimValue value);
+        void store_value_in_stack_frame(StringObject* identifier, IRPrimValue value);
 
-        void store_value_in_global_scope(const std::string& identifier, IRPrimValue value);
+        void store_value_in_global_scope(StringObject* identifier, IRPrimValue value);
 
         void handle_binary_op(IRInstruction::InstructionType op);
 
@@ -333,6 +344,15 @@ namespace luaxc {
     public:
         IRRuntime() {
             init_builtin_type_info();
+        }
+
+        IRRuntime(IRRuntime& other) = delete;
+        IRRuntime(IRRuntime&& other) {
+            objects = std::move(other.objects);
+            constant_pools = std::move(other.constant_pools);
+            type_info = std::move(other.type_info);
+            generator = std::move(other.generator);
+            interpreter = std::move(other.interpreter);
         }
 
         ~IRRuntime() {
@@ -386,6 +406,13 @@ namespace luaxc {
         bool is_string_in_pool(const std::string& name) {
             return constant_pools.string_const_pool.find(name) != constant_pools.string_const_pool.end();
         }
+
+        template<typename T>
+        T retrieve_value(const std::string& identifier) {
+            return interpreter->retrieve_raw_value(identifier).get_inner_value<T>();
+        }
+
+        bool has_identifier(const std::string& identifier) { return interpreter->has_identifier(identifier); }
 
     private:
         struct {

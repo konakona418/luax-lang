@@ -5,7 +5,7 @@
 #include "test_helper.hpp"
 
 namespace parser_test {
-    inline luaxc::IRInterpreter compile_run(const std::string& input) {
+    inline luaxc::IRRuntime compile_run(const std::string& input) {
         auto lexer = luaxc::Lexer(input);
         auto parser = luaxc::Parser(lexer);
         auto program = parser.parse_program();
@@ -18,126 +18,124 @@ namespace parser_test {
 
         runtime.run();
 
-        auto ir_interpreter = runtime.get_interpreter();
-
-        return ir_interpreter;
+        return runtime;
     }
 
     inline void test_declaration() {
-        auto ir_interpreter = compile_run("let a = 1 + 2 * (3 + 4);");
-        auto value = ir_interpreter.retrieve_value<luaxc::Int>("a");
+        auto runtime = compile_run("let a = 1 + 2 * (3 + 4);");
+        auto value = runtime.retrieve_value<luaxc::Int>("a");
         assert(value == 1 + 2 * (3 + 4));
     }
 
     inline void test_declaration_no_initializer() {
-        auto ir_interpreter = compile_run("let a;");
-        assert(ir_interpreter.has_identifier("a"));
+        auto runtime = compile_run("let a;");
+        assert(runtime.has_identifier("a"));
     }
 
     inline void test_multiple_declarations() {
-        auto ir_interpreter = compile_run("let a, b, c;");
-        assert(ir_interpreter.has_identifier("a"));
-        assert(ir_interpreter.has_identifier("b"));
-        assert(ir_interpreter.has_identifier("c"));
+        auto runtime = compile_run("let a, b, c;");
+        assert(runtime.has_identifier("a"));
+        assert(runtime.has_identifier("b"));
+        assert(runtime.has_identifier("c"));
     }
 
     inline void test_assignment() {
-        auto ir_interpreter = compile_run("let a = 1; a = 1 + 2 * (3 + 4);");
-        auto value = ir_interpreter.retrieve_value<luaxc::Int>("a");
+        auto runtime = compile_run("let a = 1; a = 1 + 2 * (3 + 4);");
+        auto value = runtime.retrieve_value<luaxc::Int>("a");
         assert(value == 1 + 2 * (3 + 4));
     }
 
     inline void test_arithmetic_with_identifier() {
-        auto ir_interpreter = compile_run("let a = 1; let b = 2; let c = a + b;");
-        auto value = ir_interpreter.retrieve_value<luaxc::Int>("c");
+        auto runtime = compile_run("let a = 1; let b = 2; let c = a + b;");
+        auto value = runtime.retrieve_value<luaxc::Int>("c");
         assert(value == 1 + 2);
     }
 
     inline void test_unary_operator_logical_not() {
-        auto ir_interpreter = compile_run("let a = 1; if (!(a == 1)) { let b = 2; } else { let b = 3; }");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("b") == 3);
+        auto runtime = compile_run("let a = 1; if (!(a == 1)) { let b = 2; } else { let b = 3; }");
+        assert(runtime.retrieve_value<luaxc::Int>("b") == 3);
     }
 
     inline void test_unary_operator_minus() {
-        auto ir_interpreter = compile_run("let a = -1;");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == -1);
+        auto runtime = compile_run("let a = -1;");
+        assert(runtime.retrieve_value<luaxc::Int>("a") == -1);
     }
 
     inline void test_combinative_assignment() {
-        auto ir_interpreter = compile_run("let a = 1; a += 1;");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 2);
+        auto runtime = compile_run("let a = 1; a += 1;");
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 2);
     }
 
     inline void test_if_statement() {
-        auto ir_interpreter = compile_run("let a = 1; if (a > 0) { let b = 2; }");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("b") == 2);
+        auto runtime = compile_run("let a = 1; if (a > 0) { let b = 2; }");
+        assert(runtime.retrieve_value<luaxc::Int>("b") == 2);
     }
 
     inline void test_if_statement_false() {
-        auto ir_interpreter = compile_run("let a = 1; if (a < 0) { let b = 2; }");
-        assert(ir_interpreter.has_identifier("b") == false);
+        auto runtime = compile_run("let a = 1; if (a < 0) { let b = 2; }");
+        assert(runtime.has_identifier("b") == false);
     }
 
     inline void test_if_statement_with_else() {
-        auto ir_interpreter =
+        auto runtime =
                 compile_run("let a = 1; if (a < 0) { let b = 2; } else { let c = 3; }");
-        assert(ir_interpreter.has_identifier("b") == false);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("c") == 3);
+        assert(runtime.has_identifier("b") == false);
+        assert(runtime.retrieve_value<luaxc::Int>("c") == 3);
     }
 
     inline void test_if_statement_else_if() {
-        auto ir_interpreter =
+        auto runtime =
                 compile_run("let a = 1; if (a < 0) { let b = 2; } "
                             "else if (a > 0) { let c = 3; } else { let d = 4; }");
-        assert(ir_interpreter.has_identifier("b") == false);
-        assert(ir_interpreter.has_identifier("d") == false);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("c") == 3);
+        assert(runtime.has_identifier("b") == false);
+        assert(runtime.has_identifier("d") == false);
+        assert(runtime.retrieve_value<luaxc::Int>("c") == 3);
     }
 
     inline void test_if_statement_const_condition() {
-        auto ir_interpreter =
+        auto runtime =
                 compile_run("if (1) { let a = 1; }");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 1);
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 1);
     }
 
     inline void test_if_statement_const_false_condition() {
-        auto ir_interpreter =
+        auto runtime =
                 compile_run("if (0) { let a = 1; }");
-        assert(ir_interpreter.has_identifier("a") == false);
+        assert(runtime.has_identifier("a") == false);
     }
 
     inline void test_if_statement_const_expr_condition() {
-        auto ir_interpreter =
+        auto runtime =
                 compile_run("if (1 + 2) { let a = 1; }");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 1);
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 1);
     }
 
     inline void test_if_statement_const_expr_false_condition() {
-        auto ir_interpreter =
+        auto runtime =
                 compile_run("if (1 - 1) { let a = 1; } else { let a = 0; }");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 0);
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 0);
     }
 
     inline void test_while_statement() {
-        auto ir_interpreter =
+        auto runtime =
                 compile_run("let a = 0; while (a < 10) { a = a + 1; }");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 10);
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 10);
     }
 
     inline void test_while_statement_break() {
-        auto ir_interpreter =
+        auto runtime =
                 compile_run("let a = 0; while (a < 10) { a = a + 1; if (a == 5) { break; } }");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 5);
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 5);
     }
 
     inline void test_while_statement_continue() {
-        auto ir_interpreter =
+        auto runtime =
                 compile_run("let a = 0; while (a < 10) { a = a + 1; if (a == 5) { continue; } }");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 10);
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 10);
     }
 
     inline void test_while_statement_mixed() {
-        auto ir_interpreter =
+        auto runtime =
                 compile_run(
                         "let a = 0; let b = 0; "
                         "while (a < 10) { "
@@ -145,8 +143,8 @@ namespace parser_test {
                         "a = a + 1; b = b + 2; "
                         "if (a == 7) { break;} "
                         "}");
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 7);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("b") == 12);
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 7);
+        assert(runtime.retrieve_value<luaxc::Int>("b") == 12);
     }
 
     inline void test_while_statement_nested() {
@@ -163,8 +161,8 @@ namespace parser_test {
             a = a + 1;
         })";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("sum") == 50);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("sum") == 50);
     }
 
     inline void test_while_statement_nested_break() {
@@ -184,8 +182,8 @@ namespace parser_test {
             a = a + 1;
         })";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("sum") == 30);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("sum") == 30);
     }
 
     inline void test_logical_operators() {
@@ -208,10 +206,10 @@ namespace parser_test {
             let e = 0;
         }
         )";
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("c") == 0);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("d") == 1);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("e") == 1);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("c") == 0);
+        assert(runtime.retrieve_value<luaxc::Int>("d") == 1);
+        assert(runtime.retrieve_value<luaxc::Int>("e") == 1);
     }
 
     inline void test_for_loop() {
@@ -221,8 +219,8 @@ namespace parser_test {
             a = a + i;
         }
         )";
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 45);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 45);
     }
 
     inline void test_for_loop_break() {
@@ -235,8 +233,8 @@ namespace parser_test {
             a = a + i;
         }
         )";
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 10);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 10);
     }
 
     inline void test_for_loop_continue() {
@@ -249,8 +247,8 @@ namespace parser_test {
             a = a + i;
         }
         )";
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("a") == 40);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("a") == 40);
     }
 
     inline void test_scopes_error_check() {
@@ -278,7 +276,7 @@ namespace parser_test {
         println(a);
         )";
 
-        auto ir_interpreter = compile_run(input);
+        auto runtime = compile_run(input);
     }
 
     inline void test_function_invocation_multiple_args() {
@@ -290,8 +288,8 @@ namespace parser_test {
         let unit = println(a, b, 800 + c * (1 + 4));
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::UnitObject>("unit") == luaxc::UnitObject{});
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::UnitObject>("unit") == luaxc::UnitObject{});
     }
 
     inline void test_function_declaration() {
@@ -304,8 +302,8 @@ namespace parser_test {
         println(result);
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 3);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("result") == 3);
     }
 
     inline void test_function_chain_invoke() {
@@ -321,8 +319,8 @@ namespace parser_test {
         println(result);
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 3);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("result") == 3);
     }
 
     inline void test_multiple_function_declarations() {
@@ -338,8 +336,8 @@ namespace parser_test {
         println(result);
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 12);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("result") == 12);
     }
 
     inline void test_deferred_function_declarations() {
@@ -361,8 +359,8 @@ namespace parser_test {
         main();
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 3);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("result") == 3);
     }
 
     inline void test_nested_function_declaration() {
@@ -382,8 +380,8 @@ namespace parser_test {
         main();
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("result") == 3);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("result") == 3);
     }
 
     inline void test_string_literal() {
@@ -393,7 +391,7 @@ namespace parser_test {
         println(str);
         )";
 
-        auto ir_interpreter = compile_run(input);
+        auto runtime = compile_run(input);
     }
 
     inline void test_type_decl() {
@@ -407,7 +405,7 @@ namespace parser_test {
         };
         )";
 
-        auto ir_interpreter = compile_run(input);
+        auto runtime = compile_run(input);
     }
 
     inline void test_generic_type_factory() {
@@ -425,7 +423,7 @@ namespace parser_test {
         let Vector2Int = Vector2(Int());
         )";
 
-        auto ir_interpreter = compile_run(input);
+        auto runtime = compile_run(input);
     }
 
     inline void test_object_construction() {
@@ -441,7 +439,7 @@ namespace parser_test {
         let myObject = MyType { x = 1, y = 2, };
         )";
 
-        auto ir_interpreter = compile_run(input);
+        auto runtime = compile_run(input);
     }
 
     inline void test_object_member_access_basic() {
@@ -467,9 +465,9 @@ namespace parser_test {
         y = myObject.y;
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("x") == 1);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("y") == 3);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("x") == 1);
+        assert(runtime.retrieve_value<luaxc::Int>("y") == 3);
     }
 
     inline void test_object_member_access_nested() {
@@ -490,8 +488,8 @@ namespace parser_test {
         let z = myObject.y.z;
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("z") == 2);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("z") == 2);
     }
 
     inline void test_object_member_access_anonymous() {
@@ -510,8 +508,8 @@ namespace parser_test {
         let z = myObject.y.z;
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("z") == 2);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("z") == 2);
     }
 
     inline void test_object_return_from_func() {
@@ -534,8 +532,8 @@ namespace parser_test {
         let y = myObject.y;
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("y") == 2);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("y") == 2);
     }
 
     inline void test_generic_type_object() {
@@ -559,9 +557,9 @@ namespace parser_test {
         let y = vec.y;
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("x") == 1);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("y") == 2);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("x") == 1);
+        assert(runtime.retrieve_value<luaxc::Int>("y") == 2);
     }
 
     inline void test_method() {
@@ -601,8 +599,8 @@ namespace parser_test {
         println(newObject.x, newObject.y);
         )";
 
-        auto ir_interpreter = compile_run(input);
-        assert(ir_interpreter.retrieve_value<luaxc::Int>("bar") == 11);
+        auto runtime = compile_run(input);
+        assert(runtime.retrieve_value<luaxc::Int>("bar") == 11);
     }
 
     inline void run_parser_test() {
