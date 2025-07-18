@@ -1,6 +1,7 @@
 #include "ir.hpp"
 
 #include <cassert>
+#include <iostream>
 #include <sstream>
 
 namespace luaxc {
@@ -68,6 +69,9 @@ namespace luaxc {
             case IRInstruction::InstructionType::POP_STACK:
                 out = "POP_STACK";
                 break;
+            case IRInstruction::InstructionType::PEEK:
+                out = "PEEK";
+                break;
             case IRInstruction::InstructionType::CMP_EQ:
                 out = "CMP_EQ";
                 break;
@@ -120,10 +124,12 @@ namespace luaxc {
                 out += "MAKE_OBJECT";
                 break;
             case IRInstruction::InstructionType::LOAD_MEMBER:
-                out += "LOAD_MEMBER";
+                out += "LOAD_MEMBER ";
+                out += std::get<IRLoadMemberParam>(param).identifier->to_string();
                 break;
             case IRInstruction::InstructionType::STORE_MEMBER:
-                out += "STORE_MEMBER";
+                out += "STORE_MEMBER ";
+                out += std::get<IRStoreMemberParam>(param).identifier->to_string();
                 break;
             default:
                 out = "UNKNOWN";
@@ -210,6 +216,8 @@ namespace luaxc {
                 return generate_expression(static_cast<const ExpressionNode*>(statement_node), byte_code);
             case StatementNode::StatementType::FunctionDeclarationStmt:
                 return generate_function_declaration_statement(static_cast<const FunctionDeclarationNode*>(statement_node), byte_code);
+            case StatementNode::StatementType::MethodDeclarationStmt:
+                return generate_method_declaration_statement(static_cast<const MethodDeclarationNode*>(statement_node), byte_code);
             case StatementNode::StatementType::ReturnStmt:
                 return generate_return_statement(static_cast<const ReturnNode*>(statement_node), byte_code);
             default:
@@ -226,7 +234,11 @@ namespace luaxc {
                 break;
             }
             case ExpressionNode::ExpressionType::MemberAccessExpr: {
-                generate_member_access_statement(static_cast<const MemberAccessExpressionNode*>(node), byte_code);
+                generate_member_access_statement_rvalue(static_cast<const MemberAccessExpressionNode*>(node), byte_code);
+                break;
+            }
+            case luaxc::ExpressionNode::ExpressionType::MethodInvokeExpr: {
+                generate_member_access(node, byte_code);
                 break;
             }
             case ExpressionNode::ExpressionType::NumericLiteral: {
@@ -297,6 +309,8 @@ namespace luaxc {
                 byte_code.push_back(IRInstruction(
                         IRInstruction::InstructionType::STORE_IDENTIFIER,
                         IRStoreIdentifierParam{field_name}));
+            } else if (stmt->get_statement_type() == StatementNode::StatementType::MethodDeclarationStmt) {
+                generate_method_declaration_statement(static_cast<const MethodDeclarationNode*>(stmt), byte_code);
             } else {
                 throw IRGeneratorException("Unknown type declaration statement");
             }
@@ -388,38 +402,6 @@ namespace luaxc {
                 IRStoreIdentifierParam{identifier->get_name()}));
     }
 
-    void IRGenerator::generate_member_access(const ExpressionNode* expression, ByteCode& byte_code) {
-        // two possiblities of 'expression': an identifier, or another member access expression.
-        // todo: another possibility is a function expr, consider handle MemberAccessExpr as a special case, and use generate_expression for 'else'
-        if (expression->get_expression_type() == ExpressionNode::ExpressionType::Identifier) {
-            auto identifier = static_cast<const IdentifierNode*>(expression)->get_name();
-
-            // loads the identifier
-            byte_code.push_back(IRInstruction(
-                    IRInstruction::InstructionType::LOAD_IDENTIFIER,
-                    IRLoadIdentifierParam{identifier}));
-
-        } else if (expression->get_expression_type() == ExpressionNode::ExpressionType::MemberAccessExpr) {
-            auto* member_access = static_cast<const MemberAccessExpressionNode*>(expression);
-            auto* left = static_cast<const ExpressionNode*>(member_access->get_object_expr().get());
-
-            generate_member_access(left, byte_code);
-
-            // todo: this also needs handling method invocation
-            auto identifier =
-                    runtime.push_string_pool_if_not_exists(
-                            static_cast<const IdentifierNode*>(
-                                    member_access->get_member_identifier().get())
-                                    ->get_name());
-
-            byte_code.push_back(IRInstruction(
-                    IRInstruction::InstructionType::LOAD_MEMBER,
-                    IRLoadMemberParam{identifier}));
-        } else {
-            throw IRGeneratorException("Neither a valid identifier nor a member access expr");
-        }
-    }
-
     void IRGenerator::generate_initializer_list_expression(const InitializerListExpressionNode* expression, ByteCode& byte_code) {
         auto* type_expr = static_cast<const ExpressionNode*>(expression->get_type_expr().get());
         // nullable
@@ -463,19 +445,58 @@ namespace luaxc {
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::MAKE_OBJECT, IRMakeObjectParam{fields_rev}));
     }
 
-    void IRGenerator::generate_member_access_statement(const MemberAccessExpressionNode* statement, ByteCode& byte_code) {
-        auto* left_member_access = static_cast<const ExpressionNode*>(statement->get_object_expr().get());
-        generate_member_access(left_member_access, byte_code);
+    void IRGenerator::generate_member_access(const ExpressionNode* expression, ByteCode& byte_code) {
+        switch (expression->get_expression_type()) {
+            case (ExpressionNode::ExpressionType::MethodInvokeExpr): {
+                auto* method = static_cast<const MethodInvocationExpressionNode*>(expression);
+                auto* prefixed_expr = static_cast<const ExpressionNode*>(method->get_initial_expr().get());
+                auto* method_identifier = static_cast<const IdentifierNode*>(method->get_method_identifier().get());
 
-        auto identifier =
-                runtime.push_string_pool_if_not_exists(
-                        static_cast<const IdentifierNode*>(
-                                statement->get_member_identifier().get())
-                                ->get_name());
+                auto* cached_identifier = runtime.push_string_pool_if_not_exists(method_identifier->get_name());
 
-        byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::LOAD_MEMBER,
-                IRLoadMemberParam{identifier}));
+                auto& args = method->get_arguments();
+                auto arguments_count = args.size();
+
+                for (int i = arguments_count - 1; i >= 0; i--) {
+                    generate_expression(static_cast<const ExpressionNode*>(args[i].get()), byte_code);
+                }
+
+                generate_expression(prefixed_expr, byte_code);
+
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::PEEK, {std::monostate()}));
+
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::LOAD_MEMBER,
+                        IRLoadMemberParam{cached_identifier}));
+
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::CALL, IRCallParam{arguments_count}));
+                break;
+            }
+            case (ExpressionNode::ExpressionType::MemberAccessExpr): {
+                auto* expr = static_cast<const MemberAccessExpressionNode*>(expression);
+                auto* left = expr->get_object_expr().get();
+                generate_member_access(static_cast<const MemberAccessExpressionNode*>(left), byte_code);
+
+                auto* identifier = static_cast<const IdentifierNode*>(expr->get_member_identifier().get());
+                auto* str_obj = runtime.push_string_pool_if_not_exists(identifier->get_name());
+
+
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::LOAD_MEMBER,
+                        IRLoadMemberParam{str_obj}));
+                break;
+            }
+            default: {
+                generate_expression(expression, byte_code);
+                break;
+            }
+        }
+    }
+
+    void IRGenerator::generate_member_access_statement_rvalue(const MemberAccessExpressionNode* statement, ByteCode& byte_code) {
+        generate_member_access(static_cast<const ExpressionNode*>(statement), byte_code);
     }
 
     void IRGenerator::generate_assignment_statement_member_access_lvalue(
@@ -800,7 +821,10 @@ namespace luaxc {
     }
 
     IRInterpreter::~IRInterpreter() {
-        assert(stack_frames.size() == 1);
+        // assert(stack_frames.size() == 1);
+        if (stack_frames.size() != 1) {
+            std::cerr << "Abnormal quit with corrupted stack!" << std::endl;
+        }
         pop_stack_frame();
     }
 
@@ -868,6 +892,50 @@ namespace luaxc {
                 IRInstruction::InstructionType::STORE_IDENTIFIER, IRStoreIdentifierParam{function_identifier}));
     }
 
+    void IRGenerator::generate_method_declaration_statement(const MethodDeclarationNode* statement, ByteCode& byte_code) {
+        // forward declaration
+        if (statement->get_function_body() == nullptr) {
+            return;
+        }
+
+        size_t jump_over_function_instruction_index = byte_code.size();
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::JMP,
+                IRJumpParam(0)));
+
+        size_t fn_start_index = byte_code.size();
+
+        for (auto& param: statement->get_parameters()) {
+            auto identifier = dynamic_cast<IdentifierNode*>(param.get())->get_name();
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::STORE_IDENTIFIER,
+                    IRStoreIdentifierParam{identifier}));
+        }
+
+        generate_program_or_block(statement->get_function_body().get(), byte_code);
+
+        // no return value
+        if (byte_code.back().type != IRInstruction::InstructionType::RET) {
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::LOAD_CONST, IRLoadConstParam{IRPrimValue::unit()}));
+            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::RET, {std::monostate()}));
+        }
+
+        byte_code[jump_over_function_instruction_index].param = IRJumpParam(byte_code.size());
+
+        auto function_identifier =
+                static_cast<IdentifierNode*>(statement->get_identifier().get())->get_name();
+        auto* func_obj =
+                FunctionObject::create_method(fn_start_index, statement->get_parameters().size());
+
+        runtime.push_gc_object(func_obj);
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::LOAD_CONST, IRPrimValue(ValueType::Function, func_obj)));
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::STORE_IDENTIFIER, IRStoreIdentifierParam{function_identifier}));
+    }
+
     void IRGenerator::generate_return_statement(const ReturnNode* statement, ByteCode& byte_code) {
         generate_expression(static_cast<ExpressionNode*>(statement->get_expression().get()), byte_code);
         byte_code.push_back(IRInstruction(
@@ -901,6 +969,11 @@ namespace luaxc {
 
                 case IRInstruction::InstructionType::POP_STACK: {
                     stack.pop();
+                    break;
+                }
+
+                case IRInstruction::InstructionType::PEEK: {
+                    stack.push(stack.top());
                     break;
                 }
 
@@ -1026,16 +1099,21 @@ namespace luaxc {
         TypeObject* type_info = TypeObject::create();
 
         for (auto& [name, value]: current_stack_frame().variables) {
-            if (value.get_type() != ValueType::Type) {
-                throw IRInterpreterException("Not a valid type");
-            }
-
             auto* string_obj = runtime.push_string_pool_if_not_exists(name);
 
-            type_info->add_field(
-                    string_obj,
-                    TypeObject::TypeField{
-                            static_cast<TypeObject*>(value.get_inner_value<GCObject*>())});
+            if (value.get_type() == ValueType::Type) {
+                type_info->add_field(
+                        string_obj,
+                        TypeObject::TypeField{
+                                static_cast<TypeObject*>(value.get_inner_value<GCObject*>())});
+            } else if (value.get_type() == ValueType::Function) {
+                type_info->add_field(string_obj, TypeObject::TypeField{TypeObject::function()});
+                type_info->add_method(
+                        string_obj,
+                        static_cast<FunctionObject*>(value.get_inner_value<GCObject*>()));
+            } else {
+                throw IRInterpreterException("Not a valid type");
+            }
         }
 
         runtime.push_gc_object(type_info);
@@ -1077,6 +1155,10 @@ namespace luaxc {
         if (object_ptr->storage.fields.find(name) == object_ptr->storage.fields.end()) {
             std::string name_str = name->to_string();
             throw IRInterpreterException("Object does not contain such field: " + name_str);
+        } else {
+            // force the type of the value to the desired member type
+            // as sometimes the member type can be 'Any'
+            value.set_type_info(object.get_type_info()->get_field(name).type_ptr);
         }
 
         object_ptr->storage.fields[name] = value;
@@ -1096,6 +1178,14 @@ namespace luaxc {
         runtime.push_gc_object(gc_object);
 
         bool validation_enabled = type_info != TypeObject::any();
+
+        for (auto [name, _]: type_info->get_fields()) {
+            gc_object->storage.fields[name] = PrimValue::null();
+        }
+
+        for (auto [name, fn]: type_info->get_methods()) {
+            gc_object->storage.fields[name] = PrimValue(ValueType::Function, fn);
+        }
 
         for (auto* field: fields) {
             // validation
@@ -1143,8 +1233,20 @@ namespace luaxc {
             return false;
         } else {
             size_t arg_size = fn->get_arity();
-            if (param.arguments_count != arg_size) {
-                throw IRInterpreterException("Function argument count mismatch");
+
+            bool mismatch = false;
+            if (fn->is_method_function()) {
+                mismatch = param.arguments_count + 1 != arg_size;
+            } else {
+                mismatch = param.arguments_count != arg_size;
+            }
+
+            if (mismatch) {
+                throw IRInterpreterException(
+                        "Function argument count mismatch, expected " +
+                        std::to_string(arg_size) +
+                        " got " +
+                        std::to_string(param.arguments_count));
             }
 
             push_stack_frame();

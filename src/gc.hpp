@@ -142,6 +142,10 @@ namespace luaxc {
 
         explicit TypeObject(const std::string& type_name) : type_name(type_name) {}
 
+        std::string to_string() const override {
+            return "[type object]";
+        }
+
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(any, "Any")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(int_, "Int")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(float_, "Float")
@@ -171,7 +175,17 @@ namespace luaxc {
 
         TypeField get_field(StringObject* name) { return fields.at(name); }
 
-        bool has_field(StringObject*& name) { return fields.find(name) != fields.end(); }
+        bool has_field(StringObject* name) { return fields.find(name) != fields.end(); }
+
+        void add_method(StringObject* name, FunctionObject* fn) { member_funcs.emplace(name, fn); }
+
+        FunctionObject* get_method(StringObject* name) { return member_funcs.at(name); }
+
+        const std::unordered_map<StringObject*, TypeField>& get_fields() const { return fields; }
+
+        const std::unordered_map<StringObject*, FunctionObject*>& get_methods() const { return member_funcs; }
+
+        bool has_method(StringObject* name) { return member_funcs.find(name) != member_funcs.end(); }
 
         static TypeObject* create(const std::string& type_name) { return new TypeObject(type_name); }
 
@@ -290,6 +304,7 @@ namespace luaxc {
             auto* func = new FunctionObject();
             func->native_function = std::move(function);
             func->is_native = true;
+            func->is_method = false;
             func->begin_offset = 0;
             func->arity = 1;
             return func;
@@ -298,6 +313,17 @@ namespace luaxc {
         static FunctionObject* create_function(size_t begin_offset, size_t arity) {
             auto* func = new FunctionObject();
             func->is_native = false;
+            func->is_method = false;
+            func->native_function = nullptr;
+            func->begin_offset = begin_offset;
+            func->arity = arity;
+            return func;
+        }
+
+        static FunctionObject* create_method(size_t begin_offset, size_t arity) {
+            auto* func = new FunctionObject();
+            func->is_native = false;
+            func->is_method = true;
             func->native_function = nullptr;
             func->begin_offset = begin_offset;
             func->arity = arity;
@@ -305,6 +331,8 @@ namespace luaxc {
         }
 
         bool is_native_function() const { return is_native; }
+
+        bool is_method_function() const { return is_method; }
 
         PrimValue call_native(std::vector<PrimValue> args) { return native_function(std::move(args)); };
 
@@ -314,6 +342,7 @@ namespace luaxc {
 
     private:
         bool is_native;
+        bool is_method;
         std::function<PrimValue(std::vector<PrimValue>)> native_function;
         size_t begin_offset;
         size_t arity;

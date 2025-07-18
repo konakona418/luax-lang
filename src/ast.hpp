@@ -77,6 +77,7 @@ namespace luaxc {
             BinaryExpr,
             UnaryExpr,
             FuncInvokeExpr,
+            MethodInvokeExpr,
             MemberAccessExpr,
             InitializerListExpr,
         };
@@ -393,6 +394,31 @@ namespace luaxc {
 
     private:
         std::unique_ptr<AstNode> function_identifier;
+        std::vector<std::unique_ptr<AstNode>> arguments_expr;
+    };
+
+    class MethodInvocationExpressionNode : public ExpressionNode {
+    public:
+        explicit MethodInvocationExpressionNode(std::unique_ptr<AstNode> initial, std::unique_ptr<AstNode> method_identifier)
+            : ExpressionNode(ExpressionType::MethodInvokeExpr),
+              initial_expr(std::move(initial)),
+              method_identifier(std::move(method_identifier)) {}
+
+        MethodInvocationExpressionNode(std::unique_ptr<AstNode> initial, std::unique_ptr<AstNode> method_identifier, std::vector<std::unique_ptr<AstNode>> arguments)
+            : ExpressionNode(ExpressionType::MethodInvokeExpr),
+              initial_expr(std::move(initial)),
+              method_identifier(std::move(method_identifier)),
+              arguments_expr(std::move(arguments)) {}
+
+        const std::unique_ptr<AstNode>& get_method_identifier() const { return method_identifier; }
+
+        const std::vector<std::unique_ptr<AstNode>>& get_arguments() const { return arguments_expr; }
+
+        const std::unique_ptr<AstNode>& get_initial_expr() const { return initial_expr; }
+
+    private:
+        std::unique_ptr<AstNode> initial_expr;
+        std::unique_ptr<AstNode> method_identifier;
         std::vector<std::unique_ptr<AstNode>> arguments_expr;
     };
 

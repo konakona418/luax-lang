@@ -236,7 +236,7 @@ namespace luaxc {
 
         exit_scope();
 
-        return std::make_unique<FunctionDeclarationNode>(
+        return std::make_unique<MethodDeclarationNode>(
                 std::move(identifier),
                 std::move(parameters),
                 std::move(body));
@@ -593,23 +593,36 @@ namespace luaxc {
         return parse_primary();
     }
 
-    std::unique_ptr<AstNode> Parser::parse_member_access_expression(std::unique_ptr<AstNode> initial_expr) {
+    std::unique_ptr<AstNode> Parser::parse_member_access_or_method_invoke_expression(std::unique_ptr<AstNode> initial_expr) {
         consume(TokenType::DOT, "Expected dot");
 
         auto identifier = parse_identifier();
 
         if (current_token.type == TokenType::L_PARENTHESIS) {
-            identifier = parse_function_invocation_statement(std::move(identifier));
+            return parse_method_invocation_expression(std::move(initial_expr), std::move(identifier));
         }
 
-        auto member_access = std::make_unique<MemberAccessExpressionNode>(
+        return std::make_unique<MemberAccessExpressionNode>(
                 std::move(initial_expr), std::move(identifier));
+    }
 
-        /*if (current_token.type == TokenType::DOT) {
-            return parse_member_access_expression(std::move(member_access));
-        }*/
+    std::unique_ptr<AstNode> Parser::parse_method_invocation_expression(std::unique_ptr<AstNode> initial_expr, std::unique_ptr<AstNode> method_identifier) {
+        consume(TokenType::L_PARENTHESIS, "Expected '(' after method identifier");
+        std::vector<std::unique_ptr<AstNode>> arguments;
 
-        return member_access;
+        while (current_token.type != TokenType::R_PARENTHESIS) {
+            arguments.push_back(parse_simple_expression());
+            if (current_token.type == TokenType::COMMA) {
+                consume(TokenType::COMMA, "Expected ',' after argument");
+            }
+        }
+
+        consume(TokenType::R_PARENTHESIS, "Expected ')' ending method invocation");
+
+        return std::make_unique<MethodInvocationExpressionNode>(
+                std::move(initial_expr),
+                std::move(method_identifier),
+                std::move(arguments));
     }
 
     std::unique_ptr<AstNode> Parser::parse_initializer_list_expression(std::unique_ptr<AstNode> type_expr) {
@@ -711,7 +724,7 @@ namespace luaxc {
                 node = parse_function_invocation_statement(std::move(node));
             } else if (current_token.type == TokenType::DOT) {
                 // potential member access
-                node = parse_member_access_expression(std::move(node));
+                node = parse_member_access_or_method_invoke_expression(std::move(node));
             } else {
                 break;
             }

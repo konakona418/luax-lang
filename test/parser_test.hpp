@@ -514,6 +514,30 @@ namespace parser_test {
         assert(ir_interpreter.retrieve_value<luaxc::Int>("z") == 2);
     }
 
+    inline void test_object_return_from_func() {
+        std::string input = R"(
+        use println;
+        use Int;
+
+        let MyType = type {
+            field x = Int();
+            field y = Int();
+        };
+
+        func makeObject() {
+            return MyType { x = 1, y = 2 };
+        }
+
+        let myObject = makeObject();
+        println(myObject.y);
+        
+        let y = myObject.y;
+        )";
+
+        auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("y") == 2);
+    }
+
     inline void test_generic_type_object() {
         std::string input = R"(
         use println;
@@ -538,6 +562,47 @@ namespace parser_test {
         auto ir_interpreter = compile_run(input);
         assert(ir_interpreter.retrieve_value<luaxc::Int>("x") == 1);
         assert(ir_interpreter.retrieve_value<luaxc::Int>("y") == 2);
+    }
+
+    inline void test_method() {
+        std::string input = R"(
+        use println;
+        use Int;
+
+        let MyType = type {
+            field x = Int();
+            field y = Int();
+
+            method foo(self, bar) {
+                return self.x + self.y + bar;
+            }
+
+            method bar(self, x, y) {
+                return self.x * x + self.y * y;
+            }
+
+            method me(self) {
+                return self;
+            }
+
+            method new(self, x, y) {
+                self.x = x;
+                self.y = y;
+            }
+        };
+
+        let myObject =  MyType { x = 1, y = 2 };
+        println(myObject.me().foo(3));
+        
+        let bar = myObject.bar(3, 4);
+
+        let newObject = MyType {};
+        newObject.new(5, 6);
+        println(newObject.x, newObject.y);
+        )";
+
+        auto ir_interpreter = compile_run(input);
+        assert(ir_interpreter.retrieve_value<luaxc::Int>("bar") == 11);
     }
 
     inline void run_parser_test() {
@@ -607,7 +672,9 @@ namespace parser_test {
             test(test_object_member_access_basic);
             test(test_object_member_access_nested);
             test(test_object_member_access_anonymous);
+            test(test_object_return_from_func);
             test(test_generic_type_object);
+            test(test_method);
         }
         end_test()
     }

@@ -98,6 +98,7 @@ namespace luaxc {
             JMP_IF_FALSE,
 
             POP_STACK,// pop value from stack
+            PEEK,     // duplicate stack top
 
             MAKE_TYPE,// make a type using stack frame local vars
 
@@ -195,7 +196,7 @@ namespace luaxc {
 
         void generate_assignment_statement_member_access_lvalue(const AssignmentExpressionNode* statement, ByteCode& byte_code);
 
-        void generate_member_access_statement(const MemberAccessExpressionNode* statement, ByteCode& byte_code);
+        void generate_member_access_statement_rvalue(const MemberAccessExpressionNode* statement, ByteCode& byte_code);
 
         void generate_member_access(const ExpressionNode* expression, ByteCode& byte_code);
 
@@ -218,6 +219,8 @@ namespace luaxc {
         void generate_function_declaration_statement(
                 const FunctionDeclarationNode* statement,
                 ByteCode& byte_code);
+
+        void generate_method_declaration_statement(const MethodDeclarationNode* statement, ByteCode& byte_code);
 
         void generate_return_statement(const ReturnNode* statement, ByteCode& byte_code);
     };
