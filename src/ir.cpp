@@ -98,6 +98,14 @@ namespace luaxc {
                 out = "JMP_IF_FALSE";
                 out += " " + std::to_string(std::get<IRJumpParam>(param));
                 break;
+            case IRInstruction::InstructionType::JMP_REL:
+                out = "JMP_REL";
+                out += " " + std::to_string(std::get<IRJumpRelParam>(param));
+                break;
+            case IRInstruction::InstructionType::JMP_IF_FALSE_REL:
+                out = "JMP_IF_FALSE_REL";
+                out += " " + std::to_string(std::get<IRJumpRelParam>(param));
+                break;
             case IRInstruction::InstructionType::TO_BOOL:
                 out = "TO_BOOL";
                 break;
@@ -688,7 +696,7 @@ namespace luaxc {
         generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
-        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE, {std::monostate()}));
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE_REL, {std::monostate()}));
 
         bool has_else_clause = statement->get_else_body().get() != nullptr;
 
@@ -702,14 +710,14 @@ namespace luaxc {
         if (has_else_clause) {
             // in this case the 'end of if clause' is the jump to the end of the if statement
             // as we don't want it to jump directly to the end, so we add the offset by 1
-            byte_code[zero_index].param = IRJumpParam(if_end_index + 1);
+            byte_code[zero_index].param = IRJumpRelParam(if_end_index + 1 - zero_index);
 
-            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP, IRJumpParam(0)));
+            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_REL, IRJumpRelParam(0)));
             generate_statement(static_cast<StatementNode*>(statement->get_else_body().get()), byte_code);
             else_clause_index = byte_code.size();
-            byte_code[if_end_index].param = IRJumpParam(else_clause_index);
+            byte_code[if_end_index].param = IRJumpRelParam(else_clause_index - if_end_index);
         } else {
-            byte_code[zero_index].param = IRJumpParam(if_end_index);
+            byte_code[zero_index].param = IRJumpRelParam(if_end_index - zero_index);
         }
     }
 
@@ -722,7 +730,7 @@ namespace luaxc {
         generate_expression(static_cast<const ExpressionNode*>(expr), byte_code);
 
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
-        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE, {std::monostate()}));
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE_REL, {std::monostate()}));
 
         while_start_jmp_index = byte_code.size() - 1;
 
@@ -732,26 +740,28 @@ namespace luaxc {
                 static_cast<StatementNode*>(statement->get_body().get()),
                 byte_code);
 
+        ssize_t current_jmp_index = byte_code.size() - 1;
+
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::JMP,
-                IRJumpParam(while_start_index)));
+                IRInstruction::InstructionType::JMP_REL,
+                IRJumpRelParam(while_start_index - current_jmp_index - 1)));
 
         // the first command after the loop
         while_end_index = byte_code.size();
 
         // fill in jump target for unmet condition
-        byte_code[while_start_jmp_index].param = IRJumpParam(while_end_index);
+        byte_code[while_start_jmp_index].param = IRJumpRelParam(while_end_index - while_start_jmp_index);
 
         auto generation_ctx = while_loop_generation_stack.top();
         while_loop_generation_stack.pop();
         // fill in jump targets of breaks
         for (auto break_instruction: generation_ctx.break_instructions) {
-            byte_code[break_instruction].param = IRJumpParam(while_end_index);
+            byte_code[break_instruction].param = IRJumpRelParam(while_end_index - break_instruction);
         }
 
         // fill in jump targets of continues
         for (auto continue_instruction: generation_ctx.continue_instructions) {
-            byte_code[continue_instruction].param = IRJumpParam(while_start_index);
+            byte_code[continue_instruction].param = IRJumpRelParam(while_start_index - continue_instruction);
         }
     }
 
@@ -768,7 +778,7 @@ namespace luaxc {
         generate_expression(static_cast<const ExpressionNode*>(cond_expr), byte_code);
 
         byte_code.push_back(IRInstruction(IRInstruction::InstructionType::TO_BOOL, {std::monostate()}));
-        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE, {std::monostate()}));
+        byte_code.push_back(IRInstruction(IRInstruction::InstructionType::JMP_IF_FALSE_REL, {std::monostate()}));
 
         size_t jump_to_end_of_loop = byte_code.size() - 1;// jmp_if_false
 
@@ -777,23 +787,25 @@ namespace luaxc {
         auto* body = static_cast<StatementNode*>(statement->get_body().get());
         generate_statement(body, byte_code);
 
+        ssize_t current_jmp_index = byte_code.size() - 1;
+
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::JMP, IRJumpParam(update_and_condition_start_index)));
+                IRInstruction::InstructionType::JMP_REL, IRJumpRelParam(update_and_condition_start_index - current_jmp_index - 1)));
 
         size_t loop_end_index = byte_code.size();
 
-        byte_code[jump_to_end_of_loop].param = IRJumpParam(loop_end_index);
+        byte_code[jump_to_end_of_loop].param = IRJumpRelParam(loop_end_index - jump_to_end_of_loop);
 
         auto generation_context = while_loop_generation_stack.top();
         while_loop_generation_stack.pop();
 
         // similar to while loops
         for (auto break_instruction: generation_context.break_instructions) {
-            byte_code[break_instruction].param = IRJumpParam(loop_end_index);
+            byte_code[break_instruction].param = IRJumpRelParam(loop_end_index - break_instruction);
         }
 
         for (auto continue_instruction: generation_context.continue_instructions) {
-            byte_code[continue_instruction].param = IRJumpParam(update_and_condition_start_index);
+            byte_code[continue_instruction].param = IRJumpRelParam(update_and_condition_start_index - continue_instruction);
         }
     }
 
@@ -802,7 +814,7 @@ namespace luaxc {
 
         auto& ctx = while_loop_generation_stack.top();
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::JMP, IRJumpParam(0)));
+                IRInstruction::InstructionType::JMP_REL, IRJumpRelParam(0)));
         ctx.register_break_instruction(byte_code.size() - 1);
     }
 
@@ -811,7 +823,7 @@ namespace luaxc {
 
         auto& ctx = while_loop_generation_stack.top();
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::JMP, IRJumpParam(0)));
+                IRInstruction::InstructionType::JMP_REL, IRJumpRelParam(0)));
         ctx.register_continue_instruction(byte_code.size() - 1);
     }
 
@@ -856,8 +868,8 @@ namespace luaxc {
 
         size_t jump_over_function_instruction_index = byte_code.size();
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::JMP,
-                IRJumpParam(0)));
+                IRInstruction::InstructionType::JMP_REL,
+                IRJumpRelParam(0)));
 
         size_t fn_start_index = byte_code.size();
 
@@ -877,7 +889,8 @@ namespace luaxc {
             byte_code.push_back(IRInstruction(IRInstruction::InstructionType::RET, {std::monostate()}));
         }
 
-        byte_code[jump_over_function_instruction_index].param = IRJumpParam(byte_code.size());
+        byte_code[jump_over_function_instruction_index].param =
+                IRJumpRelParam(byte_code.size() - jump_over_function_instruction_index);
 
         auto function_identifier =
                 static_cast<IdentifierNode*>(statement->get_identifier().get())->get_name();
@@ -900,8 +913,8 @@ namespace luaxc {
 
         size_t jump_over_function_instruction_index = byte_code.size();
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::JMP,
-                IRJumpParam(0)));
+                IRInstruction::InstructionType::JMP_REL,
+                IRJumpRelParam(0)));
 
         size_t fn_start_index = byte_code.size();
 
@@ -921,7 +934,8 @@ namespace luaxc {
             byte_code.push_back(IRInstruction(IRInstruction::InstructionType::RET, {std::monostate()}));
         }
 
-        byte_code[jump_over_function_instruction_index].param = IRJumpParam(byte_code.size());
+        byte_code[jump_over_function_instruction_index].param =
+                IRJumpRelParam(byte_code.size() - jump_over_function_instruction_index);
 
         auto function_identifier =
                 static_cast<IdentifierNode*>(statement->get_identifier().get())->get_name();
@@ -1016,6 +1030,11 @@ namespace luaxc {
                     jumped = handle_jump(instruction.type, std::get<IRJumpParam>(instruction.param));
                     break;
 
+                case IRInstruction::InstructionType::JMP_REL:
+                case IRInstruction::InstructionType::JMP_IF_FALSE_REL:
+                    jumped = handle_relative_jump(instruction.type, std::get<IRJumpRelParam>(instruction.param));
+                    break;
+
                 case IRInstruction::InstructionType::CALL: {
                     auto param = std::get<IRCallParam>(instruction.param);
                     jumped = handle_function_invocation(param);
@@ -1085,6 +1104,28 @@ namespace luaxc {
                     // we only care about the first bit
                     // as, if everything works fine, there should be a TO_BOOL before this.
                     pc = param;
+                    return true;
+                }
+                break;
+            }
+            default:
+                throw IRInterpreterException("Unknown instruction type");
+        }
+        return false;
+    }
+
+
+    bool IRInterpreter::handle_relative_jump(IRInstruction::InstructionType op, IRJumpRelParam param) {
+        switch (op) {
+            case IRInstruction::InstructionType::JMP_REL: {
+                pc += param;
+                return true;
+            }
+            case IRInstruction::InstructionType::JMP_IF_FALSE_REL: {
+                auto cond = stack.top().to_bool();
+                stack.pop();
+                if (!(cond & 1)) {
+                    pc += param;
                     return true;
                 }
                 break;

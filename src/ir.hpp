@@ -58,6 +58,7 @@ namespace luaxc {
     };
 
     using IRJumpParam = size_t;
+    using IRJumpRelParam = ssize_t;
 
     struct IRCallParam {
         size_t arguments_count;
@@ -97,6 +98,9 @@ namespace luaxc {
             JMP,
             JMP_IF_FALSE,
 
+            JMP_REL,         // relative jump
+            JMP_IF_FALSE_REL,// relative jump with condition
+
             POP_STACK,// pop value from stack
             PEEK,     // duplicate stack top
 
@@ -122,6 +126,7 @@ namespace luaxc {
                 IRLoadIdentifierParam,
                 IRStoreIdentifierParam,
                 IRJumpParam,
+                IRJumpRelParam,
                 IRCallParam,
                 IRLoadMemberParam,
                 IRStoreMemberParam,
@@ -304,6 +309,8 @@ namespace luaxc {
         void handle_unary_op(IRInstruction::InstructionType op);
 
         bool handle_jump(IRInstruction::InstructionType op, IRJumpParam param);
+
+        bool handle_relative_jump(IRInstruction::InstructionType op, IRJumpRelParam param);
 
         void handle_type_creation();
 
