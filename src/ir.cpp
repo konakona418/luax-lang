@@ -660,6 +660,7 @@ namespace luaxc {
     size_t IRGenerator::end_module_compilation() {
         size_t module_id = compiling_module_ids.top();
         compiling_module_ids.pop();
+        compiling_module_base_offsets.pop_back();
         return module_id;
     }
 
