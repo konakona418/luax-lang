@@ -1,17 +1,13 @@
 #pragma once
 
 #include "ir.hpp"
-#include "parser.hpp"
 #include "test_helper.hpp"
 
 namespace parser_test {
     inline luaxc::IRRuntime compile_run(const std::string& input) {
-        auto lexer = luaxc::Lexer(input);
-        auto parser = luaxc::Parser(lexer);
-        auto program = parser.parse_program();
         auto runtime = luaxc::IRRuntime();
 
-        runtime.compile(std::move(program));
+        runtime.compile(input);
 
         auto byte_code = runtime.get_byte_code();
         std::cout << luaxc::dump_bytecode(byte_code) << std::endl;

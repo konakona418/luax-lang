@@ -37,6 +37,11 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> parse_program();
 
+        void reset() {
+            scopes.clear();
+            current_token = lexer.next();
+        }
+
     private:
         enum class ParserState {
             Start,

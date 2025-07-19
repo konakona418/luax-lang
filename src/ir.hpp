@@ -11,6 +11,8 @@
 
 #include "ast.hpp"
 #include "gc.hpp"
+#include "lexer.hpp"
+#include "parser.hpp"
 
 namespace luaxc {
 
@@ -151,7 +153,9 @@ namespace luaxc {
         IRGenerator(IRRuntime& runtime, std::unique_ptr<AstNode> ast_base_node)
             : runtime(runtime), ast(std::move(ast_base_node)) {}
 
-        ByteCode generate();
+        void generate();
+
+        void inject_compiler(std::function<std::unique_ptr<AstNode>(const std::string&)> fn) { this->fn_compile_module = fn; }
 
     private:
         struct WhileLoopGenerationContext {
@@ -170,6 +174,20 @@ namespace luaxc {
         std::stack<WhileLoopGenerationContext> while_loop_generation_stack;
 
         IRRuntime& runtime;
+
+        std::stack<size_t> compiling_module_ids;
+
+        std::function<std::unique_ptr<AstNode>(const std::string&)> fn_compile_module = nullptr;
+
+        bool is_module_present(const std::string& module_name);
+
+        StringObject* begin_module_compilation(const std::string& module_name);
+
+        size_t end_module_compilation();
+
+        size_t get_current_compiling_module_id();
+
+        std::string read_module_file(const std::string& module_file_path);
 
         bool is_binary_logical_operator(BinaryExpressionNode::BinaryOperator op);
 
@@ -344,15 +362,27 @@ namespace luaxc {
     public:
         IRRuntime() {
             init_builtin_type_info();
+
+            lexer = std::make_unique<Lexer>();
+            parser = std::make_unique<Parser>(*lexer);
         }
 
         IRRuntime(IRRuntime& other) = delete;
         IRRuntime(IRRuntime&& other) {
-            objects = std::move(other.objects);
             constant_pools = std::move(other.constant_pools);
-            type_info = std::move(other.type_info);
+
+            lexer = std::move(other.lexer);
+            parser = std::move(other.parser);
+
             generator = std::move(other.generator);
             interpreter = std::move(other.interpreter);
+
+            type_info = std::move(other.type_info);
+
+            objects = std::move(other.objects);
+            module_manager = std::move(other.module_manager);
+
+            byte_code = std::move(other.byte_code);
         }
 
         ~IRRuntime() {
@@ -361,12 +391,9 @@ namespace luaxc {
             }
         }
 
-        void compile(std::unique_ptr<AstNode> base_node) {
-            generator = std::make_unique<IRGenerator>(*this, std::move(base_node));
-            interpreter = std::make_unique<IRInterpreter>(*this);
+        std::unique_ptr<AstNode> generate(const std::string& input);
 
-            byte_code = generator->generate();
-        }
+        void compile(const std::string& input);
 
         void run() {
             if (byte_code.size() == 0) {
@@ -414,10 +441,28 @@ namespace luaxc {
 
         bool has_identifier(const std::string& identifier) { return interpreter->has_identifier(identifier); }
 
+        struct Module {
+            StringObject* name;
+
+            size_t id;
+            size_t base_offset;
+        };
+
+        size_t get_next_module_id() { return module_manager.module_count; }
+
+        size_t add_module(StringObject* module_name, ByteCode module_byte_code);
+
+        size_t resolve_function_offset(size_t module_id, size_t function_offset);
+
+        bool has_module(StringObject* module_name);
+
     private:
         struct {
             std::unordered_map<std::string, StringObject*> string_const_pool;
         } constant_pools;
+
+        std::unique_ptr<Lexer> lexer = nullptr;
+        std::unique_ptr<Parser> parser = nullptr;
 
         std::unique_ptr<IRGenerator> generator = nullptr;
         std::unique_ptr<IRInterpreter> interpreter = nullptr;
@@ -425,6 +470,10 @@ namespace luaxc {
         std::unordered_map<std::string, TypeObject*> type_info;
 
         std::vector<GCObject*> objects;
+        struct {
+            std::unordered_map<size_t, Module> modules;
+            size_t module_count = 0;
+        } module_manager;
 
         ByteCode byte_code;
     };

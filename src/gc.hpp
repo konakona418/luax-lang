@@ -50,6 +50,7 @@ namespace luaxc {
     class TypeObject;
     class PrimValue;
     class StringObject;
+    class ModuleObject;
 
     class GCObject {
     public:
@@ -310,23 +311,27 @@ namespace luaxc {
             return func;
         }
 
-        static FunctionObject* create_function(size_t begin_offset, size_t arity) {
+        static FunctionObject* create_function(size_t begin_offset, size_t module_id, size_t arity) {
             auto* func = new FunctionObject();
             func->is_native = false;
             func->is_method = false;
             func->native_function = nullptr;
-            func->begin_offset = begin_offset;
             func->arity = arity;
+
+            func->begin_offset = begin_offset;
+            func->module_id = module_id;
             return func;
         }
 
-        static FunctionObject* create_method(size_t begin_offset, size_t arity) {
+        static FunctionObject* create_method(size_t begin_offset, size_t module_id, size_t arity) {
             auto* func = new FunctionObject();
             func->is_native = false;
             func->is_method = true;
             func->native_function = nullptr;
-            func->begin_offset = begin_offset;
             func->arity = arity;
+
+            func->begin_offset = begin_offset;
+            func->module_id = module_id;
             return func;
         }
 
@@ -338,14 +343,24 @@ namespace luaxc {
 
         size_t get_begin_offset() const { return begin_offset; }
 
+        size_t get_module_id() const { return module_id; }
+
         size_t get_arity() const { return arity; }
 
     private:
         bool is_native;
         bool is_method;
         std::function<PrimValue(std::vector<PrimValue>)> native_function;
-        size_t begin_offset;
         size_t arity;
+
+        size_t begin_offset;
+        size_t module_id;
+    };
+
+    class ModuleObject : public GCObject {
+    public:
+    private:
+        std::string name;
     };
 
     namespace detail {

@@ -105,6 +105,8 @@ namespace luaxc {
 
     class Lexer {
     public:
+        Lexer() : input(""), pos(0), len(0) {}
+
         Lexer(std::string input) : input(input), pos(0), len(input.size()) {
             statistics.line = 1;
             statistics.column = 1;
@@ -113,6 +115,15 @@ namespace luaxc {
         std::vector<Token> lex();
 
         Token next();
+
+        void set_input(std::string input) {
+            this->input = input;
+            this->pos = 0;
+            this->len = input.size();
+
+            statistics.line = 1;
+            statistics.column = 1;
+        }
 
         std::pair<size_t, size_t> get_line_and_column() const { return {statistics.line, statistics.column}; }
 

@@ -156,12 +156,16 @@ namespace luaxc {
         return out.str();
     }
 
-    ByteCode IRGenerator::generate() {
+    void IRGenerator::generate() {
         ByteCode byte_code;
 
+        auto* module_name = begin_module_compilation("<main>");
         generate_program_or_block(ast.get(), byte_code);
+        size_t module_id = end_module_compilation();
 
-        return byte_code;
+        size_t real_module_id = runtime.add_module(module_name, byte_code);
+
+        assert(module_id == real_module_id);
     }
 
     StringObject* IRRuntime::push_string_pool_if_not_exists(const std::string& str) {
@@ -536,6 +540,29 @@ namespace luaxc {
                 IRStoreMemberParam{identifier}));
     }
 
+    bool IRGenerator::is_module_present(const std::string& module_name) {
+        auto* module_identifier = runtime.push_string_pool_if_not_exists(module_name);
+        return runtime.has_module(module_identifier);
+    }
+
+    StringObject* IRGenerator::begin_module_compilation(const std::string& module_name) {
+        auto* module_name_obj = runtime.push_string_pool_if_not_exists(module_name);
+        size_t next_module_id = runtime.get_next_module_id();
+        compiling_module_ids.push(next_module_id);
+
+        return module_name_obj;
+    }
+
+    size_t IRGenerator::end_module_compilation() {
+        size_t module_id = compiling_module_ids.top();
+        compiling_module_ids.pop();
+        return module_id;
+    }
+
+    size_t IRGenerator::get_current_compiling_module_id() {
+        return compiling_module_ids.top();
+    }
+
     bool IRGenerator::is_binary_logical_operator(BinaryExpressionNode::BinaryOperator op) {
         return (op == BinaryExpressionNode::BinaryOperator::LogicalAnd ||
                 op == BinaryExpressionNode::BinaryOperator::LogicalOr);
@@ -900,10 +927,11 @@ namespace luaxc {
         byte_code[jump_over_function_instruction_index].param =
                 IRJumpRelParam(byte_code.size() - jump_over_function_instruction_index);
 
+        auto current_module_id = get_current_compiling_module_id();
         auto function_identifier =
                 static_cast<IdentifierNode*>(statement->get_identifier().get())->get_name();
         auto* func_obj =
-                FunctionObject::create_function(fn_start_index, statement->get_parameters().size());
+                FunctionObject::create_function(fn_start_index, current_module_id, statement->get_parameters().size());
 
         runtime.push_gc_object(func_obj);
 
@@ -949,10 +977,11 @@ namespace luaxc {
         byte_code[jump_over_function_instruction_index].param =
                 IRJumpRelParam(byte_code.size() - jump_over_function_instruction_index);
 
+        auto module_id = get_current_compiling_module_id();
         auto function_identifier =
                 static_cast<IdentifierNode*>(statement->get_identifier().get())->get_name();
         auto* func_obj =
-                FunctionObject::create_method(fn_start_index, statement->get_parameters().size());
+                FunctionObject::create_method(fn_start_index, module_id, statement->get_parameters().size());
 
         runtime.push_gc_object(func_obj);
 
@@ -1303,7 +1332,11 @@ namespace luaxc {
             }
 
             push_stack_frame();
-            size_t jump_target = fn->get_begin_offset();
+            size_t jump_target =
+                    runtime.resolve_function_offset(
+                            fn->get_module_id(),
+                            fn->get_begin_offset());
+
             pc = jump_target;
             return true;
         }
@@ -1452,6 +1485,53 @@ namespace luaxc {
 
     bool IRInterpreter::has_identifier(const std::string& identifier) {
         return has_identifier(runtime.push_string_pool_if_not_exists(identifier));
+    }
+
+    std::unique_ptr<AstNode> IRRuntime::generate(const std::string& input) {
+        lexer->set_input(input);
+        parser->reset();
+
+        return parser->parse_program();
+    }
+
+    void IRRuntime::compile(const std::string& input) {
+        auto program = generate(input);
+
+        generator = std::make_unique<IRGenerator>(*this, std::move(program));
+        generator->inject_compiler(
+                [this](const std::string& name) { return generate(name); });
+
+        interpreter = std::make_unique<IRInterpreter>(*this);
+
+        generator->generate();
+    }
+
+    size_t IRRuntime::add_module(StringObject* module_name, ByteCode byte_code) {
+        size_t base_offset = this->byte_code.size();
+
+        this->byte_code.reserve(byte_code.size());
+        this->byte_code.insert(this->byte_code.end(), byte_code.begin(), byte_code.end());
+
+        size_t id = module_manager.module_count;
+
+        module_manager.modules.emplace(
+                id, Module{module_name, id,
+                           base_offset});
+
+        return id;
+    }
+
+    size_t IRRuntime::resolve_function_offset(size_t module_id, size_t function_offset) {
+        return module_manager.modules[module_id].base_offset + function_offset;
+    }
+
+    bool IRRuntime::has_module(StringObject* module_name) {
+        for (auto& [id, module]: module_manager.modules) {
+            if (module.name == module_name) {
+                return true;
+            }
+        }
+        return false;
     }
 
     void IRInterpreter::preload_native_functions() {
