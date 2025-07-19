@@ -110,6 +110,8 @@ namespace luaxc {
 
             MAKE_OBJECT,// make an object. pop a sequence of values from stack
 
+            MAKE_MODULE,// make a module
+
             BEGIN_LOCAL,// force push a stack frame
             END_LOCAL,  // force pop
 
@@ -200,6 +202,8 @@ namespace luaxc {
         void generate_expression(const ExpressionNode* expression, ByteCode& byte_code);
 
         void generate_type_decl_expression(const TypeDeclarationExpressionNode* expression, ByteCode& byte_code);
+
+        void generate_module_decl_expression(const ModuleDeclarationExpressionNode* expression, ByteCode& byte_code);
 
         void generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code);
 
@@ -348,6 +352,8 @@ namespace luaxc {
         void handle_member_store(IRStoreMemberParam param);
 
         void handle_make_object(IRMakeObjectParam param);
+
+        void handle_make_module();
 
         void handle_to_bool();
 

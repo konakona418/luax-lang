@@ -352,6 +352,16 @@ namespace luaxc {
         return std::make_unique<TypeDeclarationExpressionNode>(std::move(type_decl));
     }
 
+    std::unique_ptr<AstNode> Parser::parse_module_declaration_expression() {
+        consume(TokenType::KEYWORD_MOD, "Expected keyword 'module'");
+
+        enter_scope(ParserState::InModuleDeclarationScope);
+        auto module_decl = parse_block_statement();
+        exit_scope();
+
+        return std::make_unique<ModuleDeclarationExpressionNode>(std::move(module_decl));
+    }
+
     std::unique_ptr<AstNode> Parser::parse_assignment_expression(bool consume_semicolon) {
         auto left = parse_simple_expression();
         bool is_result_discarded = false;
@@ -712,6 +722,10 @@ namespace luaxc {
             }
             case (TokenType::KEYWORD_TYPE): {
                 node = parse_type_declaration_expression();
+                break;
+            }
+            case (TokenType::KEYWORD_MOD): {
+                node = parse_module_declaration_expression();
                 break;
             }
             default:

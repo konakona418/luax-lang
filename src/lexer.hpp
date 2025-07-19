@@ -73,6 +73,7 @@ namespace luaxc {
         KEYWORD_TYPE,
         KEYWORD_FIELD,
         KEYWORD_METHOD,
+        KEYWORD_MOD,
 
         L_PARENTHESIS,// symbol: ()
         R_PARENTHESIS,

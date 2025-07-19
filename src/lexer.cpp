@@ -366,7 +366,7 @@ namespace luaxc {
                 "if", "else", "elif",
                 "for", "while", "do",
                 "break", "continue",
-                "return", "use",
+                "return", "use", "mod",
                 "type", "method", "field"};
         return keywords.find(candidate) != keywords.end();
     }
@@ -400,6 +400,7 @@ namespace luaxc {
                 break;
             case 'm':
                 if (candidate == "method") return TokenType::KEYWORD_METHOD;
+                if (candidate == "mod") return TokenType::KEYWORD_MOD;
                 break;
             case 'r':
                 if (candidate == "return") return TokenType::KEYWORD_RETURN;

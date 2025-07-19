@@ -357,10 +357,14 @@ namespace luaxc {
         size_t module_id;
     };
 
-    class ModuleObject : public GCObject {
+    class ModuleRefObject : public GCObject {
     public:
+        explicit ModuleRefObject(size_t module_id) : module_id(module_id) {}
+
+        size_t get_module_id() const { return module_id; }
+
     private:
-        std::string name;
+        size_t module_id;
     };
 
     namespace detail {

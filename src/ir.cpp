@@ -131,6 +131,9 @@ namespace luaxc {
             case IRInstruction::InstructionType::MAKE_OBJECT:
                 out += "MAKE_OBJECT";
                 break;
+            case IRInstruction::InstructionType::MAKE_MODULE:
+                out += "MAKE_MODULE";
+                break;
             case IRInstruction::InstructionType::LOAD_MEMBER:
                 out += "LOAD_MEMBER ";
                 out += std::get<IRLoadMemberParam>(param).identifier->to_string();
@@ -283,6 +286,10 @@ namespace luaxc {
                 generate_type_decl_expression(static_cast<const TypeDeclarationExpressionNode*>(node), byte_code);
                 break;
             }
+            case ExpressionNode::ExpressionType::ModuleDecl: {
+                generate_module_decl_expression(static_cast<const ModuleDeclarationExpressionNode*>(node), byte_code);
+                break;
+            }
             case ExpressionNode::ExpressionType::InitializerListExpr: {
                 generate_initializer_list_expression(static_cast<const InitializerListExpressionNode*>(node), byte_code);
                 break;
@@ -335,6 +342,25 @@ namespace luaxc {
                 IRInstruction(IRInstruction::InstructionType::MAKE_TYPE,
                               {std::monostate()}));
 
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::END_LOCAL,
+                              {std::monostate()}));
+    }
+
+    void IRGenerator::generate_module_decl_expression(const ModuleDeclarationExpressionNode* expression, ByteCode& byte_code) {
+        auto* decl_block = static_cast<const BlockNode*>(expression->get_module_statements_block().get());
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::BEGIN_LOCAL_DERIVED,
+                              {std::monostate()}));
+
+        for (auto& statement: decl_block->get_statements()) {
+            generate_statement(static_cast<const StatementNode*>(statement.get()), byte_code);
+        }
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::MAKE_MODULE,
+                              {std::monostate()}));
         byte_code.push_back(
                 IRInstruction(IRInstruction::InstructionType::END_LOCAL,
                               {std::monostate()}));
@@ -1102,6 +1128,11 @@ namespace luaxc {
                     break;
                 }
 
+                case IRInstruction::InstructionType::MAKE_MODULE: {
+                    handle_make_module();
+                    break;
+                }
+
                 case IRInstruction::InstructionType::BEGIN_LOCAL: {
                     push_stack_frame(false);
                     break;
@@ -1281,6 +1312,20 @@ namespace luaxc {
 
         auto value = PrimValue(ValueType::Object, (GCObject*){gc_object});
         value.set_type_info(type_info);
+
+        stack.push(value);
+    }
+
+    void IRInterpreter::handle_make_module() {
+        auto* gc_object = new GCObject();
+        runtime.push_gc_object(gc_object);
+
+        for (auto& [name, value]: current_stack_frame().variables) {
+            gc_object->storage.fields[name] = value;
+        }
+
+        auto value = PrimValue(ValueType::Object, (GCObject*){gc_object});
+        value.set_type_info(TypeObject::any());
 
         stack.push(value);
     }

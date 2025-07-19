@@ -73,6 +73,7 @@ namespace luaxc {
             NumericLiteral,
             StringLiteral,
             TypeDecl,
+            ModuleDecl,
             AssignmentExpr,
             BinaryExpr,
             UnaryExpr,
@@ -432,6 +433,18 @@ namespace luaxc {
 
     private:
         std::unique_ptr<AstNode> type_statements_block;
+    };
+
+    class ModuleDeclarationExpressionNode : public ExpressionNode {
+    public:
+        explicit ModuleDeclarationExpressionNode(std::unique_ptr<AstNode> module_statements_block)
+            : ExpressionNode(ExpressionType::ModuleDecl),
+              module_statements_block(std::move(module_statements_block)) {}
+
+        const std::unique_ptr<AstNode>& get_module_statements_block() const { return module_statements_block; }
+
+    private:
+        std::unique_ptr<AstNode> module_statements_block;
     };
 
     class MemberAccessExpressionNode : public ExpressionNode {

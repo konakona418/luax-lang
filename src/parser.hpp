@@ -47,6 +47,7 @@ namespace luaxc {
             Start,
             InScope,
             InTypeDeclarationScope,
+            InModuleDeclarationScope,
             InInitializerListScope,
             // todo: add when needed
         };
@@ -98,6 +99,8 @@ namespace luaxc {
         std::unique_ptr<AstNode> parse_expression(bool consume_semicolon = true);
 
         std::unique_ptr<AstNode> parse_type_declaration_expression();
+
+        std::unique_ptr<AstNode> parse_module_declaration_expression();
 
         std::unique_ptr<AstNode> parse_assignment_expression(bool consume_semicolon = true);
 
