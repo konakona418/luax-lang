@@ -690,11 +690,6 @@ namespace luaxc {
 
                 consume(TokenType::IDENTIFIER);
 
-                // initializer list - named
-                if (current_token.type == TokenType::L_CURLY_BRACKET) {
-                    node = parse_initializer_list_expression(std::move(node));
-                }
-
                 break;
             }
             case (TokenType::L_PARENTHESIS): {
@@ -742,6 +737,11 @@ namespace luaxc {
             } else {
                 break;
             }
+        }
+
+        // initializer list - named
+        if (current_token.type == TokenType::L_CURLY_BRACKET) {
+            node = parse_initializer_list_expression(std::move(node));
         }
 
         return node;
