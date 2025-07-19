@@ -9,6 +9,9 @@
 #include <sstream>
 
 namespace luaxc {
+#define __LUAXC_IR_RUNTIME_UTILS_EXTRACT_STRING_FROM_PRIM_VALUE(_prim_value) \
+    (static_cast<StringObject*>(static_cast<GCObject*>(_prim_value.get_inner_value<GCObject*>()))->contained_string())
+
     std::string IRInstruction::dump() const {
         std::string out;
 
@@ -17,7 +20,7 @@ namespace luaxc {
                 out = "LOAD_CONST";
                 auto& p = std::get<IRLoadConstParam>(param);
                 if (p.is_string()) {
-                    out += " [string object \"" + p.to_string() + "\"]";
+                    out += " [string object \"" + __LUAXC_IR_RUNTIME_UTILS_EXTRACT_STRING_FROM_PRIM_VALUE(p) + "\"]";
                 } else {
                     out += " " + p.to_string();
                 }
@@ -35,6 +38,10 @@ namespace luaxc {
             case IRInstruction::InstructionType::STORE_IDENTIFIER:
                 out = "STORE_IDENTIFIER ";
                 out += std::get<IRStoreIdentifierParam>(param).identifier->to_string();
+                break;
+            case IRInstruction::InstructionType::LOAD_MODULE:
+                out = "LOAD_MODULE ";
+                out += "[module id=" + std::to_string(std::get<IRLoadModuleParam>(param).module_id) + "]";
                 break;
             case IRInstruction::InstructionType::ADD:
                 out = "ADD";
@@ -391,9 +398,8 @@ namespace luaxc {
         // if the module is already loaded,
         // we can just use it
         if (auto loaded_module = is_module_present(module_name_str)) {
-            auto value = PrimValue(ValueType::Module, runtime.get_module(loaded_module.value()).module);
-            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
-                                              IRLoadConstParam{value}));
+            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::LOAD_MODULE,
+                                              IRLoadModuleParam{loaded_module.value()}));
             return;
         }
 
@@ -630,9 +636,22 @@ namespace luaxc {
         return runtime.has_module(module_identifier);
     }
 
+    size_t IRGenerator::aggregate_compiling_module_base_offsets() {
+        size_t aggregated = 0;
+        for (size_t offset: compiling_module_base_offsets) {
+            aggregated += offset;
+        }
+        return aggregated;
+    }
+
     StringObject* IRGenerator::begin_module_compilation(const std::string& module_name, size_t base_offset) {
         auto* module_name_obj = runtime.push_string_pool_if_not_exists(module_name);
-        size_t module_id = runtime.add_module(module_name_obj, base_offset);
+
+        compiling_module_base_offsets.push_back(base_offset);
+        size_t aggregated_base_offset = aggregate_compiling_module_base_offsets();
+
+        size_t module_id = runtime.add_module(module_name_obj, aggregated_base_offset);
+
         compiling_module_ids.push(module_id);
 
         return module_name_obj;
@@ -1131,6 +1150,11 @@ namespace luaxc {
                     break;
                 }
 
+                case IRInstruction::InstructionType::LOAD_MODULE: {
+                    handle_module_load(std::get<IRLoadModuleParam>(instruction.param));
+                    break;
+                }
+
                 case IRInstruction::InstructionType::POP_STACK: {
                     stack.pop();
                     break;
@@ -1360,6 +1384,13 @@ namespace luaxc {
         }
 
         object_ptr->storage.fields[name] = value;
+    }
+
+    void IRInterpreter::handle_module_load(IRLoadModuleParam param) {
+        auto* module = runtime.get_module(param.module_id).module;
+
+        auto value = PrimValue(ValueType::Module, (GCObject*){module});
+        stack.push(value);
     }
 
     void IRInterpreter::handle_make_object(IRMakeObjectParam param) {
@@ -1710,7 +1741,11 @@ namespace luaxc {
         FunctionObject* println = FunctionObject::create_native_function(
                 [](std::vector<PrimValue> args) -> PrimValue {
                     for (auto& arg: args) {
-                        printf("%s ", arg.to_string().c_str());
+                        if (arg.is_string()) {
+                            printf("%s ", __LUAXC_IR_RUNTIME_UTILS_EXTRACT_STRING_FROM_PRIM_VALUE(arg).c_str());
+                        } else {
+                            printf("%s ", arg.to_string().c_str());
+                        }
                     }
                     printf("\n");
                     return PrimValue::unit();
@@ -1722,7 +1757,11 @@ namespace luaxc {
         FunctionObject* print = FunctionObject::create_native_function(
                 [](std::vector<PrimValue> args) -> PrimValue {
                     for (auto& arg: args) {
-                        printf("%s ", arg.to_string().c_str());
+                        if (arg.is_string()) {
+                            printf("%s ", __LUAXC_IR_RUNTIME_UTILS_EXTRACT_STRING_FROM_PRIM_VALUE(arg).c_str());
+                        } else {
+                            printf("%s ", arg.to_string().c_str());
+                        }
                     }
                     return PrimValue::unit();
                 });
@@ -1748,10 +1787,12 @@ namespace luaxc {
     }
 
     IRInterpreter::StackFrame& IRInterpreter::current_stack_frame() {
+        assert(stack_frames.size() > 0);
         return stack_frames.back();
     }
 
     IRInterpreter::StackFrame& IRInterpreter::global_stack_frame() {
+        assert(stack_frames.size() > 0);
         return stack_frames[0];
     }
 

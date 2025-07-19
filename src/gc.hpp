@@ -85,6 +85,8 @@ namespace luaxc {
 
         const Encoding* c_str() const { return static_cast<const char*>(data); }
 
+        std::string contained_string() const { return std::basic_string<Encoding>(data, length); }
+
         static BasicStringObject<Encoding>* from_string(const std::basic_string<Encoding>& str) {
             return new BasicStringObject<Encoding>(str);
         }

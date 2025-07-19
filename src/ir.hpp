@@ -49,6 +49,10 @@ namespace luaxc {
         StringObject* identifier;
     };
 
+    struct IRLoadModuleParam {
+        size_t module_id;
+    };
+
     struct IRLoadMemberParam {
         StringObject* identifier;
     };
@@ -79,6 +83,7 @@ namespace luaxc {
             DECLARE_IDENTIFIER,// declare an identifier
             LOAD_IDENTIFIER,   // load an identifier to stack
             STORE_IDENTIFIER,  // store stack top to an identifier
+            LOAD_MODULE,       // load a module to stack
             ADD,               // pop two values from stack, add them and push result to stack
             SUB,
             MUL,
@@ -137,6 +142,7 @@ namespace luaxc {
                 IRLoadConstParam,
                 IRDeclareIdentifierParam,
                 IRLoadIdentifierParam,
+                IRLoadModuleParam,
                 IRStoreIdentifierParam,
                 IRJumpParam,
                 IRJumpRelParam,
@@ -189,9 +195,13 @@ namespace luaxc {
 
         std::stack<size_t> compiling_module_ids;
 
+        std::vector<size_t> compiling_module_base_offsets;
+
         std::function<std::unique_ptr<AstNode>(const std::string&)> fn_compile_module = nullptr;
 
         std::optional<size_t> is_module_present(const std::string& module_name);
+
+        size_t aggregate_compiling_module_base_offsets();
 
         StringObject* begin_module_compilation(const std::string& module_name, size_t base_offset);
 
@@ -364,6 +374,8 @@ namespace luaxc {
         void handle_member_load(IRLoadMemberParam param);
 
         void handle_member_store(IRStoreMemberParam param);
+
+        void handle_module_load(IRLoadModuleParam param);
 
         void handle_make_object(IRMakeObjectParam param);
 
