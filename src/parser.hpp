@@ -88,8 +88,6 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> parse_method_declaration_statement();
 
-        std::unique_ptr<AstNode> parse_forward_declaration_statement();
-
         std::unique_ptr<AstNode> parse_function_declaration_statement();
 
         std::unique_ptr<AstNode> parse_return_statement();
@@ -101,6 +99,8 @@ namespace luaxc {
         std::unique_ptr<AstNode> parse_type_declaration_expression();
 
         std::unique_ptr<AstNode> parse_module_declaration_expression();
+
+        std::unique_ptr<AstNode> parse_module_import_expression();
 
         std::unique_ptr<AstNode> parse_assignment_expression(bool consume_semicolon = true);
 

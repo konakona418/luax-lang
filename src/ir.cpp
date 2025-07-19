@@ -1,6 +1,10 @@
 #include "ir.hpp"
+#include "lexer.hpp"
+#include "parser.hpp"
 
 #include <cassert>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 
@@ -159,16 +163,15 @@ namespace luaxc {
         return out.str();
     }
 
-    void IRGenerator::generate() {
+    ByteCode IRGenerator::generate() {
         ByteCode byte_code;
 
-        auto* module_name = begin_module_compilation("<main>");
+        auto* module_name = begin_module_compilation("<main>", 0);
         generate_program_or_block(ast.get(), byte_code);
         size_t module_id = end_module_compilation();
 
-        size_t real_module_id = runtime.add_module(module_name, byte_code);
-
-        assert(module_id == real_module_id);
+        assert(module_id == 0);
+        return byte_code;
     }
 
     StringObject* IRRuntime::push_string_pool_if_not_exists(const std::string& str) {
@@ -211,9 +214,6 @@ namespace luaxc {
             case StatementNode::StatementType::DeclarationStmt:
                 generate_declaration_statement(
                         static_cast<const DeclarationStmtNode*>(statement_node), byte_code);
-                break;
-            case StatementNode::StatementType::ForwardDeclarationStmt:
-                // todo: in the future this may be used to handle imports.
                 break;
             case StatementNode::StatementType::BlockStmt:
                 return generate_program_or_block(statement_node, byte_code);
@@ -288,6 +288,10 @@ namespace luaxc {
             }
             case ExpressionNode::ExpressionType::ModuleDecl: {
                 generate_module_decl_expression(static_cast<const ModuleDeclarationExpressionNode*>(node), byte_code);
+                break;
+            }
+            case ExpressionNode::ExpressionType::ModuleImportExpr: {
+                generate_module_import_expression(static_cast<const ModuleImportExpresionNode*>(node), byte_code);
                 break;
             }
             case ExpressionNode::ExpressionType::InitializerListExpr: {
@@ -366,6 +370,46 @@ namespace luaxc {
                               {std::monostate()}));
     }
 
+    void IRGenerator::generate_module_import_expression(const ModuleImportExpresionNode* expression, ByteCode& byte_code) {
+        auto module_name_str =
+                static_cast<const StringLiteralNode*>(expression->get_module_name().get())->get_value();
+
+        // if the module is already loaded,
+        // we can just use it
+        if (auto loaded_module = is_module_present(module_name_str)) {
+            auto value = PrimValue(ValueType::Module, runtime.get_module(loaded_module.value()).module);
+            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
+                                              IRLoadConstParam{value}));
+            return;
+        }
+
+        auto module_content = runtime.find_file_and_read(module_name_str);
+        if (module_content.empty()) {
+            throw IRGeneratorException("Module '" + module_name_str + "' not found");
+        }
+
+        auto module_ast = fn_compile_module(module_content);
+
+        ByteCode module_byte_code;
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::BEGIN_LOCAL_DERIVED,
+                              {std::monostate()}));
+
+        auto* module_name = begin_module_compilation(module_name_str, byte_code.size());
+        generate_program_or_block(module_ast.get(), module_byte_code);
+        size_t module_id = end_module_compilation();
+
+        byte_code.reserve(module_byte_code.size());
+        byte_code.insert(byte_code.end(), module_byte_code.begin(), module_byte_code.end());
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::MAKE_MODULE,
+                              IRMakeModuleParam{module_id}));
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::END_LOCAL,
+                              {std::monostate()}));
+    }
 
     void IRGenerator::generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code) {
         auto type = statement->get_type();
@@ -505,6 +549,8 @@ namespace luaxc {
                     generate_expression(static_cast<const ExpressionNode*>(args[i].get()), byte_code);
                 }
 
+                auto real_arguments_count = arguments_count + 1;// include self
+
                 generate_expression(prefixed_expr, byte_code);
 
                 byte_code.push_back(IRInstruction(
@@ -515,7 +561,7 @@ namespace luaxc {
                         IRLoadMemberParam{cached_identifier}));
 
                 byte_code.push_back(IRInstruction(
-                        IRInstruction::InstructionType::CALL, IRCallParam{arguments_count}));
+                        IRInstruction::InstructionType::CALL, IRCallParam{real_arguments_count}));
                 break;
             }
             case (ExpressionNode::ExpressionType::MemberAccessExpr): {
@@ -566,15 +612,15 @@ namespace luaxc {
                 IRStoreMemberParam{identifier}));
     }
 
-    bool IRGenerator::is_module_present(const std::string& module_name) {
+    std::optional<size_t> IRGenerator::is_module_present(const std::string& module_name) {
         auto* module_identifier = runtime.push_string_pool_if_not_exists(module_name);
         return runtime.has_module(module_identifier);
     }
 
-    StringObject* IRGenerator::begin_module_compilation(const std::string& module_name) {
+    StringObject* IRGenerator::begin_module_compilation(const std::string& module_name, size_t base_offset) {
         auto* module_name_obj = runtime.push_string_pool_if_not_exists(module_name);
-        size_t next_module_id = runtime.get_next_module_id();
-        compiling_module_ids.push(next_module_id);
+        size_t module_id = runtime.add_module(module_name_obj, base_offset);
+        compiling_module_ids.push(module_id);
 
         return module_name_obj;
     }
@@ -1129,7 +1175,7 @@ namespace luaxc {
                 }
 
                 case IRInstruction::InstructionType::MAKE_MODULE: {
-                    handle_make_module();
+                    handle_make_module(std::get<IRMakeModuleParam>(instruction.param));
                     break;
                 }
 
@@ -1316,7 +1362,7 @@ namespace luaxc {
         stack.push(value);
     }
 
-    void IRInterpreter::handle_make_module() {
+    void IRInterpreter::handle_make_module(IRMakeModuleParam param) {
         auto* gc_object = new GCObject();
         runtime.push_gc_object(gc_object);
 
@@ -1324,8 +1370,11 @@ namespace luaxc {
             gc_object->storage.fields[name] = value;
         }
 
-        auto value = PrimValue(ValueType::Object, (GCObject*){gc_object});
+        auto value = PrimValue(ValueType::Module, (GCObject*){gc_object});
         value.set_type_info(TypeObject::any());
+
+        auto& module_registry_metadata = runtime.get_module(param.module_id);
+        module_registry_metadata.module = gc_object;
 
         stack.push(value);
     }
@@ -1361,14 +1410,13 @@ namespace luaxc {
         } else {
             size_t arg_size = fn->get_arity();
 
-            bool mismatch = false;
-            if (fn->is_method_function()) {
-                mismatch = param.arguments_count + 1 != arg_size;
-            } else {
-                mismatch = param.arguments_count != arg_size;
+            bool valid = param.arguments_count != arg_size;
+            if (!fn->is_method_function() && param.arguments_count == arg_size + 1) {
+                stack.pop();
+                valid = true;
             }
 
-            if (mismatch) {
+            if (!valid) {
                 throw IRInterpreterException(
                         "Function argument count mismatch, expected " +
                         std::to_string(arg_size) +
@@ -1533,10 +1581,10 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> IRRuntime::generate(const std::string& input) {
-        lexer->set_input(input);
-        parser->reset();
+        auto lexer = Lexer(input);
+        auto parser = Parser(lexer);
 
-        return parser->parse_program();
+        return parser.parse_program();
     }
 
     void IRRuntime::compile(const std::string& input) {
@@ -1548,20 +1596,45 @@ namespace luaxc {
 
         interpreter = std::make_unique<IRInterpreter>(*this);
 
-        generator->generate();
+        byte_code = generator->generate();
     }
 
-    size_t IRRuntime::add_module(StringObject* module_name, ByteCode byte_code) {
-        size_t base_offset = this->byte_code.size();
+    std::string IRRuntime::find_file_and_read(const std::string& module_path) {
+        auto& cwd = runtime_ctx.cwd;
+        auto& import_path = runtime_ctx.import_path;
 
-        this->byte_code.reserve(byte_code.size());
-        this->byte_code.insert(this->byte_code.end(), byte_code.begin(), byte_code.end());
+        std::filesystem::path full_path;
 
+        full_path = std::filesystem::path(cwd) / module_path;
+        if (std::filesystem::exists(full_path) && std::filesystem::is_regular_file(full_path)) {
+            std::ifstream file_stream(full_path);
+            if (file_stream.is_open()) {
+                std::ostringstream oss;
+                oss << file_stream.rdbuf();
+                return oss.str();
+            }
+        }
+
+        full_path = std::filesystem::path(import_path) / module_path;
+        if (std::filesystem::exists(full_path) && std::filesystem::is_regular_file(full_path)) {
+            std::ifstream file_stream(full_path);
+            if (file_stream.is_open()) {
+                std::ostringstream oss;
+                oss << file_stream.rdbuf();
+                return oss.str();
+            }
+        }
+
+        return "";
+    }
+
+    size_t IRRuntime::add_module(StringObject* module_name, size_t base_offset) {
         size_t id = module_manager.module_count;
+        module_manager.module_count++;
 
         module_manager.modules.emplace(
-                id, Module{module_name, id,
-                           base_offset});
+                id, ImportedModule{module_name, id,
+                                   base_offset});
 
         return id;
     }
@@ -1570,13 +1643,18 @@ namespace luaxc {
         return module_manager.modules[module_id].base_offset + function_offset;
     }
 
-    bool IRRuntime::has_module(StringObject* module_name) {
+    std::optional<size_t> IRRuntime::has_module(StringObject* module_name) {
         for (auto& [id, module]: module_manager.modules) {
             if (module.name == module_name) {
-                return true;
+                return id;
             }
         }
-        return false;
+        return std::nullopt;
+    }
+
+    void IRRuntime::resolve_runtime_ctx() {
+        runtime_ctx.cwd = std::filesystem::current_path().string();
+        runtime_ctx.import_path = runtime_ctx.cwd;
     }
 
     void IRInterpreter::preload_native_functions() {
@@ -1642,7 +1720,7 @@ namespace luaxc {
     }
 
     bool IRInterpreter::has_identifier_in_global_scope(StringObject* identifier) {
-        return global_stack_frame().variables.find(identifier) != stack_frames[0].variables.end();
+        return global_stack_frame().variables.find(identifier) != global_stack_frame().variables.end();
     }
 
     IRPrimValue IRInterpreter::retrieve_raw_value_in_desired_stack_frame(StringObject* identifier, size_t idx) {

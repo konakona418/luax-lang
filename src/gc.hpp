@@ -37,6 +37,7 @@ namespace luaxc {
         Function,
         Array,
         Object,
+        Module,
         Type,
         Null,
         Unit,
@@ -255,7 +256,7 @@ namespace luaxc {
         bool is_gc_object() const {
             static std::unordered_set<ValueType> types = {
                     ValueType::Type, ValueType::String, ValueType::Function,
-                    ValueType::Array, ValueType::Object};
+                    ValueType::Array, ValueType::Object, ValueType::Module};
 
             return types.find(type) != types.end();
         }

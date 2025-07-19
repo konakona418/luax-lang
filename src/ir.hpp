@@ -11,8 +11,6 @@
 
 #include "ast.hpp"
 #include "gc.hpp"
-#include "lexer.hpp"
-#include "parser.hpp"
 
 namespace luaxc {
 
@@ -64,6 +62,10 @@ namespace luaxc {
 
     struct IRCallParam {
         size_t arguments_count;
+    };
+
+    struct IRMakeModuleParam {
+        size_t module_id;
     };
 
     class IRInstruction {
@@ -134,7 +136,8 @@ namespace luaxc {
                 IRCallParam,
                 IRLoadMemberParam,
                 IRStoreMemberParam,
-                IRMakeObjectParam>;
+                IRMakeObjectParam,
+                IRMakeModuleParam>;
 
         IRParam param;
         InstructionType type;
@@ -155,7 +158,7 @@ namespace luaxc {
         IRGenerator(IRRuntime& runtime, std::unique_ptr<AstNode> ast_base_node)
             : runtime(runtime), ast(std::move(ast_base_node)) {}
 
-        void generate();
+        ByteCode generate();
 
         void inject_compiler(std::function<std::unique_ptr<AstNode>(const std::string&)> fn) { this->fn_compile_module = fn; }
 
@@ -181,9 +184,9 @@ namespace luaxc {
 
         std::function<std::unique_ptr<AstNode>(const std::string&)> fn_compile_module = nullptr;
 
-        bool is_module_present(const std::string& module_name);
+        std::optional<size_t> is_module_present(const std::string& module_name);
 
-        StringObject* begin_module_compilation(const std::string& module_name);
+        StringObject* begin_module_compilation(const std::string& module_name, size_t base_offset);
 
         size_t end_module_compilation();
 
@@ -204,6 +207,8 @@ namespace luaxc {
         void generate_type_decl_expression(const TypeDeclarationExpressionNode* expression, ByteCode& byte_code);
 
         void generate_module_decl_expression(const ModuleDeclarationExpressionNode* expression, ByteCode& byte_code);
+
+        void generate_module_import_expression(const ModuleImportExpresionNode* expression, ByteCode& byte_code);
 
         void generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code);
 
@@ -353,7 +358,7 @@ namespace luaxc {
 
         void handle_make_object(IRMakeObjectParam param);
 
-        void handle_make_module();
+        void handle_make_module(IRMakeModuleParam param);
 
         void handle_to_bool();
 
@@ -368,17 +373,12 @@ namespace luaxc {
     public:
         IRRuntime() {
             init_builtin_type_info();
-
-            lexer = std::make_unique<Lexer>();
-            parser = std::make_unique<Parser>(*lexer);
+            resolve_runtime_ctx();
         }
 
         IRRuntime(IRRuntime& other) = delete;
         IRRuntime(IRRuntime&& other) {
             constant_pools = std::move(other.constant_pools);
-
-            lexer = std::move(other.lexer);
-            parser = std::move(other.parser);
 
             generator = std::move(other.generator);
             interpreter = std::move(other.interpreter);
@@ -387,6 +387,7 @@ namespace luaxc {
 
             objects = std::move(other.objects);
             module_manager = std::move(other.module_manager);
+            runtime_ctx = std::move(other.runtime_ctx);
 
             byte_code = std::move(other.byte_code);
         }
@@ -447,28 +448,38 @@ namespace luaxc {
 
         bool has_identifier(const std::string& identifier) { return interpreter->has_identifier(identifier); }
 
-        struct Module {
+        std::string find_file_and_read(const std::string& module_path);
+
+        struct ImportedModule {
             StringObject* name;
 
             size_t id;
             size_t base_offset;
+
+            GCObject* module;
         };
 
         size_t get_next_module_id() { return module_manager.module_count; }
 
-        size_t add_module(StringObject* module_name, ByteCode module_byte_code);
+        size_t add_module(StringObject* module_name, size_t base_offset);
 
         size_t resolve_function_offset(size_t module_id, size_t function_offset);
 
-        bool has_module(StringObject* module_name);
+        std::optional<size_t> has_module(StringObject* module_name);
+
+        ImportedModule& get_module(size_t id) { return module_manager.modules[id]; };
+
+        struct RuntimeContext {
+            std::string import_path;
+            std::string cwd;
+        };
+
+        const RuntimeContext& get_runtime_context() const { return runtime_ctx; }
 
     private:
         struct {
             std::unordered_map<std::string, StringObject*> string_const_pool;
         } constant_pools;
-
-        std::unique_ptr<Lexer> lexer = nullptr;
-        std::unique_ptr<Parser> parser = nullptr;
 
         std::unique_ptr<IRGenerator> generator = nullptr;
         std::unique_ptr<IRInterpreter> interpreter = nullptr;
@@ -477,10 +488,14 @@ namespace luaxc {
 
         std::vector<GCObject*> objects;
         struct {
-            std::unordered_map<size_t, Module> modules;
+            std::unordered_map<size_t, ImportedModule> modules;
             size_t module_count = 0;
         } module_manager;
 
+        RuntimeContext runtime_ctx;
+
         ByteCode byte_code;
+
+        void resolve_runtime_ctx();
     };
 }// namespace luaxc

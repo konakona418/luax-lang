@@ -82,7 +82,7 @@ namespace luaxc {
                 parsed = parse_method_declaration_statement();
                 break;
             case TokenType::KEYWORD_USE:
-                parsed = parse_forward_declaration_statement();
+                parsed = parse_module_import_expression();
                 break;
             case TokenType::L_CURLY_BRACKET:// '{': block statement start
                 parsed = parse_block_statement();
@@ -242,14 +242,12 @@ namespace luaxc {
                 std::move(body));
     }
 
-    std::unique_ptr<AstNode> Parser::parse_forward_declaration_statement() {
+    std::unique_ptr<AstNode> Parser::parse_module_import_expression() {
         consume(TokenType::KEYWORD_USE, "Expected 'use'");
 
-        declare_identifier(current_token.value);
-        std::unique_ptr<AstNode> identifier = parse_identifier();
-        consume(TokenType::SEMICOLON, "Expected ';' after forward declaration");
+        auto import_name_expr = parse_primary();
 
-        return std::make_unique<ForwardDeclarationStmtNode>(std::move(identifier));
+        return std::make_unique<ModuleImportExpresionNode>(std::move(import_name_expr));
     }
 
     std::unique_ptr<AstNode> Parser::parse_function_declaration_statement() {
@@ -721,6 +719,10 @@ namespace luaxc {
             }
             case (TokenType::KEYWORD_MOD): {
                 node = parse_module_declaration_expression();
+                break;
+            }
+            case (TokenType::KEYWORD_USE): {
+                node = parse_module_import_expression();
                 break;
             }
             default:

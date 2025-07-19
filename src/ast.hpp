@@ -45,7 +45,6 @@ namespace luaxc {
             DeclarationStmt,
             FieldDeclarationStmt,
             MethodDeclarationStmt,
-            ForwardDeclarationStmt,// use
             ExpressionStmt,
             BlockStmt,
             IfStmt,
@@ -74,6 +73,7 @@ namespace luaxc {
             StringLiteral,
             TypeDecl,
             ModuleDecl,
+            ModuleImportExpr,
             AssignmentExpr,
             BinaryExpr,
             UnaryExpr,
@@ -111,18 +111,6 @@ namespace luaxc {
     private:
         std::vector<std::unique_ptr<AstNode>> identifiers;
         std::unique_ptr<AstNode> value_or_initializer;
-    };
-
-    class ForwardDeclarationStmtNode : public StatementNode {
-    public:
-        explicit ForwardDeclarationStmtNode(std::unique_ptr<AstNode> identifier)
-            : StatementNode(StatementNode::StatementType::ForwardDeclarationStmt),
-              identifier(std::move(identifier)) {}
-
-        const AstNode* get_identifier() const { return identifier.get(); }
-
-    private:
-        std::unique_ptr<AstNode> identifier;
     };
 
     // assign -> identifier = expr ';'
@@ -445,6 +433,18 @@ namespace luaxc {
 
     private:
         std::unique_ptr<AstNode> module_statements_block;
+    };
+
+    class ModuleImportExpresionNode : public ExpressionNode {
+    public:
+        explicit ModuleImportExpresionNode(std::unique_ptr<AstNode> module_name)
+            : ExpressionNode(ExpressionType::ModuleImportExpr),
+              module_name(std::move(module_name)) {}
+
+        const std::unique_ptr<AstNode>& get_module_name() const { return module_name; }
+
+    private:
+        std::unique_ptr<AstNode> module_name;
     };
 
     class MemberAccessExpressionNode : public ExpressionNode {
