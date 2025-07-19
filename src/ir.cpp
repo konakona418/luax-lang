@@ -143,6 +143,9 @@ namespace luaxc {
             case IRInstruction::InstructionType::MAKE_MODULE:
                 out += "MAKE_MODULE";
                 break;
+            case IRInstruction::InstructionType::MAKE_MODULE_LOCAL:
+                out += "MAKE_MODULE_LOCAL";
+                break;
             case IRInstruction::InstructionType::LOAD_MEMBER:
                 out += "LOAD_MEMBER ";
                 out += std::get<IRLoadMemberParam>(param).identifier->to_string();
@@ -374,7 +377,7 @@ namespace luaxc {
         }
 
         byte_code.push_back(
-                IRInstruction(IRInstruction::InstructionType::MAKE_MODULE,
+                IRInstruction(IRInstruction::InstructionType::MAKE_MODULE_LOCAL,
                               {std::monostate()}));
         byte_code.push_back(
                 IRInstruction(IRInstruction::InstructionType::END_LOCAL,
@@ -1210,6 +1213,10 @@ namespace luaxc {
                     handle_make_module(std::get<IRMakeModuleParam>(instruction.param));
                     break;
                 }
+                case IRInstruction::InstructionType::MAKE_MODULE_LOCAL: {
+                    handle_make_module_local();
+                    break;
+                }
 
                 case IRInstruction::InstructionType::BEGIN_LOCAL: {
                     push_stack_frame(false);
@@ -1395,6 +1402,13 @@ namespace luaxc {
     }
 
     void IRInterpreter::handle_make_module(IRMakeModuleParam param) {
+        auto* gc_object = handle_make_module_local();
+
+        auto& module_registry_metadata = runtime.get_module(param.module_id);
+        module_registry_metadata.module = gc_object;
+    }
+
+    GCObject* IRInterpreter::handle_make_module_local() {
         auto* gc_object = new GCObject();
         runtime.push_gc_object(gc_object);
 
@@ -1405,10 +1419,9 @@ namespace luaxc {
         auto value = PrimValue(ValueType::Module, (GCObject*){gc_object});
         value.set_type_info(TypeObject::any());
 
-        auto& module_registry_metadata = runtime.get_module(param.module_id);
-        module_registry_metadata.module = gc_object;
-
         stack.push(value);
+
+        return gc_object;
     }
 
     void IRInterpreter::handle_to_bool() {
@@ -1442,7 +1455,7 @@ namespace luaxc {
         } else {
             size_t arg_size = fn->get_arity();
 
-            bool valid = param.arguments_count != arg_size;
+            bool valid = param.arguments_count == arg_size;
             if (!fn->is_method_function() && param.arguments_count == arg_size + 1) {
                 stack.pop();
                 valid = true;

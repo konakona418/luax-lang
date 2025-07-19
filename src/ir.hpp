@@ -117,7 +117,8 @@ namespace luaxc {
 
             MAKE_OBJECT,// make an object. pop a sequence of values from stack
 
-            MAKE_MODULE,// make a module
+            MAKE_MODULE,      // make a module from an exported object
+            MAKE_MODULE_LOCAL,// make a module from a local object combinator
 
             BEGIN_LOCAL,// force push a stack frame
             END_LOCAL,  // force pop
@@ -367,6 +368,8 @@ namespace luaxc {
         void handle_make_object(IRMakeObjectParam param);
 
         void handle_make_module(IRMakeModuleParam param);
+
+        GCObject* handle_make_module_local();
 
         void handle_to_bool();
 
