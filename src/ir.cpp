@@ -23,13 +23,18 @@ namespace luaxc {
                 }
                 break;
             }
+            case IRInstruction::InstructionType::DECLARE_IDENTIFIER: {
+                out = "DECLARE_IDENTIFIER ";
+                out += std::get<IRDeclareIdentifierParam>(param).identifier->to_string();
+                break;
+            }
             case IRInstruction::InstructionType::LOAD_IDENTIFIER:
-                out = "LOAD_IDENTIFIER";
-                out += " " + std::get<IRLoadIdentifierParam>(param).identifier->to_string();
+                out = "LOAD_IDENTIFIER ";
+                out += std::get<IRLoadIdentifierParam>(param).identifier->to_string();
                 break;
             case IRInstruction::InstructionType::STORE_IDENTIFIER:
-                out = "STORE_IDENTIFIER";
-                out += " " + std::get<IRStoreIdentifierParam>(param).identifier->to_string();
+                out = "STORE_IDENTIFIER ";
+                out += std::get<IRStoreIdentifierParam>(param).identifier->to_string();
                 break;
             case IRInstruction::InstructionType::ADD:
                 out = "ADD";
@@ -95,27 +100,27 @@ namespace luaxc {
                 out = "CMP_GE";
                 break;
             case IRInstruction::InstructionType::JMP:
-                out = "JMP";
-                out += " " + std::to_string(std::get<IRJumpParam>(param));
+                out = "JMP ";
+                out += std::to_string(std::get<IRJumpParam>(param));
                 break;
             case IRInstruction::InstructionType::JMP_IF_FALSE:
-                out = "JMP_IF_FALSE";
-                out += " " + std::to_string(std::get<IRJumpParam>(param));
+                out = "JMP_IF_FALSE ";
+                out += std::to_string(std::get<IRJumpParam>(param));
                 break;
             case IRInstruction::InstructionType::JMP_REL:
-                out = "JMP_REL";
-                out += " " + std::to_string(std::get<IRJumpRelParam>(param));
+                out = "JMP_REL ";
+                out += std::to_string(std::get<IRJumpRelParam>(param));
                 break;
             case IRInstruction::InstructionType::JMP_IF_FALSE_REL:
-                out = "JMP_IF_FALSE_REL";
-                out += " " + std::to_string(std::get<IRJumpRelParam>(param));
+                out = "JMP_IF_FALSE_REL ";
+                out += std::to_string(std::get<IRJumpRelParam>(param));
                 break;
             case IRInstruction::InstructionType::TO_BOOL:
                 out = "TO_BOOL";
                 break;
             case IRInstruction::InstructionType::CALL:
-                out = "CALL";
-                out += " " + std::to_string(std::get<IRCallParam>(param).arguments_count);
+                out = "CALL ";
+                out += std::to_string(std::get<IRCallParam>(param).arguments_count);
                 break;
             case IRInstruction::InstructionType::RET:
                 out += "RET";
@@ -332,9 +337,15 @@ namespace luaxc {
                 generate_expression(static_cast<ExpressionNode*>(field->get_type_declaration_expr().get()), byte_code);
 
                 auto* cached_string = runtime.push_string_pool_if_not_exists(field_name);
+
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::DECLARE_IDENTIFIER,
+                        IRDeclareIdentifierParam{cached_string}));
+
                 byte_code.push_back(IRInstruction(
                         IRInstruction::InstructionType::STORE_IDENTIFIER,
                         IRStoreIdentifierParam{cached_string}));
+
             } else if (stmt->get_statement_type() == StatementNode::StatementType::MethodDeclarationStmt) {
                 generate_method_declaration_statement(static_cast<const MethodDeclarationNode*>(stmt), byte_code);
             } else {
@@ -440,15 +451,11 @@ namespace luaxc {
             for (auto& identifier: identifiers) {
                 auto* identifier_node = static_cast<IdentifierNode*>(identifier.get());
 
-                // placeholder value, or the vm will read random stuff from stack top
-                byte_code.push_back(IRInstruction(
-                        IRInstruction::InstructionType::LOAD_CONST,
-                        IRLoadConstParam{IRPrimValue::unit()}));
-
                 auto* cached_string = runtime.push_string_pool_if_not_exists(identifier_node->get_name());
+
                 byte_code.push_back(IRInstruction(
-                        IRInstruction::InstructionType::STORE_IDENTIFIER,
-                        IRStoreIdentifierParam{cached_string}));
+                        IRInstruction::InstructionType::DECLARE_IDENTIFIER,
+                        IRDeclareIdentifierParam{cached_string}));
             }
             return;
         }
@@ -458,6 +465,9 @@ namespace luaxc {
         auto* identifier_node = static_cast<IdentifierNode*>(identifiers[0].get());
         auto* cached_string = runtime.push_string_pool_if_not_exists(identifier_node->get_name());
 
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::DECLARE_IDENTIFIER,
+                IRDeclareIdentifierParam{cached_string}));
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_IDENTIFIER,
                 IRStoreIdentifierParam{cached_string}));
@@ -983,6 +993,9 @@ namespace luaxc {
             auto identifier =
                     runtime.push_string_pool_if_not_exists(dynamic_cast<IdentifierNode*>(param.get())->get_name());
             byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::DECLARE_IDENTIFIER,
+                    IRDeclareIdentifierParam{identifier}));
+            byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::STORE_IDENTIFIER,
                     IRStoreIdentifierParam{identifier}));
         }
@@ -1011,6 +1024,11 @@ namespace luaxc {
                 IRInstruction::InstructionType::LOAD_CONST, IRPrimValue(ValueType::Function, func_obj)));
 
         auto* cached_function_identifier = runtime.push_string_pool_if_not_exists(function_identifier);
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::DECLARE_IDENTIFIER,
+                IRDeclareIdentifierParam{cached_function_identifier}));
+
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_IDENTIFIER,
                 IRStoreIdentifierParam{cached_function_identifier}));
@@ -1032,6 +1050,11 @@ namespace luaxc {
         for (auto& param: statement->get_parameters()) {
             auto identifier =
                     runtime.push_string_pool_if_not_exists(dynamic_cast<IdentifierNode*>(param.get())->get_name());
+
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::DECLARE_IDENTIFIER,
+                    IRDeclareIdentifierParam{identifier}));
+
             byte_code.push_back(IRInstruction(
                     IRInstruction::InstructionType::STORE_IDENTIFIER,
                     IRStoreIdentifierParam{identifier}));
@@ -1061,6 +1084,11 @@ namespace luaxc {
                 IRInstruction::InstructionType::LOAD_CONST, IRPrimValue(ValueType::Function, func_obj)));
 
         auto* cached_function_identifier = runtime.push_string_pool_if_not_exists(function_identifier);
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::DECLARE_IDENTIFIER,
+                IRDeclareIdentifierParam{cached_function_identifier}));
+
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::STORE_IDENTIFIER, IRStoreIdentifierParam{cached_function_identifier}));
     }
@@ -1081,6 +1109,10 @@ namespace luaxc {
                 case IRInstruction::InstructionType::LOAD_CONST:
                     stack.push(std::get<IRLoadConstParam>(instruction.param));
                     break;
+                case IRInstruction::InstructionType::DECLARE_IDENTIFIER: {
+                    declare_identifier(std::get<IRDeclareIdentifierParam>(instruction.param).identifier);
+                    break;
+                }
                 case IRInstruction::InstructionType::LOAD_IDENTIFIER: {
                     auto param = std::get<IRLoadIdentifierParam>(instruction.param);
                     stack.push(retrieve_raw_value(param.identifier));
@@ -1534,6 +1566,10 @@ namespace luaxc {
         }
     }
 
+    void IRInterpreter::declare_identifier(StringObject* identifier) {
+        current_stack_frame().variables[identifier] = IRPrimValue::null();
+    }
+
     IRPrimValue IRInterpreter::retrieve_raw_value(StringObject* identifier) {
         if (auto idx = has_identifier_in_stack_frame(identifier)) {
             return retrieve_raw_value_in_desired_stack_frame(identifier, idx.value());
@@ -1568,7 +1604,7 @@ namespace luaxc {
         } else if (has_identifier_in_global_scope(identifier)) {
             store_value_in_global_scope(identifier, value);
         } else {
-            store_value_in_stack_frame(identifier, value);
+            throw IRInterpreterException("Identifier not found " + identifier->to_string());
         }
     }
 

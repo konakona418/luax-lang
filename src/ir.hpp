@@ -45,6 +45,10 @@ namespace luaxc {
         StringObject* identifier;
     };
 
+    struct IRDeclareIdentifierParam {
+        StringObject* identifier;
+    };
+
     struct IRLoadMemberParam {
         StringObject* identifier;
     };
@@ -71,10 +75,11 @@ namespace luaxc {
     class IRInstruction {
     public:
         enum class InstructionType {
-            LOAD_CONST,      // load a const to stack
-            LOAD_IDENTIFIER, // load an identifier to stack
-            STORE_IDENTIFIER,// store stack top to an identifier
-            ADD,             // pop two values from stack, add them and push result to stack
+            LOAD_CONST,        // load a const to stack
+            DECLARE_IDENTIFIER,// declare an identifier
+            LOAD_IDENTIFIER,   // load an identifier to stack
+            STORE_IDENTIFIER,  // store stack top to an identifier
+            ADD,               // pop two values from stack, add them and push result to stack
             SUB,
             MUL,
             DIV,
@@ -129,6 +134,7 @@ namespace luaxc {
         using IRParam = std::variant<
                 std::monostate,
                 IRLoadConstParam,
+                IRDeclareIdentifierParam,
                 IRLoadIdentifierParam,
                 IRStoreIdentifierParam,
                 IRJumpParam,
@@ -269,6 +275,8 @@ namespace luaxc {
         void set_byte_code(ByteCode byte_code) { this->byte_code = std::move(byte_code); };
 
         void run();
+
+        void declare_identifier(StringObject* identifier);
 
         IRPrimValue retrieve_raw_value(StringObject* identifier);
 
