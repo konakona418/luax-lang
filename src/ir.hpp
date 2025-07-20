@@ -79,6 +79,13 @@ namespace luaxc {
         size_t module_id;
     };
 
+    struct IRMakeFunctionParam {
+        size_t begin_offset;
+        size_t module_id;
+        size_t arity;
+        bool is_method;
+    };
+
     class IRInstruction {
     public:
         enum class InstructionType {
@@ -125,6 +132,9 @@ namespace luaxc {
 
             MAKE_OBJECT,// make an object. pop a sequence of values from stack
 
+            MAKE_STRING,
+            MAKE_FUNC,
+
             MAKE_MODULE,      // make a module from an exported object
             MAKE_MODULE_LOCAL,// make a module from a local object combinator
 
@@ -155,6 +165,7 @@ namespace luaxc {
                 IRCallParam,
                 IRLoadMemberParam,
                 IRStoreMemberParam,
+                IRMakeFunctionParam,
                 IRMakeObjectParam,
                 IRMakeModuleParam>;
 
@@ -393,6 +404,10 @@ namespace luaxc {
         void handle_index_store();
 
         void handle_module_load(IRLoadModuleParam param);
+
+        void handle_make_string();
+
+        void handle_make_function(IRMakeFunctionParam param);
 
         void handle_make_object(IRMakeObjectParam param);
 

@@ -141,6 +141,12 @@ namespace luaxc {
             case IRInstruction::InstructionType::BEGIN_LOCAL_DERIVED:
                 out += "BEGIN_LOCAL_DERIVED";
                 break;
+            case IRInstruction::InstructionType::MAKE_STRING:
+                out += "MAKE_STRING";
+                break;
+            case IRInstruction::InstructionType::MAKE_FUNC:
+                out += "MAKE_FUNC";
+                break;
             case IRInstruction::InstructionType::MAKE_TYPE:
                 out += "MAKE_TYPE";
                 break;
@@ -512,6 +518,11 @@ namespace luaxc {
         byte_code.push_back(
                 IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
                               {IRLoadConstParam(value)}));
+
+        // we need to copy the string from constant pool!
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::MAKE_STRING,
+                              {std::monostate()}));
     }
 
     void IRGenerator::generate_declaration_statement(const DeclarationStmtNode* node, ByteCode& byte_code) {
@@ -1124,13 +1135,14 @@ namespace luaxc {
         auto current_module_id = get_current_compiling_module_id();
         auto function_identifier =
                 static_cast<IdentifierNode*>(statement->get_identifier().get())->get_name();
-        auto* func_obj =
-                FunctionObject::create_function(fn_start_index, current_module_id, statement->get_parameters().size());
-
-        runtime.gc_regist_no_collect(func_obj);
 
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::LOAD_CONST, IRPrimValue(ValueType::Function, func_obj)));
+                IRInstruction::InstructionType::MAKE_FUNC,
+                IRMakeFunctionParam{
+                        fn_start_index,
+                        current_module_id,
+                        statement->get_parameters().size(),
+                        false}));
 
         auto* cached_function_identifier = runtime.push_string_pool_if_not_exists(function_identifier);
 
@@ -1181,16 +1193,17 @@ namespace luaxc {
         byte_code[jump_over_function_instruction_index].param =
                 IRJumpRelParam(byte_code.size() - jump_over_function_instruction_index);
 
-        auto module_id = get_current_compiling_module_id();
+        auto current_module_id = get_current_compiling_module_id();
         auto function_identifier =
                 static_cast<IdentifierNode*>(statement->get_identifier().get())->get_name();
-        auto* func_obj =
-                FunctionObject::create_method(fn_start_index, module_id, statement->get_parameters().size());
-
-        runtime.gc_regist_no_collect(func_obj);
 
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::LOAD_CONST, IRPrimValue(ValueType::Function, func_obj)));
+                IRInstruction::InstructionType::MAKE_FUNC,
+                IRMakeFunctionParam{
+                        fn_start_index,
+                        current_module_id,
+                        statement->get_parameters().size(),
+                        true}));
 
         auto* cached_function_identifier = runtime.push_string_pool_if_not_exists(function_identifier);
 
@@ -1306,6 +1319,16 @@ namespace luaxc {
                     pop_stack_frame();
                     pc = return_addr;
                     jumped = true;
+                    break;
+                }
+
+                case IRInstruction::InstructionType::MAKE_STRING: {
+                    handle_make_string();
+                    break;
+                }
+
+                case IRInstruction::InstructionType::MAKE_FUNC: {
+                    handle_make_function(std::get<IRMakeFunctionParam>(instruction.param));
                     break;
                 }
 
@@ -1552,6 +1575,31 @@ namespace luaxc {
         auto* module = runtime.get_module(param.module_id).module;
 
         auto value = PrimValue(ValueType::Module, (GCObject*){module});
+        push_op_stack(value);
+    }
+
+    void IRInterpreter::handle_make_string() {
+        auto string_literal_ref = pop_op_stack();
+
+        StringObject* string_object = new StringObject(
+                *static_cast<StringObject*>(string_literal_ref.get_inner_value<GCObject*>()));
+        runtime.gc_regist(string_object);
+
+        auto value = IRPrimValue(ValueType::String, (GCObject*){string_object});
+        push_op_stack(value);
+    }
+
+    void IRInterpreter::handle_make_function(IRMakeFunctionParam param) {
+        FunctionObject* func_obj;
+        if (param.is_method) {
+            func_obj = FunctionObject::create_method(param.begin_offset, param.module_id, param.arity);
+        } else {
+            func_obj = FunctionObject::create_function(param.begin_offset, param.module_id, param.arity);
+        }
+
+        runtime.gc_regist(func_obj);
+
+        auto value = IRPrimValue(ValueType::Function, (GCObject*){func_obj});
         push_op_stack(value);
     }
 
