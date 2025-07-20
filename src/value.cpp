@@ -183,6 +183,69 @@ namespace luaxc {
         }
     }
 
+    std::vector<GCObject*> GCObject::get_referenced_objects() const {
+        std::vector<GCObject*> referenced_objects;
+        for (auto& [_, object]: storage.fields) {
+            if (object.is_gc_object()) {
+                referenced_objects.push_back(object.get_inner_value<GCObject*>());
+            }
+        }
+        return referenced_objects;
+    }
+
+    size_t GCObject::get_object_size() const {
+        size_t size = sizeof(GCObject);
+        for (auto& [_, object]: storage.fields) {
+            if (object.is_gc_object()) {
+                size += object.get_inner_value<GCObject*>()->get_object_size();
+            } else {
+                size += sizeof(PrimValue);
+            }
+        }
+        return size;
+    }
+
+    std::vector<GCObject*> ArrayObject::get_referenced_objects() const {
+        std::vector<GCObject*> referenced_objects;
+        for (size_t i = 0; i < size; i++) {
+            if (data[i].is_gc_object()) {
+                referenced_objects.push_back(data[i].get_inner_value<GCObject*>());
+            }
+        }
+        return referenced_objects;
+    }
+
+    size_t ArrayObject::get_object_size() const {
+        size_t size = sizeof(ArrayObject);
+        for (size_t i = 0; i < this->size; i++) {
+            if (data[i].is_gc_object()) {
+                size += data[i].get_inner_value<GCObject*>()->get_object_size();
+            } else {
+                size += sizeof(PrimValue);
+            }
+        }
+        return size;
+    }
+
+    std::vector<GCObject*> TypeObject::get_referenced_objects() const {
+        std::vector<GCObject*> referenced_objects;
+        for (auto& [name, type_info]: fields) {
+            if (type_info.type_ptr) {
+                referenced_objects.push_back(type_info.type_ptr);
+            }
+        }
+
+        for (auto& [name, method]: member_funcs) {
+            referenced_objects.push_back(method);
+        }
+
+        for (auto& [name, method]: static_funcs) {
+            referenced_objects.push_back(method);
+        }
+
+        return referenced_objects;
+    }
+
     namespace detail {
         LUAXC_GC_VALUE_DEFINE_PRIM_BINARY_COMPARE(prim_value_eq, ==)
         LUAXC_GC_VALUE_DEFINE_PRIM_BINARY_COMPARE(prim_value_neq, !=)

@@ -48,6 +48,8 @@ namespace luaxc {
     using Int = int64_t;
     using Float = double;
 
+    class GCObject;
+    class FunctionObject;
     class TypeObject;
     class PrimValue;
     class StringObject;
@@ -55,7 +57,17 @@ namespace luaxc {
 
     class GCObject {
     public:
+        bool marked = false;
+
+        bool no_collect = false;
+
         virtual std::string to_string() const { return "[gc object]"; };
+
+        virtual ~GCObject() = default;
+
+        virtual std::vector<GCObject*> get_referenced_objects() const;
+
+        virtual size_t get_object_size() const;
 
         struct {
             std::unordered_map<StringObject*, PrimValue> fields;
@@ -95,12 +107,25 @@ namespace luaxc {
             return std::string(c_str());
         }
 
+        size_t get_object_size() const override { return sizeof(BasicStringObject<Encoding>) + length * sizeof(Encoding); }
+
     private:
         Encoding* data;
         size_t length;
     };
 
     class StringObject : public BasicStringObject<char> {
+    };
+
+    struct StackFrame {
+        std::unordered_map<StringObject*, PrimValue> variables;
+        size_t return_addr;
+        bool allow_upward_propagation = false;
+
+        explicit StackFrame(size_t return_addr) : return_addr(return_addr) {};
+        StackFrame(size_t return_addr, bool allow_propagation)
+            : return_addr(return_addr),
+              allow_upward_propagation(allow_propagation) {};
     };
 
     class ArrayObject;
@@ -201,6 +226,8 @@ namespace luaxc {
         static TypeObject* create(const std::string& type_name) { return new TypeObject(type_name); }
 
         static TypeObject* create() { return new TypeObject(); }
+
+        std::vector<GCObject*> get_referenced_objects() const override;
 
     private:
         std::string type_name;
@@ -388,6 +415,8 @@ namespace luaxc {
 
     class ArrayObject : public GCObject {
     public:
+        std::vector<GCObject*> get_referenced_objects() const override;
+
         ArrayObject(size_t size, TypeObject* element_type)
             : data(new PrimValue[size]), size(size),
               element_type_info(element_type) {
@@ -422,21 +451,13 @@ namespace luaxc {
 
         TypeObject* get_element_type() const { return element_type_info; }
 
+        size_t get_object_size() const override;
+
     private:
         PrimValue* data;
         size_t size;
 
         TypeObject* element_type_info;
-    };
-
-    class ModuleRefObject : public GCObject {
-    public:
-        explicit ModuleRefObject(size_t module_id) : module_id(module_id) {}
-
-        size_t get_module_id() const { return module_id; }
-
-    private:
-        size_t module_id;
     };
 
     namespace detail {

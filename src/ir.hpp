@@ -10,8 +10,10 @@
 
 
 #include "ast.hpp"
+#include "gc.hpp"
 #include "parser.hpp"
 #include "value.hpp"
+
 
 namespace luaxc {
 
@@ -317,18 +319,11 @@ namespace luaxc {
 
         bool has_identifier(const std::string& identifier);
 
+        std::vector<PrimValue>* get_op_stack_ptr() { return &stack; }
+
+        std::vector<StackFrame>* get_stack_frames_ptr() { return &stack_frames; };
+
     private:
-        struct StackFrame {
-            std::unordered_map<StringObject*, IRPrimValue> variables;
-            size_t return_addr;
-            bool allow_upward_propagation = false;
-
-            explicit StackFrame(size_t return_addr) : return_addr(return_addr) {};
-            StackFrame(size_t return_addr, bool allow_propagation)
-                : return_addr(return_addr),
-                  allow_upward_propagation(allow_propagation) {};
-        };
-
         ByteCode byte_code;
         size_t pc = 0;
         std::vector<StackFrame> stack_frames;
@@ -430,18 +425,14 @@ namespace luaxc {
 
             type_info = std::move(other.type_info);
 
-            objects = std::move(other.objects);
+            gc = std::move(other.gc);
             module_manager = std::move(other.module_manager);
             runtime_ctx = std::move(other.runtime_ctx);
 
             byte_code = std::move(other.byte_code);
         }
 
-        ~IRRuntime() {
-            for (auto* object: objects) {
-                delete object;
-            }
-        }
+        ~IRRuntime() = default;
 
         std::unique_ptr<AstNode> generate(
                 const std::string& input,
@@ -449,22 +440,22 @@ namespace luaxc {
 
         void compile(const std::string& input);
 
-        void run() {
-            if (byte_code.size() == 0) {
-                throw std::runtime_error("Not compiled");
-            }
-
-            interpreter->set_byte_code(byte_code);
-            interpreter->run();
-        }
+        void run();
 
         IRInterpreter& get_interpreter() {
             return *this->interpreter.get();
         }
 
-        void push_gc_object(GCObject* object) {
-            objects.push_back(object);
+        void gc_regist_no_collect(GCObject* object) {
+            gc.regist_no_collect(object);
         }
+
+        template<typename ObjectType, typename... Args, typename = std::enable_if_t<std::is_base_of_v<GCObject, ObjectType>>>
+        ObjectType* gc_allocate(Args&&... args) {
+            return gc.allocate<ObjectType>(std::forward<Args>(args)...);
+        }
+
+        void gc_regist(GCObject* object) { gc.regist(object); }
 
         StringObject* push_string_pool_if_not_exists(const std::string& str);
 
@@ -533,7 +524,6 @@ namespace luaxc {
 
         std::unordered_map<std::string, TypeObject*> type_info;
 
-        std::vector<GCObject*> objects;
         struct {
             std::unordered_map<size_t, ImportedModule> modules;
             size_t module_count = 0;
@@ -542,6 +532,8 @@ namespace luaxc {
         RuntimeContext runtime_ctx;
 
         ByteCode byte_code;
+
+        GarbageCollector gc;
 
         void resolve_runtime_ctx();
     };

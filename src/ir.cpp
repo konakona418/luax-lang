@@ -202,7 +202,7 @@ namespace luaxc {
             string_obj = get_string_from_pool(str);
         } else {
             string_obj = static_cast<StringObject*>(StringObject::from_string(str));
-            push_gc_object(string_obj);
+            gc_regist_no_collect(string_obj);
             push_string_to_pool(str, string_obj);
         }
 
@@ -343,8 +343,6 @@ namespace luaxc {
             if (stmt->get_statement_type() == StatementNode::StatementType::FieldDeclarationStmt) {
                 auto field = static_cast<FieldDeclarationStatementNode*>(stmt);
                 auto field_name = static_cast<IdentifierNode*>(field->get_field_identifier().get())->get_name();
-
-                TypeObject* type_info;
 
                 if (field->get_type_declaration_expr() == nullptr) {
                     throw IRGeneratorException("Any type is not supported");
@@ -1079,7 +1077,7 @@ namespace luaxc {
                 FunctionObject::create_function(fn_start_index, current_module_id, statement->get_parameters().size());
         func_obj->set_has_implicit_self(has_implicit_self);
 
-        runtime.push_gc_object(func_obj);
+        runtime.gc_regist_no_collect(func_obj);
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::LOAD_CONST, IRPrimValue(ValueType::Function, func_obj)));
@@ -1139,7 +1137,7 @@ namespace luaxc {
         auto* func_obj =
                 FunctionObject::create_method(fn_start_index, module_id, statement->get_parameters().size());
 
-        runtime.push_gc_object(func_obj);
+        runtime.gc_regist_no_collect(func_obj);
 
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::LOAD_CONST, IRPrimValue(ValueType::Function, func_obj)));
@@ -1365,7 +1363,7 @@ namespace luaxc {
     }
 
     void IRInterpreter::handle_type_creation() {
-        TypeObject* type_info = TypeObject::create();
+        TypeObject* type_info = runtime.gc_allocate<TypeObject>();
 
         for (auto& [name, value]: current_stack_frame().variables) {
             if (value.get_type() == ValueType::Type) {
@@ -1388,7 +1386,6 @@ namespace luaxc {
             }
         }
 
-        runtime.push_gc_object(type_info);
         push_op_stack(IRPrimValue(ValueType::Type, static_cast<GCObject*>(type_info)));
     }
 
@@ -1517,8 +1514,7 @@ namespace luaxc {
         auto* type_info = static_cast<TypeObject*>(type.get_inner_value<GCObject*>());
 
         auto& fields = param.fields;
-        auto* gc_object = new GCObject();
-        runtime.push_gc_object(gc_object);
+        auto* gc_object = runtime.gc_allocate<GCObject>();
 
         bool validation_enabled = type_info != TypeObject::any();
 
@@ -1553,8 +1549,7 @@ namespace luaxc {
     }
 
     GCObject* IRInterpreter::handle_make_module_local() {
-        auto* gc_object = new GCObject();
-        runtime.push_gc_object(gc_object);
+        auto* gc_object = runtime.gc_allocate<GCObject>();
 
         for (auto& [name, value]: current_stack_frame().variables) {
             gc_object->storage.fields[name] = value;
@@ -1802,6 +1797,20 @@ namespace luaxc {
         byte_code = generator->generate();
     }
 
+    void IRRuntime::run() {
+        if (byte_code.size() == 0) {
+            throw std::runtime_error("Not compiled");
+        }
+
+        gc.init(interpreter->get_op_stack_ptr(),
+                interpreter->get_stack_frames_ptr());
+
+        gc.set_gc_enabled(true);
+
+        interpreter->set_byte_code(byte_code);
+        interpreter->run();
+    }
+
     std::string IRRuntime::find_file_and_read(const std::string& module_path) {
         auto& cwd = runtime_ctx.cwd;
         auto& import_path = runtime_ctx.import_path;
@@ -1873,7 +1882,7 @@ namespace luaxc {
                     printf("\n");
                     return PrimValue::unit();
                 });
-        runtime.push_gc_object(println);
+        runtime.gc_regist_no_collect(println);
         auto* println_identifier = runtime.push_string_pool_if_not_exists("println");
         store_value_in_global_scope(println_identifier, PrimValue(ValueType::Function, println));
 
@@ -1888,14 +1897,14 @@ namespace luaxc {
                     }
                     return PrimValue::unit();
                 });
-        runtime.push_gc_object(print);
+        runtime.gc_regist_no_collect(print);
         auto* print_identifier = runtime.push_string_pool_if_not_exists("print");
         store_value_in_global_scope(print_identifier, PrimValue(ValueType::Function, print));
 
         FunctionObject* int_type = FunctionObject::create_native_function([this](std::vector<PrimValue>) -> PrimValue {
             return PrimValue(ValueType::Type, runtime.get_type_info("Int"));
         });
-        runtime.push_gc_object(int_type);
+        runtime.gc_regist_no_collect(int_type);
         auto* int_identifier = runtime.push_string_pool_if_not_exists("Int");
         store_value_in_global_scope(int_identifier, PrimValue(ValueType::Function, int_type));
 
@@ -1915,7 +1924,7 @@ namespace luaxc {
                 auto size = args[1].get_inner_value<Int>();
 
                 auto* element_type = static_cast<TypeObject*>(first.get_inner_value<GCObject*>());
-                array = new ArrayObject(size, element_type);
+                array = runtime.gc_allocate<ArrayObject>(size, element_type);
 
                 for (size_t i = 0; i < size; i++) {
                     array->get_element_ref(i) =
@@ -1923,7 +1932,7 @@ namespace luaxc {
                 }
             } else {
                 auto* candidate_value_type = first.get_type_info();
-                array = new ArrayObject(args.size(), candidate_value_type);
+                array = runtime.gc_allocate<ArrayObject>(args.size(), candidate_value_type);
 
                 for (size_t i = 0; i < args.size(); i++) {
                     if (args[i].get_type_info() != candidate_value_type) {
@@ -1935,10 +1944,9 @@ namespace luaxc {
                 }
             }
 
-            runtime.push_gc_object(array);
             return PrimValue(ValueType::Array, (GCObject*){array});
         });
-        runtime.push_gc_object(array_type);
+        runtime.gc_regist_no_collect(array_type);
         auto* array_identifier = runtime.push_string_pool_if_not_exists("ArrayOf");
         store_value_in_global_scope(array_identifier, PrimValue(ValueType::Function, array_type));
     }
@@ -1952,12 +1960,12 @@ namespace luaxc {
         stack_frames.pop_back();
     }
 
-    IRInterpreter::StackFrame& IRInterpreter::current_stack_frame() {
+    StackFrame& IRInterpreter::current_stack_frame() {
         assert(stack_frames.size() > 0);
         return stack_frames.back();
     }
 
-    IRInterpreter::StackFrame& IRInterpreter::global_stack_frame() {
+    StackFrame& IRInterpreter::global_stack_frame() {
         assert(stack_frames.size() > 0);
         return stack_frames[0];
     }
@@ -2016,6 +2024,7 @@ namespace luaxc {
 
         for (const auto [name, type]: static_type_info) {
             type_info.emplace(name, type);
+            gc_regist_no_collect(type);
         }
     }
 }// namespace luaxc
