@@ -332,10 +332,22 @@ namespace luaxc {
         ByteCode byte_code;
         size_t pc = 0;
         std::vector<StackFrame> stack_frames;
-        std::stack<IRPrimValue> stack;
+        std::vector<IRPrimValue> stack;
         IRRuntime& runtime;
 
         void preload_native_functions();
+
+        PrimValue pop_op_stack() {
+            auto value = stack.back();
+            stack.pop_back();
+            return value;
+        }
+
+        void push_op_stack(PrimValue value) { stack.push_back(value); }
+
+        void peek_op_stack() { push_op_stack(op_stack_top()); }
+
+        PrimValue& op_stack_top() { return stack.back(); }
 
         void push_stack_frame(bool allow_propagation = false);
 

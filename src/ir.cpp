@@ -1168,7 +1168,7 @@ namespace luaxc {
             auto& instruction = byte_code[pc];
             switch (instruction.type) {
                 case IRInstruction::InstructionType::LOAD_CONST:
-                    stack.push(std::get<IRLoadConstParam>(instruction.param));
+                    push_op_stack(std::get<IRLoadConstParam>(instruction.param));
                     break;
                 case IRInstruction::InstructionType::DECLARE_IDENTIFIER: {
                     declare_identifier(std::get<IRDeclareIdentifierParam>(instruction.param).identifier);
@@ -1176,14 +1176,13 @@ namespace luaxc {
                 }
                 case IRInstruction::InstructionType::LOAD_IDENTIFIER: {
                     auto param = std::get<IRLoadIdentifierParam>(instruction.param);
-                    stack.push(retrieve_raw_value(param.identifier));
+                    push_op_stack(retrieve_raw_value(param.identifier));
                     break;
                 }
                 case IRInstruction::InstructionType::STORE_IDENTIFIER: {
                     auto param = std::get<IRStoreIdentifierParam>(instruction.param);
 
-                    auto value = stack.top();
-                    stack.pop();
+                    auto value = pop_op_stack();
 
                     store_raw_value(param.identifier, value);
                     break;
@@ -1195,12 +1194,12 @@ namespace luaxc {
                 }
 
                 case IRInstruction::InstructionType::POP_STACK: {
-                    stack.pop();
+                    pop_op_stack();
                     break;
                 }
 
                 case IRInstruction::InstructionType::PEEK: {
-                    stack.push(stack.top());
+                    peek_op_stack();
                     break;
                 }
 
@@ -1329,8 +1328,7 @@ namespace luaxc {
                 pc = param;
                 return true;
             case IRInstruction::InstructionType::JMP_IF_FALSE: {
-                auto cond = stack.top().to_bool();
-                stack.pop();
+                auto cond = pop_op_stack().to_bool();
                 if (!(cond & 1)) {
                     // we only care about the first bit
                     // as, if everything works fine, there should be a TO_BOOL before this.
@@ -1353,8 +1351,7 @@ namespace luaxc {
                 return true;
             }
             case IRInstruction::InstructionType::JMP_IF_FALSE_REL: {
-                auto cond = stack.top().to_bool();
-                stack.pop();
+                auto cond = pop_op_stack().to_bool();
                 if (!(cond & 1)) {
                     pc += param;
                     return true;
@@ -1392,13 +1389,13 @@ namespace luaxc {
         }
 
         runtime.push_gc_object(type_info);
-        stack.push(IRPrimValue(ValueType::Type, static_cast<GCObject*>(type_info)));
+        push_op_stack(IRPrimValue(ValueType::Type, static_cast<GCObject*>(type_info)));
     }
 
     bool IRInterpreter::handle_static_method_invocation(const PrimValue& value, StringObject* name) {
         auto* type = static_cast<TypeObject*>(value.get_inner_value<GCObject*>());
         if (type->has_static_method(name)) {
-            stack.push(IRPrimValue(ValueType::Function, (GCObject*){type->get_static_method(name)}));
+            push_op_stack(IRPrimValue(ValueType::Function, (GCObject*){type->get_static_method(name)}));
             return true;
         }
         return false;
@@ -1406,8 +1403,7 @@ namespace luaxc {
 
     void IRInterpreter::handle_member_load(IRLoadMemberParam param) {
         auto name = param.identifier;
-        auto object = stack.top();
-        stack.pop();
+        auto object = pop_op_stack();
 
         if (!object.is_gc_object()) {
             throw IRInterpreterException("Not a valid object");
@@ -1426,15 +1422,13 @@ namespace luaxc {
             throw IRInterpreterException("Object does not contain such field: " + name_str);
         }
 
-        stack.push(object_ptr->storage.fields[name]);
+        push_op_stack(object_ptr->storage.fields[name]);
     }
 
     void IRInterpreter::handle_member_store(IRStoreMemberParam param) {
         auto name = param.identifier;
-        auto value = stack.top();
-        stack.pop();
-        auto object = stack.top();
-        stack.pop();
+        auto value = pop_op_stack();
+        auto object = pop_op_stack();
 
         if (!object.is_gc_object()) {
             throw IRInterpreterException("Not a valid object");
@@ -1455,8 +1449,7 @@ namespace luaxc {
     }
 
     void IRInterpreter::handle_index_load() {
-        auto index = stack.top();
-        stack.pop();
+        auto index = pop_op_stack();
 
         if (index.get_type() != ValueType::Int) {
             throw IRInterpreterException("Non-integer index value is not supported");
@@ -1464,8 +1457,7 @@ namespace luaxc {
 
         size_t index_value = index.get_inner_value<Int>();
 
-        auto object = stack.top();
-        stack.pop();
+        auto object = pop_op_stack();
 
         if (object.get_type() != ValueType::Array) {
             throw IRInterpreterException("Use index for member access is not supported for non-array type");
@@ -1477,23 +1469,20 @@ namespace luaxc {
             throw IRInterpreterException("Index out of bounds");
         }
 
-        stack.push(array->get_element(index_value));
+        push_op_stack(array->get_element(index_value));
     }
 
     void IRInterpreter::handle_index_store() {
-        auto index = stack.top();
-        stack.pop();
+        auto index = pop_op_stack();
 
         if (index.get_type() != ValueType::Int) {
             throw IRInterpreterException("Non-integer index value is not supported");
         }
         size_t index_value = index.get_inner_value<Int>();
 
-        auto value = stack.top();
-        stack.pop();
+        auto value = pop_op_stack();
 
-        auto object = stack.top();
-        stack.pop();
+        auto object = pop_op_stack();
 
         if (object.get_type() != ValueType::Array) {
             throw IRInterpreterException("Use index for member access is not supported for non-array type");
@@ -1516,15 +1505,14 @@ namespace luaxc {
         auto* module = runtime.get_module(param.module_id).module;
 
         auto value = PrimValue(ValueType::Module, (GCObject*){module});
-        stack.push(value);
+        push_op_stack(value);
     }
 
     void IRInterpreter::handle_make_object(IRMakeObjectParam param) {
-        auto type = stack.top();
+        auto type = pop_op_stack();
         if (type.get_type() != ValueType::Type) {
             throw IRInterpreterException("Not a valid type for object creation");
         }
-        stack.pop();
 
         auto* type_info = static_cast<TypeObject*>(type.get_inner_value<GCObject*>());
 
@@ -1548,14 +1536,13 @@ namespace luaxc {
                 throw IRInterpreterException("Object has no field named: " + field->to_string());
             }
 
-            gc_object->storage.fields[field] = stack.top();
-            stack.pop();
+            gc_object->storage.fields[field] = pop_op_stack();
         }
 
         auto value = PrimValue(ValueType::Object, (GCObject*){gc_object});
         value.set_type_info(type_info);
 
-        stack.push(value);
+        push_op_stack(value);
     }
 
     void IRInterpreter::handle_make_module(IRMakeModuleParam param) {
@@ -1576,19 +1563,18 @@ namespace luaxc {
         auto value = PrimValue(ValueType::Module, (GCObject*){gc_object});
         value.set_type_info(TypeObject::any());
 
-        stack.push(value);
+        push_op_stack(value);
 
         return gc_object;
     }
 
     void IRInterpreter::handle_to_bool() {
-        auto& top = stack.top();
+        auto& top = op_stack_top();
         top = PrimValue::from_bool(top.to_bool());
     }
 
     bool IRInterpreter::handle_function_invocation(IRCallParam param) {
-        auto fn_obj = stack.top();
-        stack.pop();
+        auto fn_obj = pop_op_stack();
 
         if (fn_obj.get_type() != ValueType::Function) {
             throw IRInterpreterException("Cannot invoke non-function");
@@ -1603,11 +1589,10 @@ namespace luaxc {
             // for no one will be responsible for popping it.
             std::vector<IRPrimValue> args(param.arguments_count);
             for (size_t i = 0; i < param.arguments_count; i++) {
-                args[i] = stack.top();
-                stack.pop();
+                args[i] = pop_op_stack();
             }
             auto ret = fn->call_native(args);
-            stack.push(ret);
+            push_op_stack(ret);
             return false;
         } else {
             size_t arg_size = fn->get_arity();
@@ -1651,10 +1636,8 @@ namespace luaxc {
     }
 
     void IRInterpreter::handle_binary_op(IRInstruction::InstructionType op) {
-        auto rhs_variant = stack.top();
-        stack.pop();
-        auto lhs_variant = stack.top();
-        stack.pop();
+        auto rhs_variant = pop_op_stack();
+        auto lhs_variant = pop_op_stack();
         // the left node is visited first and entered the stack first,
         // so the right node is the top of the stack
 
@@ -1662,8 +1645,7 @@ namespace luaxc {
     }
 
     void IRInterpreter::handle_unary_op(IRInstruction::InstructionType op) {
-        auto rhs_variant = stack.top();
-        stack.pop();
+        auto rhs_variant = pop_op_stack();
 
         handle_unary_op(op, rhs_variant);
     }
@@ -1671,59 +1653,59 @@ namespace luaxc {
     void IRInterpreter::handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs) {
         switch (op) {
             case IRInstruction::InstructionType::ADD:
-                stack.push(detail::prim_value_add(lhs, rhs));
+                push_op_stack(detail::prim_value_add(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::SUB:
-                stack.push(detail::prim_value_sub(lhs, rhs));
+                push_op_stack(detail::prim_value_sub(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::MUL:
-                stack.push(detail::prim_value_mul(lhs, rhs));
+                push_op_stack(detail::prim_value_mul(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::DIV:
-                stack.push(detail::prim_value_div(lhs, rhs));
+                push_op_stack(detail::prim_value_div(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::MOD:
-                stack.push(detail::prim_value_mod(lhs, rhs));
+                push_op_stack(detail::prim_value_mod(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::AND:
-                stack.push(detail::prim_value_band(lhs, rhs));
+                push_op_stack(detail::prim_value_band(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::LOGICAL_AND: {
-                stack.push(detail::prim_value_land(lhs, rhs));
+                push_op_stack(detail::prim_value_land(lhs, rhs));
                 break;
             }
             case IRInstruction::InstructionType::OR:
-                stack.push(detail::prim_value_bor(lhs, rhs));
+                push_op_stack(detail::prim_value_bor(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::LOGICAL_OR:
-                stack.push(detail::prim_value_lor(lhs, rhs));
+                push_op_stack(detail::prim_value_lor(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::XOR:
-                stack.push(detail::prim_value_bxor(lhs, rhs));
+                push_op_stack(detail::prim_value_bxor(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::SHL:
-                stack.push(detail::prim_value_shl(lhs, rhs));
+                push_op_stack(detail::prim_value_shl(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::SHR:
-                stack.push(detail::prim_value_shr(lhs, rhs));
+                push_op_stack(detail::prim_value_shr(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_EQ:
-                stack.push(detail::prim_value_eq(lhs, rhs));
+                push_op_stack(detail::prim_value_eq(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_NE:
-                stack.push(detail::prim_value_neq(lhs, rhs));
+                push_op_stack(detail::prim_value_neq(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_LT:
-                stack.push(detail::prim_value_lt(lhs, rhs));
+                push_op_stack(detail::prim_value_lt(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_LE:
-                stack.push(detail::prim_value_lte(lhs, rhs));
+                push_op_stack(detail::prim_value_lte(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_GT:
-                stack.push(detail::prim_value_gt(lhs, rhs));
+                push_op_stack(detail::prim_value_gt(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_GE:
-                stack.push(detail::prim_value_gte(lhs, rhs));
+                push_op_stack(detail::prim_value_gte(lhs, rhs));
                 break;
             default:
                 throw IRInterpreterException("Invalid instruction type");
@@ -1734,14 +1716,14 @@ namespace luaxc {
     void IRInterpreter::handle_unary_op(IRInstruction::InstructionType op, IRPrimValue rhs) {
         switch (op) {
             case IRInstruction::InstructionType::NEGATE:
-                stack.push(detail::prim_value_neg(rhs));
+                push_op_stack(detail::prim_value_neg(rhs));
                 break;
             case IRInstruction::InstructionType::NOT: {
-                stack.push(detail::prim_value_bnot(rhs));
+                push_op_stack(detail::prim_value_bnot(rhs));
                 break;
             }
             case IRInstruction::InstructionType::LOGICAL_NOT: {
-                stack.push(detail::prim_value_lnot(rhs));
+                push_op_stack(detail::prim_value_lnot(rhs));
                 break;
             }
             default:
