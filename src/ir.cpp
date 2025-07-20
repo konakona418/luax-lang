@@ -1883,7 +1883,7 @@ namespace luaxc {
                     return PrimValue::unit();
                 });
         runtime.gc_regist_no_collect(println);
-        auto* println_identifier = runtime.push_string_pool_if_not_exists("println");
+        auto* println_identifier = runtime.push_string_pool_if_not_exists("__builtin_io_println");
         store_value_in_global_scope(println_identifier, PrimValue(ValueType::Function, println));
 
         FunctionObject* print = FunctionObject::create_native_function(
@@ -1898,15 +1898,29 @@ namespace luaxc {
                     return PrimValue::unit();
                 });
         runtime.gc_regist_no_collect(print);
-        auto* print_identifier = runtime.push_string_pool_if_not_exists("print");
+        auto* print_identifier = runtime.push_string_pool_if_not_exists("__builtin_io_print");
         store_value_in_global_scope(print_identifier, PrimValue(ValueType::Function, print));
 
         FunctionObject* int_type = FunctionObject::create_native_function([this](std::vector<PrimValue>) -> PrimValue {
             return PrimValue(ValueType::Type, runtime.get_type_info("Int"));
         });
         runtime.gc_regist_no_collect(int_type);
-        auto* int_identifier = runtime.push_string_pool_if_not_exists("Int");
+        auto* int_identifier = runtime.push_string_pool_if_not_exists("__builtin_typings_int");
         store_value_in_global_scope(int_identifier, PrimValue(ValueType::Function, int_type));
+
+        FunctionObject* float_type = FunctionObject::create_native_function([this](std::vector<PrimValue>) -> PrimValue {
+            return PrimValue(ValueType::Type, runtime.get_type_info("Float"));
+        });
+        runtime.gc_regist_no_collect(float_type);
+        auto* float_identifier = runtime.push_string_pool_if_not_exists("__builtin_typings_float");
+        store_value_in_global_scope(float_identifier, PrimValue(ValueType::Function, float_type));
+
+        FunctionObject* string_type = FunctionObject::create_native_function([this](std::vector<PrimValue>) -> PrimValue {
+            return PrimValue(ValueType::Type, runtime.get_type_info("String"));
+        });
+        runtime.gc_regist_no_collect(int_type);
+        auto* string_identifier = runtime.push_string_pool_if_not_exists("__builtin_typings_string");
+        store_value_in_global_scope(string_identifier, PrimValue(ValueType::Function, string_type));
 
         FunctionObject* array_type = FunctionObject::create_native_function([this](std::vector<PrimValue> args) -> PrimValue {
             if (args.size() == 0) {
@@ -1947,7 +1961,7 @@ namespace luaxc {
             return PrimValue(ValueType::Array, (GCObject*){array});
         });
         runtime.gc_regist_no_collect(array_type);
-        auto* array_identifier = runtime.push_string_pool_if_not_exists("ArrayOf");
+        auto* array_identifier = runtime.push_string_pool_if_not_exists("__builtin_typings_array_of");
         store_value_in_global_scope(array_identifier, PrimValue(ValueType::Function, array_type));
     }
 
