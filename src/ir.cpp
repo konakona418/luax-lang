@@ -1780,6 +1780,47 @@ namespace luaxc {
         runtime.push_gc_object(int_type);
         auto* int_identifier = runtime.push_string_pool_if_not_exists("Int");
         store_value_in_global_scope(int_identifier, PrimValue(ValueType::Function, int_type));
+
+        FunctionObject* array_type = FunctionObject::create_native_function([this](std::vector<PrimValue> args) -> PrimValue {
+            if (args.size() == 0) {
+                throw IRInterpreterException("Invalid arg size");
+            }
+
+            ArrayObject* array;
+            auto& first = args[0];
+            if (first.get_type_info() == TypeObject::type()) {
+                if (args.size() != 2) {
+                    delete array;
+                    throw IRInterpreterException("Invalid arg size");
+                }
+
+                auto size = args[1].get_inner_value<Int>();
+                array = new ArrayObject(size);
+
+                for (size_t i = 0; i < size; i++) {
+                    array->get_element_ref(i) =
+                            default_value(static_cast<TypeObject*>(first.get_inner_value<GCObject*>()));
+                }
+            } else {
+                auto* candidate_value_type = first.get_type_info();
+                array = new ArrayObject(args.size());
+
+                for (size_t i = 0; i < args.size(); i++) {
+                    if (args[i].get_type_info() != candidate_value_type) {
+                        delete array;
+                        throw IRInterpreterException("Invalid arg type");
+                    }
+
+                    array->get_element_ref(i) = args[i];
+                }
+            }
+
+            runtime.push_gc_object(array);
+            return PrimValue(ValueType::Array, (GCObject*){array});
+        });
+        runtime.push_gc_object(array_type);
+        auto* array_identifier = runtime.push_string_pool_if_not_exists("ArrayOf");
+        store_value_in_global_scope(array_identifier, PrimValue(ValueType::Function, array_type));
     }
 
     void IRInterpreter::push_stack_frame(bool allow_propagation) {

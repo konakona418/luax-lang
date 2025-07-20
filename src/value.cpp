@@ -127,7 +127,7 @@ namespace luaxc {
 
                 std::stringstream ss;
                 ss << std::hex << v;
-                return v->to_string() + " (0x" + ss.str() + ")";
+                return v->to_string() + " (" + ss.str() + ")";
             } else if constexpr (std::is_same_v<T, NullObject>) {
                 return "[null]";
             } else if constexpr (std::is_same_v<T, UnitObject>) {

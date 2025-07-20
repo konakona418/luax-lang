@@ -294,6 +294,20 @@ namespace luaxc {
         static TypeObject* select_value_type_info(ValueType type);
     };
 
+    inline PrimValue default_value(TypeObject* type_info) {
+        if (type_info == TypeObject::bool_()) {
+            return PrimValue::from_bool(false);
+        } else if (type_info == TypeObject::int_()) {
+            return PrimValue::from_i32(0);
+        } else if (type_info == TypeObject::float_()) {
+            return PrimValue::from_f64(0.0);
+        } else if (type_info == TypeObject::gc_string()) {
+            return PrimValue::from_string("");
+        } else {
+            return PrimValue::null();
+        }
+    }
+
     class FunctionObject : public GCObject {
     public:
         FunctionObject() = default;
@@ -358,6 +372,43 @@ namespace luaxc {
 
         size_t begin_offset;
         size_t module_id;
+    };
+
+    class ArrayObject : public GCObject {
+    public:
+        ArrayObject(size_t size) : data(new PrimValue[size]), size(size) {
+            for (size_t i = 0; i < size; i++) {
+                data[i] = PrimValue::null();
+            }
+        }
+
+        ArrayObject(size_t size, PrimValue* data) : ArrayObject(size) {
+            std::copy(data, data + size, this->data);
+        }
+
+        ~ArrayObject() { delete[] data; }
+
+        std::string to_string() const override {
+            std::stringstream ss;
+            ss << "[";
+            for (size_t i = 0; i < size; i++) {
+                ss << data[i].to_string();
+            }
+            ss << "]";
+            return ss.str();
+        }
+
+        size_t get_size() const { return size; }
+
+        PrimValue* get_data() const { return data; }
+
+        PrimValue get_element(size_t index) const { return data[index]; }
+
+        PrimValue& get_element_ref(size_t index) const { return data[index]; }
+
+    private:
+        PrimValue* data;
+        size_t size;
     };
 
     class ModuleRefObject : public GCObject {
