@@ -161,6 +161,12 @@ namespace luaxc {
                 out += "STORE_MEMBER ";
                 out += std::get<IRStoreMemberParam>(param).identifier->to_string();
                 break;
+            case IRInstruction::InstructionType::LOAD_INDEXOF:
+                out += "LOAD_INDEXOF";
+                break;
+            case IRInstruction::InstructionType::STORE_INDEXOF:
+                out += "STORE_INDEXOF";
+                break;
             default:
                 out = "UNKNOWN";
                 break;
@@ -588,13 +594,23 @@ namespace luaxc {
                 auto* left = expr->get_object_expr().get();
                 generate_member_access(static_cast<const MemberAccessExpressionNode*>(left), byte_code);
 
-                auto* identifier = static_cast<const IdentifierNode*>(expr->get_member_identifier().get());
-                auto* str_obj = runtime.push_string_pool_if_not_exists(identifier->get_name());
+                if (expr->get_access_type() == MemberAccessExpressionNode::MemberAccessType::DotMemberAccess) {
+                    auto* identifier = static_cast<const IdentifierNode*>(expr->get_member_identifier().get());
+                    auto* str_obj = runtime.push_string_pool_if_not_exists(identifier->get_name());
 
+                    byte_code.push_back(IRInstruction(
+                            IRInstruction::InstructionType::LOAD_MEMBER,
+                            IRLoadMemberParam{str_obj}));
+                } else {
+                    auto* index =
+                            static_cast<const ExpressionNode*>(expr->get_member_identifier().get());
 
-                byte_code.push_back(IRInstruction(
-                        IRInstruction::InstructionType::LOAD_MEMBER,
-                        IRLoadMemberParam{str_obj}));
+                    generate_expression(index, byte_code);
+
+                    byte_code.push_back(IRInstruction(
+                            IRInstruction::InstructionType::LOAD_INDEXOF,
+                            {std::monostate()}));
+                }
                 break;
             }
             default: {
@@ -621,14 +637,25 @@ namespace luaxc {
         auto* right_expr = static_cast<const ExpressionNode*>(statement->get_value().get());
         generate_expression(right_expr, byte_code);
 
-        auto* identifier = runtime.push_string_pool_if_not_exists(
-                static_cast<const IdentifierNode*>(
-                        member_access->get_member_identifier().get())
-                        ->get_name());
+        if (member_access->get_access_type() == MemberAccessExpressionNode::MemberAccessType::DotMemberAccess) {
+            auto* identifier = runtime.push_string_pool_if_not_exists(
+                    static_cast<const IdentifierNode*>(
+                            member_access->get_member_identifier().get())
+                            ->get_name());
 
-        byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::STORE_MEMBER,
-                IRStoreMemberParam{identifier}));
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::STORE_MEMBER,
+                    IRStoreMemberParam{identifier}));
+        } else {
+            auto* index =
+                    static_cast<const ExpressionNode*>(member_access->get_member_identifier().get());
+
+            generate_expression(index, byte_code);
+
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::STORE_INDEXOF,
+                    {std::monostate()}));
+        }
     }
 
     std::optional<size_t> IRGenerator::is_module_present(const std::string& module_name) {
@@ -1266,6 +1293,15 @@ namespace luaxc {
                     break;
                 }
 
+                case IRInstruction::InstructionType::LOAD_INDEXOF: {
+                    handle_index_load();
+                    break;
+                }
+                case IRInstruction::InstructionType::STORE_INDEXOF: {
+                    handle_index_store();
+                    break;
+                }
+
                 default:
                     throw IRInterpreterException("Invalid instruction type");
             }
@@ -1385,6 +1421,64 @@ namespace luaxc {
         }
 
         object_ptr->storage.fields[name] = value;
+    }
+
+    void IRInterpreter::handle_index_load() {
+        auto index = stack.top();
+        stack.pop();
+
+        if (index.get_type() != ValueType::Int) {
+            throw IRInterpreterException("Non-integer index value is not supported");
+        }
+
+        size_t index_value = index.get_inner_value<Int>();
+
+        auto object = stack.top();
+        stack.pop();
+
+        if (object.get_type() != ValueType::Array) {
+            throw IRInterpreterException("Use index for member access is not supported for non-array type");
+        }
+
+        auto* array = static_cast<ArrayObject*>(object.get_inner_value<GCObject*>());
+
+        if (index_value >= array->get_size()) {
+            throw IRInterpreterException("Index out of bounds");
+        }
+
+        stack.push(array->get_element(index_value));
+    }
+
+    void IRInterpreter::handle_index_store() {
+        auto index = stack.top();
+        stack.pop();
+
+        if (index.get_type() != ValueType::Int) {
+            throw IRInterpreterException("Non-integer index value is not supported");
+        }
+        size_t index_value = index.get_inner_value<Int>();
+
+        auto value = stack.top();
+        stack.pop();
+
+        auto object = stack.top();
+        stack.pop();
+
+        if (object.get_type() != ValueType::Array) {
+            throw IRInterpreterException("Use index for member access is not supported for non-array type");
+        }
+
+        auto* array = static_cast<ArrayObject*>(object.get_inner_value<GCObject*>());
+
+        if (index_value >= array->get_size()) {
+            throw IRInterpreterException("Index out of bounds");
+        }
+
+        if (value.get_type_info() != array->get_element_type()) {
+            throw IRInterpreterException("R-value of assignment does not correspond with the array element type");
+        }
+
+        array->get_element_ref(index_value) = value;
     }
 
     void IRInterpreter::handle_module_load(IRLoadModuleParam param) {
@@ -1795,15 +1889,17 @@ namespace luaxc {
                 }
 
                 auto size = args[1].get_inner_value<Int>();
-                array = new ArrayObject(size);
+
+                auto* element_type = static_cast<TypeObject*>(first.get_inner_value<GCObject*>());
+                array = new ArrayObject(size, element_type);
 
                 for (size_t i = 0; i < size; i++) {
                     array->get_element_ref(i) =
-                            default_value(static_cast<TypeObject*>(first.get_inner_value<GCObject*>()));
+                            default_value(element_type);
                 }
             } else {
                 auto* candidate_value_type = first.get_type_info();
-                array = new ArrayObject(args.size());
+                array = new ArrayObject(args.size(), candidate_value_type);
 
                 for (size_t i = 0; i < args.size(); i++) {
                     if (args[i].get_type_info() != candidate_value_type) {

@@ -170,6 +170,8 @@ namespace luaxc {
                 return TypeObject::null();
             case ValueType::String:
                 return TypeObject::gc_string();
+            case ValueType::Array:
+                return TypeObject::gc_array();
             case ValueType::Function:
                 return TypeObject::function();
             case ValueType::Type:

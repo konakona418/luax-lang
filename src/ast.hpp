@@ -449,15 +449,23 @@ namespace luaxc {
 
     class MemberAccessExpressionNode : public ExpressionNode {
     public:
-        explicit MemberAccessExpressionNode(std::unique_ptr<AstNode> object, std::unique_ptr<AstNode> member)
-            : ExpressionNode(ExpressionType::MemberAccessExpr),
+        enum class MemberAccessType {
+            DotMemberAccess,
+            ArrayStyleMemberAccess,
+        };
+
+        explicit MemberAccessExpressionNode(MemberAccessType type, std::unique_ptr<AstNode> object, std::unique_ptr<AstNode> member)
+            : ExpressionNode(ExpressionType::MemberAccessExpr), access_type(type),
               object_expr(std::move(object)), member_identifier(std::move(member)) {}
+
+        MemberAccessType get_access_type() const { return access_type; }
 
         const std::unique_ptr<AstNode>& get_object_expr() const { return object_expr; }
 
         const std::unique_ptr<AstNode>& get_member_identifier() const { return member_identifier; }
 
     private:
+        MemberAccessType access_type;
         std::unique_ptr<AstNode> object_expr;
         std::unique_ptr<AstNode> member_identifier;
     };

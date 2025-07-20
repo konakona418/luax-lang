@@ -133,6 +133,8 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> parse_unary_expression();
 
+        std::unique_ptr<AstNode> parse_array_like_member_access_expression(std::unique_ptr<AstNode> initial_expr);
+
         std::unique_ptr<AstNode> parse_member_access_or_method_invoke_expression(std::unique_ptr<AstNode> initial_expr);
 
         std::unique_ptr<AstNode> parse_method_invocation_expression(std::unique_ptr<AstNode> initial_expr, std::unique_ptr<AstNode> method_identifier);

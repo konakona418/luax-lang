@@ -133,6 +133,9 @@ namespace luaxc {
             LOAD_MEMBER, // pop object, store member onto stack. member name in param
             STORE_MEMBER,// pop value, pop object, store. member name in param
 
+            LOAD_INDEXOF, // pop index, pop object, store member onto stack
+            STORE_INDEXOF,// pop index, pop value, pop object. store
+
             CALL,
             RET,
         };
@@ -374,6 +377,10 @@ namespace luaxc {
         void handle_member_load(IRLoadMemberParam param);
 
         void handle_member_store(IRStoreMemberParam param);
+
+        void handle_index_load();
+
+        void handle_index_store();
 
         void handle_module_load(IRLoadModuleParam param);
 

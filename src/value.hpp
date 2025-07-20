@@ -156,6 +156,7 @@ namespace luaxc {
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(bool_, "Bool")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(function, "Function")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(gc_string, "String")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(gc_array, "Array")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(gc_object, "Object")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(unit, "Unit")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(null, "Null")
@@ -376,13 +377,15 @@ namespace luaxc {
 
     class ArrayObject : public GCObject {
     public:
-        ArrayObject(size_t size) : data(new PrimValue[size]), size(size) {
+        ArrayObject(size_t size, TypeObject* element_type)
+            : data(new PrimValue[size]), size(size),
+              element_type_info(element_type) {
             for (size_t i = 0; i < size; i++) {
                 data[i] = PrimValue::null();
             }
         }
 
-        ArrayObject(size_t size, PrimValue* data) : ArrayObject(size) {
+        ArrayObject(size_t size, PrimValue* data, TypeObject* element_type) : ArrayObject(size, element_type) {
             std::copy(data, data + size, this->data);
         }
 
@@ -406,9 +409,13 @@ namespace luaxc {
 
         PrimValue& get_element_ref(size_t index) const { return data[index]; }
 
+        TypeObject* get_element_type() const { return element_type_info; }
+
     private:
         PrimValue* data;
         size_t size;
+
+        TypeObject* element_type_info;
     };
 
     class ModuleRefObject : public GCObject {

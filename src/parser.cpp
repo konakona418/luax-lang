@@ -615,6 +615,18 @@ namespace luaxc {
         return parse_primary();
     }
 
+    std::unique_ptr<AstNode> Parser::parse_array_like_member_access_expression(std::unique_ptr<AstNode> initial_expr) {
+        consume(TokenType::L_SQUARE_BRACE, "Expected '['");
+
+        auto expr = parse_simple_expression();
+
+        consume(TokenType::R_SQUARE_BRACE, "Expected ']'");
+
+        return std::make_unique<MemberAccessExpressionNode>(
+                MemberAccessExpressionNode::MemberAccessType::ArrayStyleMemberAccess,
+                std::move(initial_expr), std::move(expr));
+    }
+
     std::unique_ptr<AstNode> Parser::parse_member_access_or_method_invoke_expression(std::unique_ptr<AstNode> initial_expr) {
         consume(TokenType::DOT, "Expected dot");
 
@@ -625,6 +637,7 @@ namespace luaxc {
         }
 
         return std::make_unique<MemberAccessExpressionNode>(
+                MemberAccessExpressionNode::MemberAccessType::DotMemberAccess,
                 std::move(initial_expr), std::move(identifier));
     }
 
@@ -750,6 +763,9 @@ namespace luaxc {
             } else if (current_token.type == TokenType::DOT) {
                 // potential member access
                 node = parse_member_access_or_method_invoke_expression(std::move(node));
+            } else if (current_token.type == TokenType::L_SQUARE_BRACE) {
+                // array-like member access
+                node = parse_array_like_member_access_expression(std::move(node));
             } else {
                 break;
             }
