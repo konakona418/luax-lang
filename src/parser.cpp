@@ -56,6 +56,20 @@ namespace luaxc {
         return false;
     }
 
+    bool Parser::is_in_scope_no_propagation(ParserState state) const {
+        for (auto it = scopes.rbegin(); it != scopes.rend(); ++it) {
+            if (it->state == state) {
+                return true;
+            }
+
+            // allow fall through block statements
+            if (it->state != ParserState::InScope) {
+                break;
+            }
+        }
+        return false;
+    }
+
     std::unique_ptr<AstNode> Parser::parse_program() {
         enter_scope(ParserState::Start);
 
@@ -172,7 +186,7 @@ namespace luaxc {
 
     std::unique_ptr<AstNode> Parser::parse_field_declaration_statement() {
         // 'field' identifier ('=' expr)? ';'
-        if (!is_in_scope(ParserState::InTypeDeclarationScope)) {
+        if (!is_in_scope_no_propagation(ParserState::InTypeDeclarationScope)) {
             LUAXC_PARSER_THROW_ERROR("Field declaration outside of a type declaration")
         }
 
@@ -197,7 +211,7 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_method_declaration_statement() {
-        if (!is_in_scope(ParserState::InTypeDeclarationScope)) {
+        if (!is_in_scope_no_propagation(ParserState::InTypeDeclarationScope)) {
             LUAXC_PARSER_THROW_ERROR("Method declaration must be in a scope of a type declaration");
         }
 
@@ -208,7 +222,7 @@ namespace luaxc {
         consume(TokenType::L_PARENTHESIS, "Expected '(' after method name");
         std::vector<std::unique_ptr<AstNode>> parameters;
 
-        enter_scope();
+        enter_scope(ParserState::InFunctionOrMethodScope);
 
         while (current_token.type != TokenType::R_PARENTHESIS) {
             auto param = parse_identifier();
@@ -258,7 +272,7 @@ namespace luaxc {
         consume(TokenType::L_PARENTHESIS, "Expected '(' after function name");
         std::vector<std::unique_ptr<AstNode>> parameters;
 
-        enter_scope();
+        enter_scope(ParserState::InFunctionOrMethodScope);
 
         while (current_token.type != TokenType::R_PARENTHESIS) {
             auto param = parse_identifier();

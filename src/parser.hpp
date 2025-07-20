@@ -49,6 +49,7 @@ namespace luaxc {
             InTypeDeclarationScope,
             InModuleDeclarationScope,
             InInitializerListScope,
+            InFunctionOrMethodScope,
             // todo: add when needed
         };
 
@@ -79,6 +80,8 @@ namespace luaxc {
         bool is_identifier_declared(const std::string& identifier) const;
 
         bool is_in_scope(ParserState state) const;
+
+        bool is_in_scope_no_propagation(ParserState state) const;
 
         std::unique_ptr<AstNode> parse_statement();
 

@@ -1488,9 +1488,13 @@ namespace luaxc {
             size_t arg_size = fn->get_arity();
 
             bool valid = param.arguments_count == arg_size;
-            if (!fn->is_method_function() && param.arguments_count == arg_size + 1) {
+            size_t real_param_size = param.arguments_count;
+
+            if (!fn->is_method_function() &&
+                stack.top().get_type() == ValueType::Module) {
                 stack.pop();
-                valid = true;
+                valid = param.arguments_count == arg_size + 1;
+                real_param_size = param.arguments_count - 1;
             }
 
             if (!valid) {
@@ -1498,7 +1502,7 @@ namespace luaxc {
                         "Function argument count mismatch, expected " +
                         std::to_string(arg_size) +
                         " got " +
-                        std::to_string(param.arguments_count));
+                        std::to_string(real_param_size));
             }
 
             push_stack_frame();
