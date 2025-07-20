@@ -233,6 +233,8 @@ namespace luaxc {
 
         void generate_module_import_expression(const ModuleImportExpresionNode* expression, ByteCode& byte_code);
 
+        void generate_module_access_expression(const ExpressionNode* expression, ByteCode& byte_code);
+
         void generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code);
 
         void generate_string_literal(const StringLiteralNode* statement, ByteCode& byte_code);

@@ -315,6 +315,10 @@ namespace luaxc {
                 generate_module_import_expression(static_cast<const ModuleImportExpresionNode*>(node), byte_code);
                 break;
             }
+            case ExpressionNode::ExpressionType::ModuleAccessExpr: {
+                generate_module_access_expression(static_cast<const ExpressionNode*>(node), byte_code);
+                break;
+            }
             case ExpressionNode::ExpressionType::InitializerListExpr: {
                 generate_initializer_list_expression(static_cast<const InitializerListExpressionNode*>(node), byte_code);
                 break;
@@ -435,6 +439,61 @@ namespace luaxc {
         byte_code.push_back(
                 IRInstruction(IRInstruction::InstructionType::END_LOCAL,
                               {std::monostate()}));
+    }
+
+    void IRGenerator::generate_module_access_expression(const ExpressionNode* expression, ByteCode& byte_code) {
+        if (expression->get_expression_type() == ExpressionNode::ExpressionType::ModuleAccessExpr) {
+            auto* expr = static_cast<const ModuleAccessExpressionNode*>(expression);
+            auto* left = expr->get_object_expr().get();
+
+            auto* identifier_or_function_call =
+                    static_cast<const ExpressionNode*>(expr->get_module_identifier().get());
+
+            switch (identifier_or_function_call->get_expression_type()) {
+                case (ExpressionNode::ExpressionType::Identifier): {
+                    auto* identifier = static_cast<const IdentifierNode*>(identifier_or_function_call);
+                    auto* str_obj = runtime.push_string_pool_if_not_exists(identifier->get_name());
+
+                    generate_module_access_expression(static_cast<const ExpressionNode*>(left), byte_code);
+
+                    byte_code.push_back(IRInstruction(
+                            IRInstruction::InstructionType::LOAD_MEMBER,
+                            IRLoadMemberParam{str_obj}));
+
+                    break;
+                }
+                case (ExpressionNode::ExpressionType::FuncInvokeExpr): {
+                    auto* fn_expr = static_cast<const FunctionInvocationExpressionNode*>(identifier_or_function_call);
+                    auto* fn_identifier = static_cast<const IdentifierNode*>(fn_expr->get_function_identifier().get());
+
+                    auto* str_obj = runtime.push_string_pool_if_not_exists(fn_identifier->get_name());
+
+                    auto& args = fn_expr->get_arguments();
+                    auto arguments_count = args.size();
+
+                    for (int i = arguments_count - 1; i >= 0; i--) {
+                        generate_expression(static_cast<const ExpressionNode*>(args[i].get()), byte_code);
+                    }
+
+                    generate_module_access_expression(static_cast<const ExpressionNode*>(left), byte_code);
+
+                    byte_code.push_back(IRInstruction(
+                            IRInstruction::InstructionType::LOAD_MEMBER,
+                            IRLoadMemberParam{str_obj}));
+
+                    byte_code.push_back(IRInstruction(
+                            IRInstruction::InstructionType::CALL, IRCallParam{arguments_count}));
+                    break;
+                }
+                default: {
+                    throw IRGeneratorException("The right operand of module access expr is neither a function nor an identifier");
+                    break;
+                }
+            }
+
+            return;
+        }
+        generate_expression(expression, byte_code);
     }
 
     void IRGenerator::generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code) {

@@ -80,6 +80,7 @@ namespace luaxc {
             FuncInvokeExpr,
             MethodInvokeExpr,
             MemberAccessExpr,
+            ModuleAccessExpr,
             InitializerListExpr,
         };
 
@@ -474,6 +475,21 @@ namespace luaxc {
         MemberAccessType access_type;
         std::unique_ptr<AstNode> object_expr;
         std::unique_ptr<AstNode> member_identifier;
+    };
+
+    class ModuleAccessExpressionNode : public ExpressionNode {
+    public:
+        ModuleAccessExpressionNode(std::unique_ptr<AstNode> object, std::unique_ptr<AstNode> module)
+            : ExpressionNode(ExpressionType::ModuleAccessExpr),
+              object_expr(std::move(object)), module_identifier(std::move(module)) {}
+
+        const std::unique_ptr<AstNode>& get_object_expr() const { return object_expr; }
+
+        const std::unique_ptr<AstNode>& get_module_identifier() const { return module_identifier; }
+
+    private:
+        std::unique_ptr<AstNode> object_expr;
+        std::unique_ptr<AstNode> module_identifier;
     };
 
     class FieldDeclarationStatementNode : public StatementNode {

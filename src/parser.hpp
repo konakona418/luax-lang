@@ -139,6 +139,8 @@ namespace luaxc {
 
         std::unique_ptr<AstNode> parse_method_invocation_expression(std::unique_ptr<AstNode> initial_expr, std::unique_ptr<AstNode> method_identifier);
 
+        std::unique_ptr<AstNode> parse_module_access_expression(std::unique_ptr<AstNode> initial_expr);
+
         std::unique_ptr<AstNode> parse_initializer_list_expression(std::unique_ptr<AstNode> type_expr);
 
         std::unique_ptr<AstNode> parse_primary();

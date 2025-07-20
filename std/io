@@ -1,0 +1,5 @@
+func __builtin_io_println();
+func __builtin_io_print();
+
+let println = __builtin_io_println;
+let print = __builtin_io_print;

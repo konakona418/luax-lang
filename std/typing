@@ -1,0 +1,12 @@
+func __builtin_typings_int();
+func __builtin_typings_float();
+func __builtin_typings_string();
+
+let Int = __builtin_typings_int();
+let Float = __builtin_typings_float();
+let String = __builtin_typings_string();
+
+func __builtin_typings_array_of();
+
+let ArrayOf = __builtin_typings_array_of;
+

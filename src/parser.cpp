@@ -698,6 +698,20 @@ namespace luaxc {
         return std::make_unique<InitializerListExpressionNode>(std::move(type_expr), std::move(block));
     }
 
+    std::unique_ptr<AstNode> Parser::parse_module_access_expression(std::unique_ptr<AstNode> initial_expr) {
+        consume(TokenType::MODULE_ACCESS, "Expected '::'");
+
+        auto identifier = parse_identifier();
+
+        if (current_token.type == TokenType::L_PARENTHESIS) {
+            auto fn =
+                    parse_function_invocation_statement(std::move(identifier));
+            return std::make_unique<ModuleAccessExpressionNode>(std::move(initial_expr), std::move(fn));
+        }
+
+        return std::make_unique<ModuleAccessExpressionNode>(std::move(initial_expr), std::move(identifier));
+    }
+
     std::unique_ptr<AstNode> Parser::parse_primary() {
         std::unique_ptr<AstNode> node;
         switch (current_token.type) {
@@ -775,6 +789,9 @@ namespace luaxc {
             } else if (current_token.type == TokenType::L_SQUARE_BRACE) {
                 // array-like member access
                 node = parse_array_like_member_access_expression(std::move(node));
+            } else if (current_token.type == TokenType::MODULE_ACCESS) {
+                // module access
+                node = parse_module_access_expression(std::move(node));
             } else {
                 break;
             }
