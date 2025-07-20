@@ -57,6 +57,8 @@ namespace luaxc {
         LOGICAL_OR,         // symbol: ||
         LOGICAL_NOT,        // symbol: !
 
+        MODULE_ACCESS,// symbol: ::
+
         KEYWORD_LET,
         KEYWORD_USE,
         KEYWORD_CONST,

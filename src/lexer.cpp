@@ -276,6 +276,8 @@ namespace luaxc {
                                                TokenType::LOGICAL_AND, current_char(), peek())
             LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS('|', '|',
                                                TokenType::LOGICAL_OR, current_char(), peek())
+            LUAXC_LEXER_HANDLE_TWO_CHAR_TOKENS(':', ':',
+                                               TokenType::MODULE_ACCESS, current_char(), peek())
         }
 
         switch (current_char()) {
