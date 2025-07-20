@@ -10,7 +10,7 @@
 
 
 #include "ast.hpp"
-#include "gc.hpp"
+#include "value.hpp"
 
 namespace luaxc {
 

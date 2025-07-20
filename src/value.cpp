@@ -1,4 +1,4 @@
-#include "gc.hpp"
+#include "value.hpp"
 
 namespace luaxc {
 #define LUAXC_GC_VALUE_DEFINE_PRIM_BINARY_COMPARE(NAME, OP)                                                                      \

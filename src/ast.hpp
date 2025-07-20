@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include "gc.hpp"
+#include "value.hpp"
 
 namespace luaxc {
     enum class AstNodeType {
