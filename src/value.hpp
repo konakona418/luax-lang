@@ -398,14 +398,9 @@ namespace luaxc {
 
         size_t get_arity() const { return arity; }
 
-        void set_has_implicit_self(bool has_implicit_self) { this->has_implicit_self = has_implicit_self; }
-
-        bool get_has_implicit_self() const { return has_implicit_self; }
-
     private:
         bool is_native;
         bool is_method;
-        bool has_implicit_self;// for static method and module function
         std::function<PrimValue(std::vector<PrimValue>)> native_function;
         size_t arity;
 

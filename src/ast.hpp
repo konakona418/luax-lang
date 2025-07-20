@@ -341,10 +341,10 @@ namespace luaxc {
         FunctionDeclarationNode(
                 std::unique_ptr<AstNode> identifier,
                 std::vector<std::unique_ptr<AstNode>> parameters,
-                std::unique_ptr<AstNode> function_body, bool generate_implicit_self = false)
+                std::unique_ptr<AstNode> function_body)
             : StatementNode(StatementType::FunctionDeclarationStmt),
               identifier(std::move(identifier)), parameters(std::move(parameters)),
-              body(std::move(function_body)), generate_implicit_self(generate_implicit_self) {}
+              body(std::move(function_body)) {}
 
         const std::unique_ptr<AstNode>& get_identifier() const { return identifier; }
 
@@ -352,16 +352,10 @@ namespace luaxc {
 
         const std::unique_ptr<AstNode>& get_function_body() const { return body; }
 
-        void set_generate_implicit_self(bool value) { generate_implicit_self = value; }
-
-        bool get_generate_implicit_self() const { return generate_implicit_self; }
-
     private:
         std::unique_ptr<AstNode> identifier;
         std::vector<std::unique_ptr<AstNode>> parameters;
         std::unique_ptr<AstNode> body;
-
-        bool generate_implicit_self;
     };
 
     class ReturnNode : public StatementNode {

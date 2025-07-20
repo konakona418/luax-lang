@@ -1098,14 +1098,6 @@ namespace luaxc {
 
         size_t fn_start_index = byte_code.size();
 
-        // hack, pop the redundant 'self' value from stack
-        bool has_implicit_self = statement->get_generate_implicit_self();
-        if (has_implicit_self) {
-            byte_code.push_back(IRInstruction(
-                    IRInstruction::InstructionType::POP_STACK,
-                    {std::monostate()}));
-        }
-
         for (auto& param: statement->get_parameters()) {
             auto identifier =
                     runtime.push_string_pool_if_not_exists(dynamic_cast<IdentifierNode*>(param.get())->get_name());
@@ -1134,7 +1126,6 @@ namespace luaxc {
                 static_cast<IdentifierNode*>(statement->get_identifier().get())->get_name();
         auto* func_obj =
                 FunctionObject::create_function(fn_start_index, current_module_id, statement->get_parameters().size());
-        func_obj->set_has_implicit_self(has_implicit_self);
 
         runtime.gc_regist_no_collect(func_obj);
 
@@ -1651,31 +1642,12 @@ namespace luaxc {
         } else {
             size_t arg_size = fn->get_arity();
 
-            bool valid;
-            size_t real_param_size = param.arguments_count;
-            if (fn->get_has_implicit_self()) {
-                valid = param.arguments_count == arg_size + 1;
-                real_param_size = param.arguments_count - 1;
-            } else {
-                valid = param.arguments_count == arg_size;
-            }
-
-            /*if (!fn->is_method_function() && stack.top().get_type() == ValueType::Module) {
-                // this is a hack for module function invocation
-                // as such expression are identified as a object method invocation
-                // therefore a redundant 'self' is passed
-                stack.pop();
-
-                valid = param.arguments_count == arg_size + 1;
-                real_param_size = param.arguments_count - 1;
-            }*/
-
-            if (!valid) {
+            if (param.arguments_count != arg_size) {
                 throw IRInterpreterException(
                         "Function argument count mismatch, expected " +
                         std::to_string(arg_size) +
                         " got " +
-                        std::to_string(real_param_size));
+                        std::to_string(param.arguments_count));
             }
 
             push_stack_frame();
