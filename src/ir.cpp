@@ -364,6 +364,8 @@ namespace luaxc {
 
             } else if (stmt->get_statement_type() == StatementNode::StatementType::MethodDeclarationStmt) {
                 generate_method_declaration_statement(static_cast<const MethodDeclarationNode*>(stmt), byte_code);
+            } else if (stmt->get_statement_type() == StatementNode::StatementType::FunctionDeclarationStmt) {
+                generate_function_declaration_statement(static_cast<const FunctionDeclarationNode*>(stmt), byte_code);
             } else {
                 throw IRGeneratorException("Unknown type declaration statement");
             }
@@ -1039,6 +1041,14 @@ namespace luaxc {
 
         size_t fn_start_index = byte_code.size();
 
+        // hack, pop the redundant 'self' value from stack
+        bool has_implicit_self = statement->get_generate_implicit_self();
+        if (has_implicit_self) {
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::POP_STACK,
+                    {std::monostate()}));
+        }
+
         for (auto& param: statement->get_parameters()) {
             auto identifier =
                     runtime.push_string_pool_if_not_exists(dynamic_cast<IdentifierNode*>(param.get())->get_name());
@@ -1067,6 +1077,7 @@ namespace luaxc {
                 static_cast<IdentifierNode*>(statement->get_identifier().get())->get_name();
         auto* func_obj =
                 FunctionObject::create_function(fn_start_index, current_module_id, statement->get_parameters().size());
+        func_obj->set_has_implicit_self(has_implicit_self);
 
         runtime.push_gc_object(func_obj);
 
@@ -1367,9 +1378,14 @@ namespace luaxc {
                                 static_cast<TypeObject*>(value.get_inner_value<GCObject*>())});
             } else if (value.get_type() == ValueType::Function) {
                 type_info->add_field(name, TypeObject::TypeField{TypeObject::function()});
-                type_info->add_method(
-                        name,
-                        static_cast<FunctionObject*>(value.get_inner_value<GCObject*>()));
+
+                auto* fn = static_cast<FunctionObject*>(value.get_inner_value<GCObject*>());
+                if (fn->is_method_function()) {
+                    type_info->add_method(name, fn);
+                } else {
+                    type_info->add_static_method(name, fn);
+                }
+
             } else {
                 throw IRInterpreterException("Not a valid type");
             }
@@ -1379,6 +1395,15 @@ namespace luaxc {
         stack.push(IRPrimValue(ValueType::Type, static_cast<GCObject*>(type_info)));
     }
 
+    bool IRInterpreter::handle_static_method_invocation(const PrimValue& value, StringObject* name) {
+        auto* type = static_cast<TypeObject*>(value.get_inner_value<GCObject*>());
+        if (type->has_static_method(name)) {
+            stack.push(IRPrimValue(ValueType::Function, (GCObject*){type->get_static_method(name)}));
+            return true;
+        }
+        return false;
+    }
+
     void IRInterpreter::handle_member_load(IRLoadMemberParam param) {
         auto name = param.identifier;
         auto object = stack.top();
@@ -1386,6 +1411,12 @@ namespace luaxc {
 
         if (!object.is_gc_object()) {
             throw IRInterpreterException("Not a valid object");
+        }
+
+        if (object.get_type() == ValueType::Type) {
+            if (handle_static_method_invocation(object, name)) {
+                return;
+            }
         }
 
         auto* object_ptr = object.get_inner_value<GCObject*>();
@@ -1581,15 +1612,24 @@ namespace luaxc {
         } else {
             size_t arg_size = fn->get_arity();
 
-            bool valid = param.arguments_count == arg_size;
+            bool valid;
             size_t real_param_size = param.arguments_count;
-
-            if (!fn->is_method_function() &&
-                stack.top().get_type() == ValueType::Module) {
-                stack.pop();
+            if (fn->get_has_implicit_self()) {
                 valid = param.arguments_count == arg_size + 1;
                 real_param_size = param.arguments_count - 1;
+            } else {
+                valid = param.arguments_count == arg_size;
             }
+
+            /*if (!fn->is_method_function() && stack.top().get_type() == ValueType::Module) {
+                // this is a hack for module function invocation
+                // as such expression are identified as a object method invocation
+                // therefore a redundant 'self' is passed
+                stack.pop();
+
+                valid = param.arguments_count == arg_size + 1;
+                real_param_size = param.arguments_count - 1;
+            }*/
 
             if (!valid) {
                 throw IRInterpreterException(
@@ -1759,19 +1799,21 @@ namespace luaxc {
         return has_identifier(runtime.push_string_pool_if_not_exists(identifier));
     }
 
-    std::unique_ptr<AstNode> IRRuntime::generate(const std::string& input) {
+    std::unique_ptr<AstNode> IRRuntime::generate(const std::string& input, Parser::ParserState init_state) {
         auto lexer = Lexer(input);
         auto parser = Parser(lexer);
 
-        return parser.parse_program();
+        return parser.parse_program(init_state);
     }
 
     void IRRuntime::compile(const std::string& input) {
         auto program = generate(input);
 
         generator = std::make_unique<IRGenerator>(*this, std::move(program));
-        generator->inject_compiler(
-                [this](const std::string& name) { return generate(name); });
+        generator->inject_module_compiler(
+                [this](const std::string& name) {
+                    return generate(name, Parser::ParserState::InModuleDeclarationScope);
+                });
 
         interpreter = std::make_unique<IRInterpreter>(*this);
 

@@ -10,6 +10,7 @@
 
 
 #include "ast.hpp"
+#include "parser.hpp"
 #include "value.hpp"
 
 namespace luaxc {
@@ -176,7 +177,7 @@ namespace luaxc {
 
         ByteCode generate();
 
-        void inject_compiler(std::function<std::unique_ptr<AstNode>(const std::string&)> fn) { this->fn_compile_module = fn; }
+        void inject_module_compiler(std::function<std::unique_ptr<AstNode>(const std::string&)> fn) { this->fn_compile_module = fn; }
 
     private:
         struct WhileLoopGenerationContext {
@@ -390,6 +391,8 @@ namespace luaxc {
 
         GCObject* handle_make_module_local();
 
+        bool handle_static_method_invocation(const PrimValue& value, StringObject* name);
+
         void handle_to_bool();
 
         bool handle_function_invocation(IRCallParam param);
@@ -428,7 +431,9 @@ namespace luaxc {
             }
         }
 
-        std::unique_ptr<AstNode> generate(const std::string& input);
+        std::unique_ptr<AstNode> generate(
+                const std::string& input,
+                Parser::ParserState init_state = Parser::ParserState::Start);
 
         void compile(const std::string& input);
 

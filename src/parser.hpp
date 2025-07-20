@@ -30,19 +30,6 @@ namespace luaxc {
 
     class Parser {
     public:
-        Parser();
-        explicit Parser(Lexer& lexer) : lexer(lexer) {
-            current_token = lexer.next();
-        };
-
-        std::unique_ptr<AstNode> parse_program();
-
-        void reset() {
-            scopes.clear();
-            current_token = lexer.next();
-        }
-
-    private:
         enum class ParserState {
             Start,
             InScope,
@@ -53,6 +40,19 @@ namespace luaxc {
             // todo: add when needed
         };
 
+        Parser();
+        explicit Parser(Lexer& lexer) : lexer(lexer) {
+            current_token = lexer.next();
+        };
+
+        std::unique_ptr<AstNode> parse_program(ParserState init_state = ParserState::Start);
+
+        void reset() {
+            scopes.clear();
+            current_token = lexer.next();
+        }
+
+    private:
         struct ParserStackFrame {
             ParserState state;
             std::unordered_set<std::string> identifiers;

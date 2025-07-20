@@ -70,8 +70,8 @@ namespace luaxc {
         return false;
     }
 
-    std::unique_ptr<AstNode> Parser::parse_program() {
-        enter_scope(ParserState::Start);
+    std::unique_ptr<AstNode> Parser::parse_program(ParserState init_state) {
+        enter_scope(init_state);
 
         auto program = std::make_unique<ProgramNode>();
         while (current_token.type != TokenType::TERMINATOR) {
@@ -290,6 +290,8 @@ namespace luaxc {
         if (current_token.type != TokenType::L_CURLY_BRACKET) {
             // forward function declaration
             consume(TokenType::SEMICOLON, "Expected ';' after forward function declaraton");
+            exit_scope();
+
             return std::make_unique<FunctionDeclarationNode>(
                     std::move(identifier),
                     std::move(parameters),
@@ -300,10 +302,17 @@ namespace luaxc {
 
         exit_scope();
 
+        // this is a hack to consume the 'self' param from 'method invocation'
+        // which is actually a normal function invocation or a static method
+        bool should_generate_implicit_receiver =
+                is_in_scope_no_propagation(ParserState::InModuleDeclarationScope) ||
+                is_in_scope_no_propagation(ParserState::InTypeDeclarationScope);
+
         return std::make_unique<FunctionDeclarationNode>(
                 std::move(identifier),
                 std::move(parameters),
-                std::move(body));
+                std::move(body),
+                should_generate_implicit_receiver);
     }
 
     std::unique_ptr<AstNode> Parser::parse_return_statement() {

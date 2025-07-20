@@ -186,11 +186,17 @@ namespace luaxc {
 
         FunctionObject* get_method(StringObject* name) { return member_funcs.at(name); }
 
+        void add_static_method(StringObject* name, FunctionObject* fn) { static_funcs.emplace(name, fn); }
+
+        FunctionObject* get_static_method(StringObject* name) { return static_funcs.at(name); }
+
         const std::unordered_map<StringObject*, TypeField>& get_fields() const { return fields; }
 
         const std::unordered_map<StringObject*, FunctionObject*>& get_methods() const { return member_funcs; }
 
         bool has_method(StringObject* name) { return member_funcs.find(name) != member_funcs.end(); }
+
+        bool has_static_method(StringObject* name) { return static_funcs.find(name) != static_funcs.end(); }
 
         static TypeObject* create(const std::string& type_name) { return new TypeObject(type_name); }
 
@@ -365,9 +371,14 @@ namespace luaxc {
 
         size_t get_arity() const { return arity; }
 
+        void set_has_implicit_self(bool has_implicit_self) { this->has_implicit_self = has_implicit_self; }
+
+        bool get_has_implicit_self() const { return has_implicit_self; }
+
     private:
         bool is_native;
         bool is_method;
+        bool has_implicit_self;// for static method and module function
         std::function<PrimValue(std::vector<PrimValue>)> native_function;
         size_t arity;
 
