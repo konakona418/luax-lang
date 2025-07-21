@@ -261,13 +261,7 @@ namespace luaxc {
 
     size_t GCObject::get_object_size() const {
         size_t size = sizeof(GCObject);
-        for (auto& [_, object]: storage.fields) {
-            if (object.is_gc_object()) {
-                size += object.get_inner_value<GCObject*>()->get_object_size();
-            } else {
-                size += sizeof(PrimValue);
-            }
-        }
+        size += storage.fields.size() * sizeof(PrimValue);
         return size;
     }
 
@@ -286,13 +280,7 @@ namespace luaxc {
 
     size_t ArrayObject::get_object_size() const {
         size_t size = sizeof(ArrayObject);
-        for (size_t i = 0; i < this->size; i++) {
-            if (data[i].is_gc_object()) {
-                size += data[i].get_inner_value<GCObject*>()->get_object_size();
-            } else {
-                size += sizeof(PrimValue);
-            }
-        }
+        size += this->size * sizeof(PrimValue);
         return size;
     }
 
