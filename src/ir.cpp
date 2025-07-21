@@ -579,6 +579,8 @@ namespace luaxc {
             case ExpressionNode::ExpressionType::MemberAccessExpr:
                 generate_assignment_statement_member_access_lvalue(node, byte_code);
                 break;
+            case ExpressionNode::ExpressionType::ModuleAccessExpr:
+                throw IRGeneratorException("Using module access expression as lvalue is not supported yet");
             default:
                 throw IRGeneratorException("Assigning value to an invalid lvalue expr");
         }
@@ -884,16 +886,6 @@ namespace luaxc {
         // this requires left to be a left-value,
         // however I haven't figured out how to implement this checking stuff yet.
 
-        generate_expression(static_cast<const ExpressionNode*>(right.get()), byte_code);
-
-        auto& left_identifier = dynamic_cast<IdentifierNode*>(left.get())->get_name();
-
-        // load the identifier and push onto the stack
-        auto* cached_string = runtime.push_string_pool_if_not_exists(left_identifier);
-        byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::LOAD_IDENTIFIER,
-                IRLoadIdentifierParam{cached_string}));
-
         // load the operator
         auto op = statement->get_op();
         IRInstruction::InstructionType instruction_type;
@@ -904,11 +896,60 @@ namespace luaxc {
         } else {
             throw IRGeneratorException("Unsupported combinative assignment operator");
         }
-        byte_code.push_back(IRInstruction(instruction_type, {std::monostate()}));
 
-        byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::STORE_IDENTIFIER,
-                IRStoreIdentifierParam{cached_string}));
+        auto* left_expr = static_cast<const ExpressionNode*>(left.get());
+
+        if (left_expr->get_expression_type() == ExpressionNode::ExpressionType::Identifier) {
+            // generate right-hand side
+            generate_expression(static_cast<const ExpressionNode*>(right.get()), byte_code);
+
+            auto& left_identifier = static_cast<const IdentifierNode*>(left_expr)->get_name();
+
+            // load the identifier and push onto the stack
+            auto* cached_string = runtime.push_string_pool_if_not_exists(left_identifier);
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::LOAD_IDENTIFIER,
+                    IRLoadIdentifierParam{cached_string}));
+
+            byte_code.push_back(IRInstruction(instruction_type, {std::monostate()}));
+
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::STORE_IDENTIFIER,
+                    IRStoreIdentifierParam{cached_string}));
+        } else if (left_expr->get_expression_type() == ExpressionNode::ExpressionType::MemberAccessExpr) {
+            auto* member_access = static_cast<const MemberAccessExpressionNode*>(left_expr);
+            auto* member_access_left = static_cast<const ExpressionNode*>(member_access->get_object_expr().get());
+
+            // push object first
+            generate_member_access(member_access_left, byte_code);
+
+            // then push value
+            generate_expression(static_cast<const ExpressionNode*>(right.get()), byte_code);
+            generate_member_access(left_expr, byte_code);
+            byte_code.push_back(IRInstruction(instruction_type, {std::monostate()}));
+
+            if (member_access->get_access_type() == MemberAccessExpressionNode::MemberAccessType::DotMemberAccess) {
+                auto* identifier = runtime.push_string_pool_if_not_exists(
+                        static_cast<const IdentifierNode*>(
+                                member_access->get_member_identifier().get())
+                                ->get_name());
+
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::STORE_MEMBER,
+                        IRStoreMemberParam{identifier}));
+            } else {
+                auto* index =
+                        static_cast<const ExpressionNode*>(member_access->get_member_identifier().get());
+
+                generate_expression(index, byte_code);
+
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::STORE_INDEXOF,
+                        {std::monostate()}));
+            }
+        } else {
+            throw IRGeneratorException("Invalid conbinative assignment");
+        }
     }
 
     void IRGenerator::generate_unary_expression_statement(const UnaryExpressionNode* statement, ByteCode& byte_code) {
