@@ -1,6 +1,8 @@
 #include "ir.hpp"
 #include "lexer.hpp"
+#include "lib.hpp"
 #include "parser.hpp"
+
 
 #include <cassert>
 #include <deque>
@@ -1218,7 +1220,14 @@ namespace luaxc {
     }
 
     void IRGenerator::generate_return_statement(const ReturnNode* statement, ByteCode& byte_code) {
-        generate_expression(static_cast<ExpressionNode*>(statement->get_expression().get()), byte_code);
+        if (statement->get_expression().get() == nullptr) {
+            // no return value
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::LOAD_CONST, IRLoadConstParam{IRPrimValue::unit()}));
+        } else {
+            generate_expression(static_cast<ExpressionNode*>(statement->get_expression().get()), byte_code);
+        }
+
         byte_code.push_back(IRInstruction(
                 IRInstruction::InstructionType::RET, {std::monostate()}));
     }
@@ -1984,99 +1993,17 @@ namespace luaxc {
     }
 
     void IRInterpreter::preload_native_functions() {
-        FunctionObject* println = FunctionObject::create_native_function(
-                [](std::vector<PrimValue> args) -> PrimValue {
-                    for (auto& arg: args) {
-                        if (arg.is_string()) {
-                            printf("%s ", __LUAXC_IR_RUNTIME_UTILS_EXTRACT_STRING_FROM_PRIM_VALUE(arg).c_str());
-                        } else {
-                            printf("%s ", arg.to_string().c_str());
-                        }
-                    }
-                    printf("\n");
-                    return PrimValue::unit();
-                });
-        runtime.gc_regist_no_collect(println);
-        auto* println_identifier = runtime.push_string_pool_if_not_exists("__builtin_io_println");
-        store_value_in_global_scope(println_identifier, PrimValue(ValueType::Function, println));
+        Functions native_funtions;
 
-        FunctionObject* print = FunctionObject::create_native_function(
-                [](std::vector<PrimValue> args) -> PrimValue {
-                    for (auto& arg: args) {
-                        if (arg.is_string()) {
-                            printf("%s ", __LUAXC_IR_RUNTIME_UTILS_EXTRACT_STRING_FROM_PRIM_VALUE(arg).c_str());
-                        } else {
-                            printf("%s ", arg.to_string().c_str());
-                        }
-                    }
-                    return PrimValue::unit();
-                });
-        runtime.gc_regist_no_collect(print);
-        auto* print_identifier = runtime.push_string_pool_if_not_exists("__builtin_io_print");
-        store_value_in_global_scope(print_identifier, PrimValue(ValueType::Function, print));
+        auto io_fn = luaxc::io().load(runtime);
+        native_funtions.insert(native_funtions.end(), io_fn.begin(), io_fn.end());
 
-        FunctionObject* int_type = FunctionObject::create_native_function([this](std::vector<PrimValue>) -> PrimValue {
-            return PrimValue(ValueType::Type, runtime.get_type_info("Int"));
-        });
-        runtime.gc_regist_no_collect(int_type);
-        auto* int_identifier = runtime.push_string_pool_if_not_exists("__builtin_typings_int");
-        store_value_in_global_scope(int_identifier, PrimValue(ValueType::Function, int_type));
+        auto typing_fn = luaxc::typing().load(runtime);
+        native_funtions.insert(native_funtions.end(), typing_fn.begin(), typing_fn.end());
 
-        FunctionObject* float_type = FunctionObject::create_native_function([this](std::vector<PrimValue>) -> PrimValue {
-            return PrimValue(ValueType::Type, runtime.get_type_info("Float"));
-        });
-        runtime.gc_regist_no_collect(float_type);
-        auto* float_identifier = runtime.push_string_pool_if_not_exists("__builtin_typings_float");
-        store_value_in_global_scope(float_identifier, PrimValue(ValueType::Function, float_type));
-
-        FunctionObject* string_type = FunctionObject::create_native_function([this](std::vector<PrimValue>) -> PrimValue {
-            return PrimValue(ValueType::Type, runtime.get_type_info("String"));
-        });
-        runtime.gc_regist_no_collect(int_type);
-        auto* string_identifier = runtime.push_string_pool_if_not_exists("__builtin_typings_string");
-        store_value_in_global_scope(string_identifier, PrimValue(ValueType::Function, string_type));
-
-        FunctionObject* array_type = FunctionObject::create_native_function([this](std::vector<PrimValue> args) -> PrimValue {
-            if (args.size() == 0) {
-                throw IRInterpreterException("Invalid arg size");
-            }
-
-            ArrayObject* array;
-            auto& first = args[0];
-            if (first.get_type_info() == TypeObject::type()) {
-                if (args.size() != 2) {
-                    delete array;
-                    throw IRInterpreterException("Invalid arg size");
-                }
-
-                auto size = args[1].get_inner_value<Int>();
-
-                auto* element_type = static_cast<TypeObject*>(first.get_inner_value<GCObject*>());
-                array = runtime.gc_allocate<ArrayObject>(size, element_type);
-
-                for (size_t i = 0; i < size; i++) {
-                    array->get_element_ref(i) =
-                            default_value(element_type);
-                }
-            } else {
-                auto* candidate_value_type = first.get_type_info();
-                array = runtime.gc_allocate<ArrayObject>(args.size(), candidate_value_type);
-
-                for (size_t i = 0; i < args.size(); i++) {
-                    if (args[i].get_type_info() != candidate_value_type) {
-                        delete array;
-                        throw IRInterpreterException("Invalid arg type");
-                    }
-
-                    array->get_element_ref(i) = args[i];
-                }
-            }
-
-            return PrimValue(ValueType::Array, (GCObject*){array});
-        });
-        runtime.gc_regist_no_collect(array_type);
-        auto* array_identifier = runtime.push_string_pool_if_not_exists("__builtin_typings_array_of");
-        store_value_in_global_scope(array_identifier, PrimValue(ValueType::Function, array_type));
+        for (auto [name, fn]: native_funtions) {
+            store_value_in_global_scope(name, fn);
+        }
     }
 
     FrozenContextObject* IRInterpreter::freeze_context() {
