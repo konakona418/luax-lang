@@ -1009,10 +1009,7 @@ namespace luaxc {
         auto* init_stmt = static_cast<StatementNode*>(statement->get_init_stmt().get());
         generate_statement(init_stmt, byte_code);
 
-        size_t update_and_condition_start_index = byte_code.size();// the command after decl / assignment
-
-        auto* update_stmt = static_cast<StatementNode*>(statement->get_update_stmt().get());
-        generate_statement(update_stmt, byte_code);
+        size_t condition_start_index = byte_code.size();// the command after decl / assignment
 
         auto* cond_expr = statement->get_condition_expr().get();
         generate_expression(static_cast<const ExpressionNode*>(cond_expr), byte_code);
@@ -1027,10 +1024,14 @@ namespace luaxc {
         auto* body = static_cast<StatementNode*>(statement->get_body().get());
         generate_statement(body, byte_code);
 
+        // update at the end of the loop
+        auto* update_stmt = static_cast<StatementNode*>(statement->get_update_stmt().get());
+        generate_statement(update_stmt, byte_code);
+
         ssize_t current_jmp_index = byte_code.size() - 1;
 
         byte_code.push_back(IRInstruction(
-                IRInstruction::InstructionType::JMP_REL, IRJumpRelParam(update_and_condition_start_index - current_jmp_index - 1)));
+                IRInstruction::InstructionType::JMP_REL, IRJumpRelParam(condition_start_index - current_jmp_index - 1)));
 
         size_t loop_end_index = byte_code.size();
 
@@ -1045,7 +1046,7 @@ namespace luaxc {
         }
 
         for (auto continue_instruction: generation_context.continue_instructions) {
-            byte_code[continue_instruction].param = IRJumpRelParam(update_and_condition_start_index - continue_instruction);
+            byte_code[continue_instruction].param = IRJumpRelParam(condition_start_index - continue_instruction);
         }
     }
 
