@@ -1,5 +1,8 @@
 #pragma once
 
+#define LUAXC_RUNTIME_MAX_STACK_SIZE 1024
+#define LUAXC_RUNTIME_STACK_OVERFLOW_PROTECTION_ENABLED
+
 #include <cmath>
 #include <optional>
 #include <stack>
@@ -543,6 +546,10 @@ namespace luaxc {
         };
 
         const RuntimeContext& get_runtime_context() const { return runtime_ctx; }
+
+        void set_gc_heap_size(size_t size) { gc.set_max_heap_size(size); }
+
+        size_t get_gc_heap_size() const { return gc.get_max_heap_size(); }
 
     private:
         struct {

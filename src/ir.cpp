@@ -2028,6 +2028,13 @@ namespace luaxc {
     }
 
     void IRInterpreter::push_stack_frame(bool allow_propagation) {
+
+#ifdef LUAXC_RUNTIME_STACK_OVERFLOW_PROTECTION_ENABLED
+        if (stack_frames.size() >= LUAXC_RUNTIME_MAX_STACK_SIZE) {
+            throw IRInterpreterException("Stack overflow");
+        }
+#endif
+
         size_t return_addr = pc + 1;
         stack_frames.emplace_back(return_addr, allow_propagation);
     }

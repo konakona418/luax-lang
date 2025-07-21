@@ -58,6 +58,10 @@ namespace luaxc {
 
         bool is_gc_enabled() const { return enabled; }
 
+        void set_max_heap_size(size_t size) { config.max_heap_size = size; }
+
+        size_t get_max_heap_size() const { return config.max_heap_size; }
+
     private:
         std::unordered_set<GCObject*> gc_objects;
         std::vector<PrimValue>* op_stack = nullptr;

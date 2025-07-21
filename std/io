@@ -1,5 +1,7 @@
 func __builtin_io_println();
 func __builtin_io_print();
+func __builtin_io_readline();
 
 let println = __builtin_io_println;
 let print = __builtin_io_print;
+let readline = __builtin_io_readline;
