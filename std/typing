@@ -3,12 +3,22 @@ func __builtin_typings_float();
 func __builtin_typings_string();
 func __builtin_typings_bool();
 func __builtin_typings_array();
+func __builtin_typings_function();
+func __builtin_typings_object();
+func __builtin_typings_unit_type();
+func __builtin_typings_none_type();
+func __builtin_typings_type_type();
 
 let Int = __builtin_typings_int();
 let Float = __builtin_typings_float();
 let String = __builtin_typings_string();
 let Bool = __builtin_typings_bool();
 let Array = __builtin_typings_array();
+let Func = __builtin_typings_function();
+let Object = __builtin_typings_object();
+let UnitType = __builtin_typings_unit_type();
+let NoneType = __builtin_typings_none_type();
+let Type = __builtin_typings_type_type();
 
 func __builtin_typings_array_of();
 

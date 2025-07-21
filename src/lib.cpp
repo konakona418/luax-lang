@@ -66,11 +66,17 @@ namespace luaxc {
     Functions Typing::load(IRRuntime& runtime) {
         Functions result;
 
+        __LUAXC_MAKE_TYPEING_TYPE("Any", "__builtin_typings_any")
         __LUAXC_MAKE_TYPEING_TYPE("Int", "__builtin_typings_int")
         __LUAXC_MAKE_TYPEING_TYPE("Float", "__builtin_typings_float")
         __LUAXC_MAKE_TYPEING_TYPE("String", "__builtin_typings_string")
         __LUAXC_MAKE_TYPEING_TYPE("Bool", "__builtin_typings_bool")
         __LUAXC_MAKE_TYPEING_TYPE("Array", "__builtin_typings_array")
+        __LUAXC_MAKE_TYPEING_TYPE("Function", "__builtin_typings_function")
+        __LUAXC_MAKE_TYPEING_TYPE("Object", "__builtin_typings_object")
+        __LUAXC_MAKE_TYPEING_TYPE("Unit", "__builtin_typings_unit_type")
+        __LUAXC_MAKE_TYPEING_TYPE("Null", "__builtin_typings_none_type")
+        __LUAXC_MAKE_TYPEING_TYPE("Type", "__builtin_typings_type_type")
 
         FunctionObject* array_type = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> PrimValue {
             if (args.size() == 0) {

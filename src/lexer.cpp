@@ -369,7 +369,8 @@ namespace luaxc {
                 "for", "while", "do",
                 "break", "continue",
                 "return", "use", "mod",
-                "type", "method", "field"};
+                "type", "method", "field",
+                "true", "false", "null"};
         return keywords.find(candidate) != keywords.end();
     }
 
@@ -393,6 +394,7 @@ namespace luaxc {
                 if (candidate == "for") return TokenType::KEYWORD_FOR;
                 if (candidate == "func") return TokenType::KEYWORD_FUNC;
                 if (candidate == "field") return TokenType::KEYWORD_FIELD;
+                if (candidate == "false") return TokenType::KEYWORD_FALSE;
                 break;
             case 'i':
                 return TokenType::KEYWORD_IF;
@@ -404,11 +406,15 @@ namespace luaxc {
                 if (candidate == "method") return TokenType::KEYWORD_METHOD;
                 if (candidate == "mod") return TokenType::KEYWORD_MOD;
                 break;
+            case 'n':
+                if (candidate == "null") return TokenType::KEYWORD_NULL;
+                break;
             case 'r':
                 if (candidate == "return") return TokenType::KEYWORD_RETURN;
                 break;
             case 't':
                 if (candidate == "type") return TokenType::KEYWORD_TYPE;
+                if (candidate == "true") return TokenType::KEYWORD_TRUE;
                 break;
             case 'w':
                 if (candidate == "while") return TokenType::KEYWORD_WHILE;

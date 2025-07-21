@@ -71,6 +71,8 @@ namespace luaxc {
             Identifier,
             NumericLiteral,
             StringLiteral,
+            BoolLiteral,
+            NullLiteral,
             TypeDecl,
             ModuleDecl,
             ModuleImportExpr,
@@ -540,6 +542,24 @@ namespace luaxc {
     private:
         std::unique_ptr<AstNode> type_expr;
         std::unique_ptr<AstNode> initializer_list_block;
+    };
+
+    class BoolLiteralNode : public ExpressionNode {
+    public:
+        BoolLiteralNode(bool value)
+            : ExpressionNode(ExpressionType::BoolLiteral),
+              value(value) {}
+
+        bool get_value() const { return value; }
+
+    private:
+        bool value;
+    };
+
+    class NullLiteralNode : public ExpressionNode {
+    public:
+        NullLiteralNode()
+            : ExpressionNode(ExpressionType::NullLiteral) {}
     };
 
 }// namespace luaxc

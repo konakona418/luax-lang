@@ -756,6 +756,21 @@ namespace luaxc {
 
                 break;
             }
+            case (TokenType::KEYWORD_TRUE): {
+                node = std::make_unique<BoolLiteralNode>(true);
+                consume(TokenType::KEYWORD_TRUE);
+                break;
+            }
+            case (TokenType::KEYWORD_FALSE): {
+                node = std::make_unique<BoolLiteralNode>(false);
+                consume(TokenType::KEYWORD_FALSE);
+                break;
+            }
+            case (TokenType::KEYWORD_NULL): {
+                node = std::make_unique<NullLiteralNode>();
+                consume(TokenType::KEYWORD_NULL);
+                break;
+            }
             case (TokenType::KEYWORD_TYPE): {
                 node = parse_type_declaration_expression();
                 break;

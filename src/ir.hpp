@@ -259,6 +259,10 @@ namespace luaxc {
 
         void generate_unary_expression_statement(const UnaryExpressionNode* statement, ByteCode& byte_code);
 
+        void generate_boolean_literal(const BoolLiteralNode* statement, ByteCode& byte_code);
+
+        void generate_null_literal(ByteCode& byte_code);
+
         void generate_declaration_statement(const DeclarationStmtNode* statement, ByteCode& byte_code);
 
         void generate_assignment_statement(const AssignmentExpressionNode* statement, ByteCode& byte_code);

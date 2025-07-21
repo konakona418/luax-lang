@@ -297,6 +297,14 @@ namespace luaxc {
                 generate_string_literal(static_cast<const StringLiteralNode*>(node), byte_code);
                 break;
             }
+            case ExpressionNode::ExpressionType::BoolLiteral: {
+                generate_boolean_literal(static_cast<const BoolLiteralNode*>(node), byte_code);
+                break;
+            }
+            case ExpressionNode::ExpressionType::NullLiteral: {
+                generate_null_literal(byte_code);
+                break;
+            }
             case ExpressionNode::ExpressionType::AssignmentExpr: {
                 generate_assignment_statement(static_cast<const AssignmentExpressionNode*>(node), byte_code);
                 break;
@@ -928,6 +936,18 @@ namespace luaxc {
                 throw IRGeneratorException("Unsupported unary operator");
         }
         byte_code.push_back(IRInstruction(op_type, {std::monostate()}));
+    }
+
+    void IRGenerator::generate_boolean_literal(const BoolLiteralNode* statement, ByteCode& byte_code) {
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::LOAD_CONST,
+                              IRLoadConstParam{PrimValue::from_bool(statement->get_value())}));
+    }
+
+    void IRGenerator::generate_null_literal(ByteCode& byte_code) {
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::LOAD_CONST,
+                IRLoadConstParam{PrimValue::null()}));
     }
 
     void IRGenerator::generate_if_statement(const IfNode* statement, ByteCode& byte_code) {
