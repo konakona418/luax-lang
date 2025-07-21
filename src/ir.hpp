@@ -341,6 +341,7 @@ namespace luaxc {
         size_t pc = 0;
         std::vector<StackFrame> stack_frames;
         std::vector<IRPrimValue> stack;
+        std::vector<FrozenContextObject*> context_stack;
         IRRuntime& runtime;
 
         void preload_native_functions();
@@ -361,6 +362,14 @@ namespace luaxc {
 
         void pop_stack_frame();
 
+        void load_context(FrozenContextObject* ctx) { context_stack.push_back(ctx); }
+
+        void restore_context() { context_stack.pop_back(); }
+
+        FrozenContextObject* get_context() { return context_stack.back(); }
+
+        FrozenContextObject* freeze_context();
+
         StackFrame& current_stack_frame();
 
         StackFrame& global_stack_frame();
@@ -368,6 +377,8 @@ namespace luaxc {
         std::optional<size_t> has_identifier_in_stack_frame(StringObject* identifier);
 
         bool has_identifier_in_global_scope(StringObject* identifier);
+
+        std::optional<PrimValue> retrieve_value_in_stored_context(StringObject* identifier);
 
         IRPrimValue retrieve_raw_value_in_desired_stack_frame(StringObject* identifier, size_t idx);
 
@@ -420,6 +431,8 @@ namespace luaxc {
         void handle_to_bool();
 
         bool handle_function_invocation(IRCallParam param);
+
+        void handle_return();
 
         void handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs);
 

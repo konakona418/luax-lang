@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <unordered_set>
@@ -117,16 +119,47 @@ namespace luaxc {
     class StringObject : public BasicStringObject<char> {
     };
 
+    struct StackFrameRef;
+
     struct StackFrame {
         std::unordered_map<StringObject*, PrimValue> variables;
         size_t return_addr;
         bool allow_upward_propagation = false;
+
+        std::vector<std::shared_ptr<StackFrameRef>> pending_refs;
+
+        std::shared_ptr<StackFrameRef> make_ref();
+
+        void notify_return();
 
         explicit StackFrame(size_t return_addr) : return_addr(return_addr) {};
         StackFrame(size_t return_addr, bool allow_propagation)
             : return_addr(return_addr),
               allow_upward_propagation(allow_propagation) {};
     };
+
+    struct StackFrameRef {
+        bool pending_return = true;
+        struct {
+            StackFrame* frame_ref = nullptr;
+            StackFrame frame{0};
+        } inner;
+
+        StackFrameRef(StackFrame* frame) {
+            inner.frame_ref = frame;
+        }
+
+        ~StackFrameRef() {
+        }
+
+        StackFrame& get_frame();
+
+        const StackFrame& get_frame() const;
+
+        void notify_return(StackFrame frame);
+    };
+
+    using SharedStackFrameRef = std::shared_ptr<StackFrameRef>;
 
     class ArrayObject;
     class FunctionObject;
@@ -342,6 +375,24 @@ namespace luaxc {
         }
     }
 
+    class FrozenContextObject : public GCObject {
+    public:
+        FrozenContextObject(const std::vector<SharedStackFrameRef>& ctx) : stack_frames(ctx) {}
+
+        FrozenContextObject() = default;
+
+        size_t get_object_size() const override;
+
+        std::vector<GCObject*> get_referenced_objects() const override;
+
+        std::optional<PrimValue> query(StringObject* identifier) const;
+
+        void set_stack_frame(const std::vector<SharedStackFrameRef>& ctx) { stack_frames = ctx; }
+
+    private:
+        std::vector<SharedStackFrameRef> stack_frames;
+    };
+
     class FunctionObject : public GCObject {
     public:
         FunctionObject() = default;
@@ -398,6 +449,17 @@ namespace luaxc {
 
         size_t get_arity() const { return arity; }
 
+        void set_context(FrozenContextObject* ctx) { this->ctx = ctx; }
+
+        FrozenContextObject* get_context() const { return ctx; }
+
+        size_t get_object_size() const override {
+            // we don't care about the size of the context
+            return sizeof(FunctionObject);
+        }
+
+        std::vector<GCObject*> get_referenced_objects() const override;
+
     private:
         bool is_native;
         bool is_method;
@@ -406,6 +468,8 @@ namespace luaxc {
 
         size_t begin_offset;
         size_t module_id;
+
+        FrozenContextObject* ctx;
     };
 
     class ArrayObject : public GCObject {

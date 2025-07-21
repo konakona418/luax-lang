@@ -3,10 +3,12 @@
 #include "parser.hpp"
 
 #include <cassert>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
+
 
 namespace luaxc {
 #define __LUAXC_IR_RUNTIME_UTILS_EXTRACT_STRING_FROM_PRIM_VALUE(_prim_value) \
@@ -1315,9 +1317,7 @@ namespace luaxc {
                 }
 
                 case IRInstruction::InstructionType::RET: {
-                    auto return_addr = current_stack_frame().return_addr;
-                    pop_stack_frame();
-                    pc = return_addr;
+                    handle_return();
                     jumped = true;
                     break;
                 }
@@ -1438,6 +1438,8 @@ namespace luaxc {
     void IRInterpreter::handle_type_creation() {
         TypeObject* type_info = runtime.gc_allocate<TypeObject>();
 
+        std::vector<FunctionObject*> functions;
+
         for (auto& [name, value]: current_stack_frame().variables) {
             if (value.get_type() == ValueType::Type) {
                 type_info->add_field(
@@ -1453,10 +1455,17 @@ namespace luaxc {
                 } else {
                     type_info->add_static_method(name, fn);
                 }
+                functions.push_back(fn);
 
             } else {
                 throw IRInterpreterException("Not a valid type");
             }
+        }
+
+        // set the context of the functions
+        auto* ctx = freeze_context();
+        for (auto* fn: functions) {
+            fn->set_context(ctx);
         }
 
         push_op_stack(IRPrimValue(ValueType::Type, static_cast<GCObject*>(type_info)));
@@ -1597,6 +1606,10 @@ namespace luaxc {
             func_obj = FunctionObject::create_function(param.begin_offset, param.module_id, param.arity);
         }
 
+        // don't freeze context when not necessary
+        // auto* ctx = freeze_context();
+        // func_obj->set_context(ctx);
+
         runtime.gc_regist(func_obj);
 
         auto value = IRPrimValue(ValueType::Function, (GCObject*){func_obj});
@@ -1649,8 +1662,18 @@ namespace luaxc {
     GCObject* IRInterpreter::handle_make_module_local() {
         auto* gc_object = runtime.gc_allocate<GCObject>();
 
+        std::vector<FunctionObject*> functions;
         for (auto& [name, value]: current_stack_frame().variables) {
             gc_object->storage.fields[name] = value;
+
+            if (value.get_type() == ValueType::Function) {
+                functions.push_back(static_cast<FunctionObject*>(value.get_inner_value<GCObject*>()));
+            }
+        }
+
+        auto* ctx = freeze_context();
+        for (auto* fn: functions) {
+            fn->set_context(ctx);
         }
 
         auto value = PrimValue(ValueType::Module, (GCObject*){gc_object});
@@ -1698,6 +1721,7 @@ namespace luaxc {
                         std::to_string(param.arguments_count));
             }
 
+            load_context(fn->get_context());
             push_stack_frame();
             size_t jump_target =
                     runtime.resolve_function_offset(
@@ -1707,6 +1731,13 @@ namespace luaxc {
             pc = jump_target;
             return true;
         }
+    }
+
+    void IRInterpreter::handle_return() {
+        auto return_addr = current_stack_frame().return_addr;
+        pop_stack_frame();
+        restore_context();
+        pc = return_addr;
     }
 
     void IRInterpreter::handle_binary_op(IRInstruction::InstructionType op) {
@@ -1812,6 +1843,8 @@ namespace luaxc {
     IRPrimValue IRInterpreter::retrieve_raw_value(StringObject* identifier) {
         if (auto idx = has_identifier_in_stack_frame(identifier)) {
             return retrieve_raw_value_in_desired_stack_frame(identifier, idx.value());
+        } else if (auto captured_ctx = retrieve_value_in_stored_context(identifier)) {
+            return captured_ctx.value();
         } else if (has_identifier_in_global_scope(identifier)) {
             return retrieve_raw_value_in_global_scope(identifier);
         } else {
@@ -1842,6 +1875,8 @@ namespace luaxc {
             store_value_in_stack_frame(identifier, value);
         } else if (has_identifier_in_global_scope(identifier)) {
             store_value_in_global_scope(identifier, value);
+        } else if (auto captured_ctx = retrieve_value_in_stored_context(identifier)) {
+            throw IRInterpreterException("Cannot modify immutable captured variable " + identifier->to_string());
         } else {
             throw IRInterpreterException("Identifier not found " + identifier->to_string());
         }
@@ -2044,12 +2079,35 @@ namespace luaxc {
         store_value_in_global_scope(array_identifier, PrimValue(ValueType::Function, array_type));
     }
 
+    FrozenContextObject* IRInterpreter::freeze_context() {
+        auto* ctx = runtime.gc_allocate<FrozenContextObject>();
+
+        std::deque<SharedStackFrameRef> frozen;
+
+        for (auto it = stack_frames.rbegin(); it != stack_frames.rend(); ++it) {
+            frozen.push_front(it->make_ref());
+
+            if (!it->allow_upward_propagation) {
+                break;
+            }
+        }
+
+        // global scope variables
+        // frozen.push_front(global_stack_frame());
+
+        ctx->set_stack_frame(std::vector(frozen.begin(), frozen.end()));
+        return ctx;
+    }
+
     void IRInterpreter::push_stack_frame(bool allow_propagation) {
         size_t return_addr = pc + 1;
         stack_frames.emplace_back(return_addr, allow_propagation);
     }
 
     void IRInterpreter::pop_stack_frame() {
+        // set the value of all the pending StackFrameRefs
+        stack_frames.back().notify_return();
+
         stack_frames.pop_back();
     }
 
@@ -2078,6 +2136,15 @@ namespace luaxc {
 
     bool IRInterpreter::has_identifier_in_global_scope(StringObject* identifier) {
         return global_stack_frame().variables.find(identifier) != global_stack_frame().variables.end();
+    }
+
+    std::optional<PrimValue> IRInterpreter::retrieve_value_in_stored_context(StringObject* identifier) {
+        if (context_stack.size() > 0) {
+            if (auto obj = get_context()->query(identifier)) {
+                return obj;
+            }
+        }
+        return std::nullopt;
     }
 
     IRPrimValue IRInterpreter::retrieve_raw_value_in_desired_stack_frame(StringObject* identifier, size_t idx) {

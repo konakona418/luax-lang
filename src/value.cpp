@@ -156,6 +156,69 @@ namespace luaxc {
         return std::visit(to_bool_impl, value);
     }
 
+    StackFrame& StackFrameRef::get_frame() {
+        if (pending_return) {
+            return *inner.frame_ref;
+        }
+        return inner.frame;
+    }
+
+    const StackFrame& StackFrameRef::get_frame() const {
+        if (pending_return) {
+            return *inner.frame_ref;
+        }
+        return inner.frame;
+    }
+
+    void StackFrameRef::notify_return(StackFrame frame) {
+        pending_return = false;
+
+        this->inner.frame.variables = frame.variables;
+    }
+
+    std::shared_ptr<StackFrameRef> StackFrame::make_ref() {
+        auto ref = std::make_shared<StackFrameRef>(this);
+        pending_refs.push_back(ref);
+        return ref;
+    }
+
+    void StackFrame::notify_return() {
+        for (auto& ref: pending_refs) {
+            ref->notify_return(*this);
+        }
+    }
+
+    size_t FrozenContextObject::get_object_size() const {
+        size_t base_size = sizeof(FrozenContextObject);
+        for (auto& frame: stack_frames) {
+            base_size += frame->get_frame().variables.size() * sizeof(PrimValue);
+        }
+        return base_size;
+    }
+
+    std::vector<GCObject*> FrozenContextObject::get_referenced_objects() const {
+        std::vector<GCObject*> referenced_objects;
+        for (auto& frame: stack_frames) {
+            for (auto& [identifier, value]: frame->get_frame().variables) {
+                if (value.is_gc_object()) {
+                    referenced_objects.push_back(value.get_inner_value<GCObject*>());
+                }
+            }
+        }
+        return referenced_objects;
+    }
+
+    std::optional<PrimValue> FrozenContextObject::query(StringObject* identifier) const {
+        for (auto frame_ref = stack_frames.rbegin(); frame_ref != stack_frames.rend(); ++frame_ref) {
+            auto& frame = (*frame_ref)->get_frame();
+            auto it = frame.variables.find(identifier);
+            if (it != frame.variables.end()) {
+                return it->second;
+            }
+        }
+        return std::nullopt;
+    }
+
     TypeObject* PrimValue::select_value_type_info(ValueType type) {
         switch (type) {
             case ValueType::Int:
@@ -225,6 +288,16 @@ namespace luaxc {
             }
         }
         return size;
+    }
+
+    std::vector<GCObject*> FunctionObject::get_referenced_objects() const {
+        std::vector<GCObject*> referenced_objects;
+        if (this->ctx != nullptr) {
+            referenced_objects.push_back(this->ctx);
+            // gc will look into the ctx
+            // referenced_objects = this->ctx->get_referenced_objects();
+        }
+        return referenced_objects;
     }
 
     std::vector<GCObject*> TypeObject::get_referenced_objects() const {
