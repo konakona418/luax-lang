@@ -2067,6 +2067,10 @@ namespace luaxc {
 
     std::optional<PrimValue> IRInterpreter::retrieve_value_in_stored_context(StringObject* identifier) {
         if (context_stack.size() > 0) {
+            if (get_context() == nullptr) {
+                return std::nullopt;
+            }
+
             if (auto obj = get_context()->query(identifier)) {
                 return obj;
             }
