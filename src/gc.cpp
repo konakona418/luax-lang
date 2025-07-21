@@ -80,12 +80,13 @@ namespace luaxc {
         for (auto* object: gc_objects) {
             if (!object->marked && !object->no_collect) {
                 to_sweep.insert(object);
+
+                // !!
+                statistics.bytes_allocated -= object->get_object_size();
             }
         }
 
         for (auto* object: to_sweep) {
-            statistics.bytes_allocated -= object->get_object_size();
-
             delete object;
             gc_objects.erase(object);
         }

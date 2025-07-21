@@ -190,8 +190,8 @@ namespace luaxc {
 
 #define LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(fn_name, type_name) \
     static TypeObject* fn_name() {                                  \
-        static TypeObject int_type = TypeObject(type_name);         \
-        return &int_type;                                           \
+        static TypeObject fn_name = TypeObject(type_name);          \
+        return &fn_name;                                            \
     }
 
     class TypeObject : public GCObject {
@@ -228,6 +228,7 @@ namespace luaxc {
                     {"Bool", bool_()},
                     {"Function", function()},
                     {"String", gc_string()},
+                    {"Array", gc_array()},
                     {"Object", gc_object()},
                     {"Unit", unit()},
                     {"Null", null()},

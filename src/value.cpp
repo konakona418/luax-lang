@@ -198,6 +198,9 @@ namespace luaxc {
 
     std::vector<GCObject*> FrozenContextObject::get_referenced_objects() const {
         std::vector<GCObject*> referenced_objects;
+        auto base = GCObject::get_referenced_objects();
+        referenced_objects.insert(referenced_objects.end(), base.begin(), base.end());
+
         for (auto& frame: stack_frames) {
             for (auto& [identifier, value]: frame->get_frame().variables) {
                 if (value.is_gc_object()) {
@@ -270,6 +273,9 @@ namespace luaxc {
 
     std::vector<GCObject*> ArrayObject::get_referenced_objects() const {
         std::vector<GCObject*> referenced_objects;
+        auto base = GCObject::get_referenced_objects();
+        referenced_objects.insert(referenced_objects.end(), base.begin(), base.end());
+
         for (size_t i = 0; i < size; i++) {
             if (data[i].is_gc_object()) {
                 referenced_objects.push_back(data[i].get_inner_value<GCObject*>());
@@ -292,6 +298,9 @@ namespace luaxc {
 
     std::vector<GCObject*> FunctionObject::get_referenced_objects() const {
         std::vector<GCObject*> referenced_objects;
+        auto base = GCObject::get_referenced_objects();
+        referenced_objects.insert(referenced_objects.end(), base.begin(), base.end());
+
         if (this->ctx != nullptr) {
             referenced_objects.push_back(this->ctx);
             // gc will look into the ctx
@@ -302,6 +311,9 @@ namespace luaxc {
 
     std::vector<GCObject*> TypeObject::get_referenced_objects() const {
         std::vector<GCObject*> referenced_objects;
+        auto base = GCObject::get_referenced_objects();
+        referenced_objects.insert(referenced_objects.end(), base.begin(), base.end());
+
         for (auto& [name, type_info]: fields) {
             if (type_info.type_ptr) {
                 referenced_objects.push_back(type_info.type_ptr);
