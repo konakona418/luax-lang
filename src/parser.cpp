@@ -1,8 +1,6 @@
 #include "parser.hpp"
 #include "ast.hpp"
 
-#define LUAXC_PARSER_FEATURE_TYPE_ANNOTATION
-
 #define LUAXC_PARSER_THROW_ERROR(message)                                                 \
     do {                                                                                  \
         auto line_and_column = lexer.get_line_and_column();                               \
@@ -73,6 +71,12 @@ namespace luaxc {
     }
 
     void Parser::consume_type_annotation(TypeAnnotationType type) {
+        // todo: handling type annotations like this is not ideal.
+        // it would be better to parse them as simple expressions.
+        // for annotations like :optional::Optional(typing::Int),
+        // which contains generic types, this function will crash.
+        // so i made it a feature.
+
 #ifdef LUAXC_PARSER_FEATURE_TYPE_ANNOTATION
         if (current_token.type != TokenType::COLON) {
             return;
@@ -103,6 +107,8 @@ namespace luaxc {
                 break;
             }
         }
+#else
+        LUAXC_PARSER_THROW_ERROR("Feature 'type annotation' disabled")
 #endif
     }
 
