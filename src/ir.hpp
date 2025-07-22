@@ -1,5 +1,6 @@
 #pragma once
 
+#include <list>
 #define LUAXC_RUNTIME_MAX_STACK_SIZE 1024
 #define LUAXC_RUNTIME_STACK_OVERFLOW_PROTECTION_ENABLED
 
@@ -344,12 +345,12 @@ namespace luaxc {
 
         std::vector<PrimValue>* get_op_stack_ptr() { return &stack; }
 
-        std::vector<StackFrame>* get_stack_frames_ptr() { return &stack_frames; };
+        std::list<StackFrame>* get_stack_frames_ptr() { return &stack_frames; };
 
     private:
         ByteCode byte_code;
         size_t pc = 0;
-        std::vector<StackFrame> stack_frames;
+        std::list<StackFrame> stack_frames;
         std::vector<IRPrimValue> stack;
         std::vector<FrozenContextObject*> context_stack;
         IRRuntime& runtime;
@@ -386,15 +387,13 @@ namespace luaxc {
 
         StackFrame& global_stack_frame();
 
-        std::optional<size_t> has_identifier_in_stack_frame(StringObject* identifier);
+        std::optional<PrimValue> retrieve_identifier_in_stack_frame(StringObject* identifier);
+
+        std::optional<PrimValue*> retrieve_identifier_ref_in_stack_frame(StringObject* identifier);
 
         bool has_identifier_in_global_scope(StringObject* identifier);
 
         std::optional<PrimValue> retrieve_value_in_stored_context(StringObject* identifier);
-
-        IRPrimValue retrieve_raw_value_in_desired_stack_frame(StringObject* identifier, size_t idx);
-
-        IRPrimValue& retrieve_value_ref_in_desired_stack_frame(StringObject* identifier, size_t idx);
 
         IRPrimValue retrieve_raw_value_in_current_stack_frame(StringObject* identifier);
 

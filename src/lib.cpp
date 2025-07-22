@@ -137,7 +137,21 @@ namespace luaxc {
         result.emplace_back(gc_collect_identifier, PrimValue(ValueType::Function, gc_collect));
 
         FunctionObject* runtime_abort = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) {
-            runtime.gc_collect();
+            std::stringstream ss;
+            if (args.size() >= 1) {
+                for (auto& arg: args) {
+                    if (arg.is_string()) {
+                        ss << __LUAXC_EXTRACT_STRING_FROM_PRIM_VALUE(arg);
+                    } else {
+                        ss << arg.to_string();
+                    }
+                    ss << " ";
+                }
+            } else {
+                ss << "execution aborted by user";
+            }
+            runtime.abort(ss.str());
+
             return PrimValue::unit();
         });
         runtime.gc_regist_no_collect(runtime_abort);

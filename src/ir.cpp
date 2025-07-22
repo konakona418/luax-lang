@@ -1973,8 +1973,8 @@ namespace luaxc {
     }
 
     IRPrimValue IRInterpreter::retrieve_raw_value(StringObject* identifier) {
-        if (auto idx = has_identifier_in_stack_frame(identifier)) {
-            return retrieve_raw_value_in_desired_stack_frame(identifier, idx.value());
+        if (auto value = retrieve_identifier_in_stack_frame(identifier)) {
+            return value.value();
         } else if (auto captured_ctx = retrieve_value_in_stored_context(identifier)) {
             return captured_ctx.value();
         } else if (has_identifier_in_global_scope(identifier)) {
@@ -1989,8 +1989,8 @@ namespace luaxc {
     }
 
     IRPrimValue& IRInterpreter::retrieve_raw_value_ref(StringObject* identifier) {
-        if (auto idx = has_identifier_in_stack_frame(identifier)) {
-            return retrieve_value_ref_in_desired_stack_frame(identifier, idx.value());
+        if (auto value = retrieve_identifier_ref_in_stack_frame(identifier)) {
+            return *value.value();
         } else if (has_identifier_in_global_scope(identifier)) {
             return retrieve_value_ref_in_global_scope(identifier);
         } else {
@@ -2003,8 +2003,8 @@ namespace luaxc {
     }
 
     void IRInterpreter::store_raw_value(StringObject* identifier, IRPrimValue value) {
-        if (has_identifier_in_stack_frame(identifier)) {
-            store_value_in_stack_frame(identifier, value);
+        if (auto ref = retrieve_identifier_ref_in_stack_frame(identifier)) {
+            *ref.value() = value;
         } else if (has_identifier_in_global_scope(identifier)) {
             store_value_in_global_scope(identifier, value);
         } else if (auto captured_ctx = retrieve_value_in_stored_context(identifier)) {
@@ -2015,7 +2015,7 @@ namespace luaxc {
     }
 
     bool IRInterpreter::has_identifier(StringObject* identifier) {
-        return has_identifier_in_stack_frame(identifier) || has_identifier_in_global_scope(identifier);
+        return retrieve_identifier_in_stack_frame(identifier).has_value() || has_identifier_in_global_scope(identifier);
     }
 
     bool IRInterpreter::has_identifier(const std::string& identifier) {
@@ -2180,19 +2180,34 @@ namespace luaxc {
 
     StackFrame& IRInterpreter::global_stack_frame() {
         assert(stack_frames.size() > 0);
-        return stack_frames[0];
+        return stack_frames.front();
     }
 
-    std::optional<size_t> IRInterpreter::has_identifier_in_stack_frame(StringObject* identifier) {
-        for (int idx = stack_frames.size() - 1; idx >= 0; idx--) {
-            if (stack_frames[idx].variables.find(identifier) != stack_frames[idx].variables.end()) {
-                return {static_cast<size_t>(idx)};
+    std::optional<PrimValue> IRInterpreter::retrieve_identifier_in_stack_frame(StringObject* identifier) {
+        for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); frame++) {
+            if (frame->variables.find(identifier) != frame->variables.end()) {
+                return {frame->variables[identifier]};
             }
 
-            if (!stack_frames[idx].allow_upward_propagation) {
+            if (!frame->allow_upward_propagation) {
                 break;
             }
         }
+
+        return std::nullopt;
+    }
+
+    std::optional<PrimValue*> IRInterpreter::retrieve_identifier_ref_in_stack_frame(StringObject* identifier) {
+        for (auto frame = stack_frames.rbegin(); frame != stack_frames.rend(); frame++) {
+            if (frame->variables.find(identifier) != frame->variables.end()) {
+                return {&frame->variables[identifier]};
+            }
+
+            if (!frame->allow_upward_propagation) {
+                break;
+            }
+        }
+
         return std::nullopt;
     }
 
@@ -2211,14 +2226,6 @@ namespace luaxc {
             }
         }
         return std::nullopt;
-    }
-
-    IRPrimValue IRInterpreter::retrieve_raw_value_in_desired_stack_frame(StringObject* identifier, size_t idx) {
-        return stack_frames[idx].variables.at(identifier);
-    }
-
-    IRPrimValue& IRInterpreter::retrieve_value_ref_in_desired_stack_frame(StringObject* identifier, size_t idx) {
-        return stack_frames[idx].variables.at(identifier);
     }
 
     IRPrimValue IRInterpreter::retrieve_raw_value_in_current_stack_frame(StringObject* identifier) {

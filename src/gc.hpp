@@ -1,5 +1,6 @@
 #pragma once
 
+#include <list>
 #include <unordered_set>
 
 #include "value.hpp"
@@ -28,11 +29,11 @@ namespace luaxc {
 
         GarbageCollector() = default;
         GarbageCollector(std::vector<PrimValue>* op_stack,
-                         std::vector<StackFrame>* stack_frame)
+                         std::list<StackFrame>* stack_frame)
             : op_stack(op_stack), stack_frame(stack_frame) {}
 
         void init(std::vector<PrimValue>* op_stack,
-                  std::vector<StackFrame>* stack_frame) {
+                  std::list<StackFrame>* stack_frame) {
             this->op_stack = op_stack;
             this->stack_frame = stack_frame;
         }
@@ -85,7 +86,7 @@ namespace luaxc {
     private:
         std::unordered_set<GCObject*> gc_objects;
         std::vector<PrimValue>* op_stack = nullptr;
-        std::vector<StackFrame>* stack_frame = nullptr;
+        std::list<StackFrame>* stack_frame = nullptr;
 
         bool enabled = false;
 

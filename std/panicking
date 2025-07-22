@@ -1,0 +1,11 @@
+let runtime = use "std/runtime";
+
+func panic(reason) {
+    runtime::abort("program panicked!", reason);
+}
+
+func panicIf(reason, fn) {
+    if (fn) {
+        panic(reason);
+    }
+}
