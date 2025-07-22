@@ -1,4 +1,5 @@
 let typing = use "std/typing";
+let panicking = use "std/panicking";
 
 func Option(TData) {
 
@@ -27,7 +28,7 @@ func Option(TData) {
             if (self._containsValue) {
                 return self._data;
             }
-            return null;
+            panicking::panic("attempted to perform 'unwrap' on an Option::none()")
         }
 
         method unwrapOr(self, default) {

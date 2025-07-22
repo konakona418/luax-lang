@@ -77,10 +77,11 @@ namespace luaxc {
         // which contains generic types, this function will crash.
         // so i made it a feature.
 
-#ifdef LUAXC_PARSER_FEATURE_TYPE_ANNOTATION
         if (current_token.type != TokenType::COLON) {
             return;
         }
+
+#ifdef LUAXC_PARSER_FEATURE_TYPE_ANNOTATION
         next_token();
 
         switch (type) {

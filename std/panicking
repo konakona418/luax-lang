@@ -5,7 +5,7 @@ func panic(reason) {
 }
 
 func panicIf(reason, fn) {
-    if (fn) {
+    if (fn()) {
         panic(reason);
     }
 }
