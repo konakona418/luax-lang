@@ -124,4 +124,26 @@ namespace luaxc {
 
         return result;
     }
+
+    Functions Runtime::load(IRRuntime& runtime) {
+        Functions result;
+
+        FunctionObject* gc_collect = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) {
+            runtime.gc_collect();
+            return PrimValue::unit();
+        });
+        runtime.gc_regist_no_collect(gc_collect);
+        auto* gc_collect_identifier = runtime.push_string_pool_if_not_exists("__builtin_runtime_gc_collect");
+        result.emplace_back(gc_collect_identifier, PrimValue(ValueType::Function, gc_collect));
+
+        FunctionObject* runtime_abort = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) {
+            runtime.gc_collect();
+            return PrimValue::unit();
+        });
+        runtime.gc_regist_no_collect(runtime_abort);
+        auto* runtime_abort_identifier = runtime.push_string_pool_if_not_exists("__builtin_runtime_abort");
+        result.emplace_back(runtime_abort_identifier, PrimValue(ValueType::Function, runtime_abort));
+
+        return result;
+    }
 }// namespace luaxc

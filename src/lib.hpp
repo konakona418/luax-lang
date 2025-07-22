@@ -35,4 +35,14 @@ namespace luaxc {
         return typing;
     }
 
+    class Runtime : public NativeLib {
+    public:
+        Functions load(IRRuntime& runtime) override;
+    };
+
+    inline Runtime& runtime() {
+        static Runtime runtime;
+        return runtime;
+    }
+
 }// namespace luaxc

@@ -208,6 +208,12 @@ namespace luaxc {
                 }
             }
         }
+
+        // this object also references the next object
+        if (next != nullptr) {
+            referenced_objects.push_back(this->next);
+        }
+
         return referenced_objects;
     }
 
@@ -219,6 +225,11 @@ namespace luaxc {
                 return it->second;
             }
         }
+
+        if (next != nullptr) {
+            return next->query(identifier);
+        }
+
         return std::nullopt;
     }
 

@@ -1729,7 +1729,13 @@ namespace luaxc {
 
         // don't freeze context when not necessary
         if (param.is_closure) {
-            func_obj->set_context(freeze_context());
+            auto* ctx = freeze_context();
+
+            if (has_context()) {
+                ctx->set_next(get_context());
+            }
+
+            func_obj->set_context(ctx);
         }
 
         runtime.gc_regist(func_obj);
@@ -2117,6 +2123,9 @@ namespace luaxc {
 
         auto typing_fn = luaxc::typing().load(runtime);
         native_funtions.insert(native_funtions.end(), typing_fn.begin(), typing_fn.end());
+
+        auto runtime_fn = luaxc::runtime().load(runtime);
+        native_funtions.insert(native_funtions.end(), runtime_fn.begin(), runtime_fn.end());
 
         for (auto [name, fn]: native_funtions) {
             store_value_in_global_scope(name, fn);

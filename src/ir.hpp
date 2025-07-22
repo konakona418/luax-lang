@@ -376,6 +376,8 @@ namespace luaxc {
 
         void restore_context() { context_stack.pop_back(); }
 
+        bool has_context() { return !context_stack.empty(); }
+
         FrozenContextObject* get_context() { return context_stack.back(); }
 
         FrozenContextObject* freeze_context();
@@ -482,6 +484,8 @@ namespace luaxc {
 
         void run();
 
+        void abort(const std::string& reason) { throw std::runtime_error("Runtime aborted: " + reason); }
+
         IRInterpreter& get_interpreter() {
             return *this->interpreter.get();
         }
@@ -498,6 +502,8 @@ namespace luaxc {
         ObjectType* gc_allocate(Args&&... args) {
             return gc.allocate<ObjectType>(std::forward<Args>(args)...);
         }
+
+        void gc_collect() { gc.collect(); }
 
         void gc_regist(GCObject* object) { gc.regist(object); }
 

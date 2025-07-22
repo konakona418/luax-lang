@@ -390,8 +390,14 @@ namespace luaxc {
 
         void set_stack_frame(const std::vector<SharedStackFrameRef>& ctx) { stack_frames = ctx; }
 
+        void set_next(FrozenContextObject* next) { this->next = next; }
+
+        FrozenContextObject* get_next() const { return next; }
+
     private:
         std::vector<SharedStackFrameRef> stack_frames;
+
+        FrozenContextObject* next = nullptr;
     };
 
     class FunctionObject : public GCObject {
