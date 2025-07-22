@@ -8,6 +8,24 @@
 namespace luaxc {
     class GarbageCollector {
     public:
+        class GCGuard {
+        public:
+            GCGuard(GarbageCollector* gc) {
+                this->gc = gc;
+
+                was_gc_enabled = gc->is_gc_enabled();
+                gc->set_gc_enabled(false);
+            }
+
+            ~GCGuard() {
+                gc->set_gc_enabled(was_gc_enabled);
+            }
+
+        private:
+            GarbageCollector* gc;
+            bool was_gc_enabled;
+        };
+
         GarbageCollector() = default;
         GarbageCollector(std::vector<PrimValue>* op_stack,
                          std::vector<StackFrame>* stack_frame)
@@ -54,7 +72,9 @@ namespace luaxc {
 
         void collect();
 
-        void set_gc_enabled(bool enabled) { this->enabled = true; }
+        GCGuard guard() { return GCGuard{this}; }
+
+        void set_gc_enabled(bool enabled) { this->enabled = enabled; }
 
         bool is_gc_enabled() const { return enabled; }
 
@@ -91,4 +111,5 @@ namespace luaxc {
 
         void sweep();
     };
+
 }// namespace luaxc

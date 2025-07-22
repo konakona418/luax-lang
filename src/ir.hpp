@@ -483,6 +483,10 @@ namespace luaxc {
             return *this->interpreter.get();
         }
 
+        GarbageCollector::GCGuard gc_guard() {
+            return this->gc.guard();
+        }
+
         void gc_regist_no_collect(GCObject* object) {
             gc.regist_no_collect(object);
         }

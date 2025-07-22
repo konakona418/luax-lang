@@ -1507,6 +1507,8 @@ namespace luaxc {
     }
 
     void IRInterpreter::handle_type_creation() {
+        auto guard = runtime.gc_guard();
+
         TypeObject* type_info = runtime.gc_allocate<TypeObject>();
 
         std::vector<FunctionObject*> functions;
@@ -1670,6 +1672,8 @@ namespace luaxc {
     }
 
     void IRInterpreter::handle_make_function(IRMakeFunctionParam param) {
+        auto guard = runtime.gc_guard();
+
         FunctionObject* func_obj;
         if (param.is_method) {
             func_obj = FunctionObject::create_method(param.begin_offset, param.module_id, param.arity);
@@ -1688,6 +1692,8 @@ namespace luaxc {
     }
 
     void IRInterpreter::handle_make_object(IRMakeObjectParam param) {
+        auto guard = runtime.gc_guard();
+
         auto type = pop_op_stack();
         if (type.get_type() != ValueType::Type) {
             throw IRInterpreterException("Not a valid type for object creation");
@@ -1731,6 +1737,8 @@ namespace luaxc {
     }
 
     GCObject* IRInterpreter::handle_make_module_local() {
+        auto guard = runtime.gc_guard();
+
         auto* gc_object = runtime.gc_allocate<GCObject>();
 
         std::vector<FunctionObject*> functions;
@@ -2069,6 +2077,8 @@ namespace luaxc {
     }
 
     FrozenContextObject* IRInterpreter::freeze_context() {
+        auto guard = runtime.gc_guard();
+
         auto* ctx = runtime.gc_allocate<FrozenContextObject>();
 
         std::deque<SharedStackFrameRef> frozen;

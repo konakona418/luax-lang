@@ -83,6 +83,8 @@ namespace luaxc {
                 throw IRInterpreterException("Invalid arg size");
             }
 
+            auto guard = runtime.gc_guard();
+
             ArrayObject* array;
             auto& first = args[0];
             if (first.get_type_info() == TypeObject::type()) {
