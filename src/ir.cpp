@@ -337,6 +337,10 @@ namespace luaxc {
                 generate_module_access_expression(static_cast<const ExpressionNode*>(node), byte_code);
                 break;
             }
+            case ExpressionNode::ExpressionType::ClousureExpr: {
+                generate_closure_expression(static_cast<const ClosureExpressionNode*>(node), byte_code);
+                break;
+            }
             case ExpressionNode::ExpressionType::InitializerListExpr: {
                 generate_initializer_list_expression(static_cast<const InitializerListExpressionNode*>(node), byte_code);
                 break;
@@ -512,6 +516,48 @@ namespace luaxc {
             return;
         }
         generate_expression(expression, byte_code);
+    }
+
+    void IRGenerator::generate_closure_expression(const ClosureExpressionNode* expression, ByteCode& byte_code) {
+        size_t jump_over_function_instruction_index = byte_code.size();
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::JMP_REL,
+                IRJumpRelParam(0)));
+
+        size_t fn_start_index = byte_code.size();
+
+        for (auto& param: expression->get_parameters()) {
+            auto identifier =
+                    runtime.push_string_pool_if_not_exists(dynamic_cast<IdentifierNode*>(param.get())->get_name());
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::DECLARE_IDENTIFIER,
+                    IRDeclareIdentifierParam{identifier}));
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::STORE_IDENTIFIER,
+                    IRStoreIdentifierParam{identifier}));
+        }
+
+        generate_program_or_block(expression->get_body().get(), byte_code);
+
+        if (byte_code.back().type != IRInstruction::InstructionType::RET) {
+            byte_code.push_back(IRInstruction(
+                    IRInstruction::InstructionType::LOAD_CONST, IRLoadConstParam{IRPrimValue::unit()}));
+            byte_code.push_back(IRInstruction(IRInstruction::InstructionType::RET, {std::monostate()}));
+        }
+
+        byte_code[jump_over_function_instruction_index].param =
+                IRJumpRelParam(byte_code.size() - jump_over_function_instruction_index);
+
+        auto current_module_id = get_current_compiling_module_id();
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::MAKE_FUNC,
+                IRMakeFunctionParam{
+                        fn_start_index,
+                        current_module_id,
+                        expression->get_parameters().size(),
+                        false,
+                        true}));
     }
 
     void IRGenerator::generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code) {
@@ -1208,7 +1254,7 @@ namespace luaxc {
                         fn_start_index,
                         current_module_id,
                         statement->get_parameters().size(),
-                        false}));
+                        false, false}));
 
         auto* cached_function_identifier = runtime.push_string_pool_if_not_exists(function_identifier);
 
@@ -1269,7 +1315,7 @@ namespace luaxc {
                         fn_start_index,
                         current_module_id,
                         statement->get_parameters().size(),
-                        true}));
+                        true, false}));
 
         auto* cached_function_identifier = runtime.push_string_pool_if_not_exists(function_identifier);
 
@@ -1682,8 +1728,9 @@ namespace luaxc {
         }
 
         // don't freeze context when not necessary
-        // auto* ctx = freeze_context();
-        // func_obj->set_context(ctx);
+        if (param.is_closure) {
+            func_obj->set_context(freeze_context());
+        }
 
         runtime.gc_regist(func_obj);
 

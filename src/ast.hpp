@@ -81,6 +81,7 @@ namespace luaxc {
             UnaryExpr,
             FuncInvokeExpr,
             MethodInvokeExpr,
+            ClousureExpr,
             MemberAccessExpr,
             ModuleAccessExpr,
             InitializerListExpr,
@@ -560,6 +561,21 @@ namespace luaxc {
     public:
         NullLiteralNode()
             : ExpressionNode(ExpressionType::NullLiteral) {}
+    };
+
+    class ClosureExpressionNode : public ExpressionNode {
+    public:
+        ClosureExpressionNode(std::vector<std::unique_ptr<AstNode>> parameters, std::unique_ptr<AstNode> body)
+            : ExpressionNode(ExpressionType::ClousureExpr),
+              parameters(std::move(parameters)), body(std::move(body)) {}
+
+        const std::vector<std::unique_ptr<AstNode>>& get_parameters() const { return parameters; }
+
+        const std::unique_ptr<AstNode>& get_body() const { return body; }
+
+    private:
+        std::vector<std::unique_ptr<AstNode>> parameters;
+        std::unique_ptr<AstNode> body;
     };
 
 }// namespace luaxc

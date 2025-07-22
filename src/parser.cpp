@@ -691,6 +691,34 @@ namespace luaxc {
         return std::make_unique<InitializerListExpressionNode>(std::move(type_expr), std::move(block));
     }
 
+    std::unique_ptr<AstNode> Parser::parse_closure_expression() {
+        consume(TokenType::KEYWORD_FUNC, "Expected 'func'");
+        consume(TokenType::L_PARENTHESIS, "Expected '(' in closure expression");
+
+        std::vector<std::unique_ptr<AstNode>> parameters;
+
+        enter_scope(ParserState::InFunctionOrMethodScope);
+
+        while (current_token.type != TokenType::R_PARENTHESIS) {
+            auto param = parse_identifier();
+            declare_identifier(static_cast<IdentifierNode*>(param.get())->get_name());
+
+            parameters.push_back(std::move(param));
+
+            if (current_token.type == TokenType::COMMA) {
+                consume(TokenType::COMMA, "Expected ','");
+            }
+        }
+
+        consume(TokenType::R_PARENTHESIS, "Expected ')' enclosing parameters");
+
+        auto body = parse_block_statement();
+
+        exit_scope();
+
+        return std::make_unique<ClosureExpressionNode>(std::move(parameters), std::move(body));
+    }
+
     std::unique_ptr<AstNode> Parser::parse_module_access_expression(std::unique_ptr<AstNode> initial_expr) {
         consume(TokenType::MODULE_ACCESS, "Expected '::'");
 
@@ -781,6 +809,10 @@ namespace luaxc {
             }
             case (TokenType::KEYWORD_USE): {
                 node = parse_module_import_expression();
+                break;
+            }
+            case (TokenType::KEYWORD_FUNC): {
+                node = parse_closure_expression();
                 break;
             }
             default:

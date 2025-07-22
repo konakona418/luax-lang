@@ -87,6 +87,7 @@ namespace luaxc {
         size_t module_id;
         size_t arity;
         bool is_method;
+        bool is_closure;
     };
 
     class IRInstruction {
@@ -248,6 +249,8 @@ namespace luaxc {
         void generate_module_import_expression(const ModuleImportExpresionNode* expression, ByteCode& byte_code);
 
         void generate_module_access_expression(const ExpressionNode* expression, ByteCode& byte_code);
+
+        void generate_closure_expression(const ClosureExpressionNode* expression, ByteCode& byte_code);
 
         void generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code);
 
