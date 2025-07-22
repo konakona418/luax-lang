@@ -1,0 +1,72 @@
+let typing = use "std/typing";
+let io = use "std/io";
+
+func ArrayList(TData) {
+
+    let _ArrayListT = type {
+        field _data = typing::Array;
+        field _size = typing::Int;
+        field _capacity = typing::Int;
+        field _type = typing::Type;
+
+        func new() {
+            let arr = _ArrayListT {};
+            arr._size = 0;
+            arr._capacity = 4;
+            arr._data = typing::ArrayOf(TData, arr._capacity);
+            arr._type = TData;
+            return arr;
+        }
+
+        method data(self) {
+            return self._data;
+        }
+
+        method push(self, item) {
+            self._realloc();
+            self._data[self._size] = item;
+            self._size += 1;
+        }
+
+        method pop(self) {
+            if (self._size == 0) {
+                return null;
+            }
+
+            let value = self._data[self._size - 1];
+            self._size -= 1;
+            
+            return value;
+        }
+
+        method size(self) {
+            return self._size;
+        }
+
+        method get(self, idx) {
+            return self._data[idx];
+        }
+
+        method set(self, idx, value) {
+            self._data[idx] = value;
+        }
+
+        func _copy(from, dest, size) {
+            for (let i = 0; i < size; i += 1) {
+                dest[i] = from[i];
+            }
+        }
+
+        method _realloc(self) {
+            if (self._size == self._capacity) {
+                let newData = typing::ArrayOf(self._type, self._capacity * 2);
+                _copy(self._data, newData, self._capacity);
+                
+                self._capacity = self._capacity * 2;
+                self._data = newData;
+            }
+        }
+    };
+
+    return _ArrayListT;
+}

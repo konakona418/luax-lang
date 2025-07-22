@@ -1,0 +1,37 @@
+let typing = use "std/typing";
+let io = use "std/io";
+
+func SizedArray(TData) {
+
+    let _SizedArrayT = type {
+        field _data = typing::Array;
+        field _size = typing::Int;
+        field _type = typing::Type;
+
+        func new(size) {
+            let arr = _SizedArrayT {};
+            arr._size = size;
+            arr._data = typing::ArrayOf(TData, arr._size);
+            arr._type = TData;
+            return arr;
+        }
+
+        method data(self) {
+            return self._data;
+        }
+
+        method size(self) {
+            return self._size;
+        }
+
+        method get(self, idx) {
+            return self._data[idx];
+        }
+
+        method set(self, idx, value) {
+            self._data[idx] = value;
+        }
+    };
+
+    return _SizedArrayT;
+}

@@ -1,0 +1,42 @@
+let typing = use "std/typing";
+
+func Option(TData) {
+
+    let _OptionT = type {
+        field _data = TData;
+        field _containsValue = typing::Bool;
+
+        func some(value) {
+            let option = _OptionT {};
+            option._data = value;
+            option._containsValue = true;
+            return option;
+        }
+
+        func none() {
+            let option = _OptionT {};
+            option._containsValue = false;
+            return option;
+        }
+
+        method hasValue(self) {
+            return self._containsValue;
+        }
+
+        method unwrap(self) {
+            if (self._containsValue) {
+                return self._data;
+            }
+            return null;
+        }
+
+        method unwrapOr(self, default) {
+            if (self._containsValue) {
+                return self._data;
+            }
+            return default;
+        }
+    };
+
+    return _OptionT;
+}
