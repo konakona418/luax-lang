@@ -83,6 +83,14 @@ namespace luaxc {
 
         bool is_in_scope_no_propagation(ParserState state) const;
 
+        enum class TypeAnnotationType {
+            Args,
+            Return,
+            Declare,
+        };
+
+        void consume_type_annotation(TypeAnnotationType type);
+
         std::unique_ptr<AstNode> parse_statement();
 
         std::unique_ptr<AstNode> parse_declaration_statement(bool consume_semicolon = true);

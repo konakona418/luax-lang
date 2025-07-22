@@ -1,6 +1,8 @@
 #include "parser.hpp"
 #include "ast.hpp"
 
+#define LUAXC_PARSER_FEATURE_TYPE_ANNOTATION
+
 #define LUAXC_PARSER_THROW_ERROR(message)                                                 \
     do {                                                                                  \
         auto line_and_column = lexer.get_line_and_column();                               \
@@ -68,6 +70,40 @@ namespace luaxc {
             }
         }
         return false;
+    }
+
+    void Parser::consume_type_annotation(TypeAnnotationType type) {
+#ifdef LUAXC_PARSER_FEATURE_TYPE_ANNOTATION
+        if (current_token.type != TokenType::COLON) {
+            return;
+        }
+        next_token();
+
+        switch (type) {
+            case TypeAnnotationType::Args: {
+                while (current_token.type != TokenType::COMMA &&        // arg1, arg2, arg3
+                       current_token.type != TokenType::R_PARENTHESIS) {// arg1, arg2)
+                    next_token();
+                }
+                break;
+            }
+            case TypeAnnotationType::Return: {
+                while (current_token.type != TokenType::L_CURLY_BRACKET &&// func (): type {}
+                       current_token.type != TokenType::SEMICOLON) {      // func (): type;
+                    next_token();
+                }
+                break;
+            }
+            case TypeAnnotationType::Declare: {
+                while (current_token.type != TokenType::EQUAL &&    // let a: type = 1;
+                       current_token.type != TokenType::COMMA &&    // let a: type, b: type;
+                       current_token.type != TokenType::SEMICOLON) {// let a: type;
+                    next_token();
+                }
+                break;
+            }
+        }
+#endif
     }
 
     std::unique_ptr<AstNode> Parser::parse_program(ParserState init_state) {
@@ -150,6 +186,8 @@ namespace luaxc {
 
 
         // 'let' identifier ';'
+        consume_type_annotation(TypeAnnotationType::Declare);
+
         if (current_token.type == TokenType::SEMICOLON) {
             consume(TokenType::SEMICOLON, "Expected semicolon after declaration identifier");
             return std::make_unique<DeclarationStmtNode>(std::move(identifiers), nullptr);
@@ -164,6 +202,8 @@ namespace luaxc {
             declare_identifier(current_token.value);
 
             consume(TokenType::IDENTIFIER, "Expected identifier after comma in declaration statement");
+
+            consume_type_annotation(TypeAnnotationType::Declare);
         }
 
         if (is_multi_declaration) {
@@ -230,12 +270,16 @@ namespace luaxc {
 
             parameters.push_back(std::move(param));
 
+            consume_type_annotation(TypeAnnotationType::Args);
+
             if (current_token.type == TokenType::COMMA) {
                 consume(TokenType::COMMA, "Expected ','");
             }
         }
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' enclosing method parameters");
+
+        consume_type_annotation(TypeAnnotationType::Return);
 
         if (current_token.type != TokenType::L_CURLY_BRACKET) {
             // forward function declaration
@@ -280,12 +324,16 @@ namespace luaxc {
 
             parameters.push_back(std::move(param));
 
+            consume_type_annotation(TypeAnnotationType::Args);
+
             if (current_token.type == TokenType::COMMA) {
                 consume(TokenType::COMMA, "Expected ','");
             }
         }
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' enclosing function parameters");
+
+        consume_type_annotation(TypeAnnotationType::Return);
 
         if (current_token.type != TokenType::L_CURLY_BRACKET) {
             // forward function declaration
@@ -705,12 +753,16 @@ namespace luaxc {
 
             parameters.push_back(std::move(param));
 
+            consume_type_annotation(TypeAnnotationType::Args);
+
             if (current_token.type == TokenType::COMMA) {
                 consume(TokenType::COMMA, "Expected ','");
             }
         }
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' enclosing parameters");
+
+        consume_type_annotation(TypeAnnotationType::Return);
 
         auto body = parse_block_statement();
 
