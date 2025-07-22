@@ -924,8 +924,8 @@ namespace luaxc {
             generate_member_access(member_access_left, byte_code);
 
             // then push value
-            generate_expression(static_cast<const ExpressionNode*>(right.get()), byte_code);
             generate_member_access(left_expr, byte_code);
+            generate_expression(static_cast<const ExpressionNode*>(right.get()), byte_code);
             byte_code.push_back(IRInstruction(instruction_type, {std::monostate()}));
 
             if (member_access->get_access_type() == MemberAccessExpressionNode::MemberAccessType::DotMemberAccess) {
