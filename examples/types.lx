@@ -1,0 +1,130 @@
+let io = use "std/io";
+let typing = use "std/typing";
+
+// use type {}; to define a type. type {} is an expression.
+let MyType = type {
+    field a = typing::Int; // use field to specify field types
+    field b = typing::Int;
+
+    // static methods
+    func new(a, b) {
+        let obj = MyType {};
+        obj.a = a;
+        obj.b = b;
+        return obj;
+    }
+
+    // instance methods
+    method sum(self) {
+        // it does not matter to use self or other names.
+        // but it must contains at least one param to receive the instance.
+        return self.a + self.b;
+    }
+
+    method opAdd(self, other) {
+        // operator overloading
+        return MyType::new(self.a + other.a, self.b + other.b);
+    }
+};
+
+// call static method
+let obj = MyType::new(1, 2);
+// call instance method
+io::println(obj.sum());
+
+io::println((obj + MyType::new(3, 4)).sum());
+
+// generics
+// as previously mentioned, type {} is an expression with a return value
+// and can be passed as an argument to a function.
+func Vector2(TData) {
+    // you must declare this _Vector2T.
+    // otherwise, the type closure (yes it is a closure) will not be able
+    // to capture something referencing to the type itself.
+    let _Vector2T = type {
+        field x = TData;
+        field y = TData;
+
+        func new(x, y) {
+            let obj = _Vector2T {};
+            obj.x = x;
+            obj.y = y;
+            return obj;
+        }
+
+        method opAdd(self, other) {
+            return _Vector2T::new(self.x + other.x, self.y + other.y);
+        }
+
+        method opNegate(self) {
+            return _Vector2T::new(-self.x, -self.y);
+        }
+    };
+    return _Vector2T;
+}
+
+// generic instanciation
+let Vector2i = Vector2(typing::Int);
+
+let vec1 = Vector2i::new(1, 2);
+io::println(vec1.x, vec1.y);
+
+let vec2 = vec1 + Vector2i::new(3, 4);
+io::println(vec2.x, vec2.y);
+
+let vec3 = -vec2;
+io::println(vec3.x, vec3.y);
+
+// module declaration
+// just like type declarations, modules declarations are also closures
+let MyModule = mod {
+    let myValue = 42;
+
+    let MyType = type {
+        field firstField = typing::Int;
+        field secondField = typing::String;
+
+        func new(firstField, secondField) {
+            io::println("Creating a new MyType!");
+            let obj = MyModule::MyType {
+                firstField = firstField,
+                secondField = secondField,
+            };
+            obj.print();
+            io::println("Done!");
+            return obj;
+        }
+
+        method print(self) {
+            io::println("Hello from MyModule.MyType:", 
+                self.firstField, self.secondField);
+        }
+    };
+
+    let MySubModule = mod {
+        let myValue = 1024;
+
+        let MyType = type {
+            field firstField = typing::Int;
+            field secondField = typing::String;
+
+            func new(firstField, secondField) {
+                return MySubModule::MyType {
+                    firstField = firstField,
+                    secondField = secondField,
+                };
+            }
+
+            method print(self) {
+                io::println("Hello from MyModule.MySubModule.MyType:", 
+                    self.firstField, self.secondField);
+            }
+        };
+    };
+};
+
+let myTypeObject = MyModule::MyType::new(123, "hello");
+myTypeObject.print();
+
+let mySubModuleTypeObject = MyModule::MySubModule::MyType::new(123, "hello");
+mySubModuleTypeObject.print();

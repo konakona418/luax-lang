@@ -1,0 +1,18 @@
+let io = use "std/io";
+// import io module. use xx is an *Expression*
+
+io::println("Hello, World!");
+// println is a *Function* inside io module
+
+let num = 42;
+
+if num > 0 {
+    io::println("Number is positive");
+} else {
+    io::println("Number is negative");
+}
+
+for (let i = 0; i < 5; i += 1) {
+    // no ++
+    io::println("Iteration:", i);
+}

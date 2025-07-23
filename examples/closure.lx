@@ -1,0 +1,11 @@
+let io = use "std/io";
+
+let closure = func(x) {
+    let someNumber = 5;
+    return func(y) {
+        io::println("inside closure", someNumber);
+        return x + y;
+    };
+};
+
+closure(1)(2);
