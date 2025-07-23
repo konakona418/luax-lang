@@ -45,4 +45,14 @@ namespace luaxc {
         return runtime;
     }
 
+    class Constraints : public NativeLib {
+    public:
+        Functions load(IRRuntime& runtime) override;
+    };
+
+    inline Constraints& constraints() {
+        static Constraints constraints;
+        return constraints;
+    }
+
 }// namespace luaxc

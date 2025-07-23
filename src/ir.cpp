@@ -1645,9 +1645,11 @@ namespace luaxc {
         for (auto& [name, value]: current_stack_frame().variables) {
             if (value.get_type() == ValueType::Function) {
                 auto* fn = static_cast<FunctionObject*>(value.get_inner_value<GCObject*>());
-                if (fn->is_method_function()) {
-                    rule->add_constraint(name, fn);
-                }
+                rule->add_constraint(name, fn);
+            } else {
+                throw IRInterpreterException(
+                        "Rule constraint requires a valid funtion; Constraint " +
+                        name->contained_string() + " is not a valid function");
             }
         }
 
@@ -2325,6 +2327,9 @@ namespace luaxc {
 
         auto runtime_fn = luaxc::runtime().load(runtime);
         native_funtions.insert(native_funtions.end(), runtime_fn.begin(), runtime_fn.end());
+
+        auto constraints_fn = luaxc::constraints().load(runtime);
+        native_funtions.insert(native_funtions.end(), constraints_fn.begin(), constraints_fn.end());
 
         for (auto [name, fn]: native_funtions) {
             store_value_in_global_scope(name, fn);

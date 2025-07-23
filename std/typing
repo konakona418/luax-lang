@@ -24,3 +24,7 @@ func __builtin_typings_array_of();
 
 let ArrayOf = __builtin_typings_array_of;
 
+func __builtin_typings_type_of();
+
+let typeOf = __builtin_typings_type_of;
+

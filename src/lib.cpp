@@ -3,6 +3,18 @@
 #include <iostream>
 
 namespace luaxc {
+
+    void init_type_info(GCObject* object, TypeObject* type) {
+        for (auto [name, _]: type->get_fields()) {
+            object->storage.fields[name] = PrimValue::null();
+        }
+
+        for (auto [name, fn]: type->get_methods()) {
+            object->storage.fields[name] = PrimValue(ValueType::Function, fn);
+        }
+    }
+
+
 #define __LUAXC_EXTRACT_STRING_FROM_PRIM_VALUE(_prim_value) \
     (static_cast<StringObject*>(static_cast<GCObject*>(_prim_value.get_inner_value<GCObject*>()))->contained_string())
 
@@ -78,6 +90,17 @@ namespace luaxc {
         __LUAXC_MAKE_TYPEING_TYPE("Null", "__builtin_typings_none_type")
         __LUAXC_MAKE_TYPEING_TYPE("Type", "__builtin_typings_type_type")
 
+        FunctionObject* type_of = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> PrimValue {
+            if (args.size() != 1) {
+                throw IRInterpreterException("Invalid arg size");
+            }
+
+            return PrimValue(ValueType::Type, args[0].get_type_info());
+        });
+        runtime.gc_regist_no_collect(type_of);
+        auto* type_of_identifier = runtime.push_string_pool_if_not_exists("__builtin_typings_type_of");
+        result.emplace_back(type_of_identifier, PrimValue(ValueType::Function, type_of));
+
         FunctionObject* array_type = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> PrimValue {
             if (args.size() == 0) {
                 throw IRInterpreterException("Invalid arg size");
@@ -119,13 +142,7 @@ namespace luaxc {
             // regist the array prototype
             auto* array_type_info = runtime.get_type_info("Array");
 
-            for (auto [name, _]: array_type_info->get_fields()) {
-                array->storage.fields[name] = PrimValue::null();
-            }
-
-            for (auto [name, fn]: array_type_info->get_methods()) {
-                array->storage.fields[name] = PrimValue(ValueType::Function, fn);
-            }
+            init_type_info(array, array_type_info);
 
             return PrimValue(ValueType::Array, (GCObject*){array});
         });
@@ -185,6 +202,40 @@ namespace luaxc {
         runtime.gc_regist_no_collect(runtime_abort);
         auto* runtime_abort_identifier = runtime.push_string_pool_if_not_exists("__builtin_runtime_abort");
         result.emplace_back(runtime_abort_identifier, PrimValue(ValueType::Function, runtime_abort));
+
+        return result;
+    }
+
+    Functions Constraints::load(IRRuntime& runtime) {
+        Functions result;
+
+        FunctionObject* get_constraints = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> PrimValue {
+            if (args.size() != 1) {
+                throw IRInterpreterException("Invalid arg size");
+            }
+
+            auto& rule = args[0];
+
+            if (rule.get_type() != ValueType::Rule) {
+                throw IRInterpreterException("Invalid arg type");
+            }
+
+            auto constraints = static_cast<RuleObject*>(rule.get_inner_value<GCObject*>())->get_constraints();
+
+            auto guard = runtime.gc_guard();
+            auto* array = runtime.gc_allocate<ArrayObject>(constraints.size(), runtime.get_type_info("Function"));
+            for (size_t i = 0; i < constraints.size(); i++) {
+                array->get_element_ref(i) = PrimValue(ValueType::Function, constraints[i]);
+            }
+
+            // init type info
+            init_type_info(array, runtime.get_type_info("Array"));
+
+            return PrimValue(ValueType::Array, (GCObject*){array});
+        });
+        runtime.gc_regist_no_collect(get_constraints);
+        auto* get_constraints_identifier = runtime.push_string_pool_if_not_exists("__builtin_constraints_get_constraints");
+        result.emplace_back(get_constraints_identifier, PrimValue(ValueType::Function, get_constraints));
 
         return result;
     }

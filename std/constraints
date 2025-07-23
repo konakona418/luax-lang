@@ -1,0 +1,15 @@
+func __builtin_constraints_get_constraints();
+
+let getConstraints = __builtin_constraints_get_constraints;
+
+func satisfy(typeInfo, ruleInfo) {
+    let constraints = getConstraints(ruleInfo);
+    let size = constraints.size();
+    let isSatisfied = true;
+
+    for (let i = 0; i < size; i += 1) {
+        isSatisfied = isSatisfied && constraints[i](typeInfo);
+    }
+
+    return isSatisfied;
+}
