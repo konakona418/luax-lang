@@ -407,9 +407,15 @@ namespace luaxc {
 
         void store_value_in_global_scope(StringObject* identifier, IRPrimValue value);
 
-        void handle_binary_op(IRInstruction::InstructionType op);
+        std::optional<std::array<IRPrimValue, 2>> is_binary_op_dynamically_dispatchable(IRPrimValue lhs, IRPrimValue rhs);
 
-        void handle_unary_op(IRInstruction::InstructionType op);
+        bool dispatch_binary_op(IRPrimValue lhs, IRPrimValue rhs, const std::string& identifier);
+
+        bool handle_binary_op(IRInstruction::InstructionType op);
+
+        bool dispatch_unary_op(IRPrimValue value, const std::string& identifier);
+
+        bool handle_unary_op(IRInstruction::InstructionType op);
 
         bool handle_jump(IRInstruction::InstructionType op, IRJumpParam param);
 
@@ -445,9 +451,9 @@ namespace luaxc {
 
         void handle_return();
 
-        void handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs);
+        bool handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs);
 
-        void handle_unary_op(IRInstruction::InstructionType op, IRPrimValue rhs);
+        bool handle_unary_op(IRInstruction::InstructionType op, IRPrimValue rhs);
     };
 
     class IRRuntime {

@@ -285,7 +285,7 @@ namespace luaxc {
                 generate_member_access_statement_rvalue(static_cast<const MemberAccessExpressionNode*>(node), byte_code);
                 break;
             }
-            case luaxc::ExpressionNode::ExpressionType::MethodInvokeExpr: {
+            case ExpressionNode::ExpressionType::MethodInvokeExpr: {
                 generate_member_access(node, byte_code);
                 break;
             }
@@ -1408,13 +1408,13 @@ namespace luaxc {
                 case IRInstruction::InstructionType::CMP_LE:
                 case IRInstruction::InstructionType::CMP_GT:
                 case IRInstruction::InstructionType::CMP_GE:
-                    handle_binary_op(instruction.type);
+                    jumped = handle_binary_op(instruction.type);
                     break;
 
                 case IRInstruction::InstructionType::NOT:
                 case IRInstruction::InstructionType::LOGICAL_NOT:
                 case IRInstruction::InstructionType::NEGATE:
-                    handle_unary_op(instruction.type);
+                    jumped = handle_unary_op(instruction.type);
                     break;
 
                 case IRInstruction::InstructionType::JMP:
@@ -1678,9 +1678,8 @@ namespace luaxc {
                 push_op_stack(object);
                 push_op_stack(gc_object->storage.fields[op_index_at]);
 
-                handle_function_invocation(IRCallParam{2});
+                jumped = handle_function_invocation(IRCallParam{2});
 
-                jumped = true;
                 return jumped;
             }
         }
@@ -1726,9 +1725,8 @@ namespace luaxc {
                 push_op_stack(object);
                 push_op_stack(gc_object->storage.fields[op_index_at]);
 
-                handle_function_invocation(IRCallParam{3});
+                jumped = handle_function_invocation(IRCallParam{3});
 
-                jumped = true;
                 return jumped;
             }
         }
@@ -1909,100 +1907,189 @@ namespace luaxc {
         pc = return_addr;
     }
 
-    void IRInterpreter::handle_binary_op(IRInstruction::InstructionType op) {
+    std::optional<std::array<IRPrimValue, 2>> IRInterpreter::is_binary_op_dynamically_dispatchable(IRPrimValue lhs, IRPrimValue rhs) {
+        if (lhs.is_gc_object()) {
+            return {{lhs, rhs}};
+        } else if (rhs.is_gc_object()) {
+            return {{rhs, lhs}};
+        }
+        return std::nullopt;
+    }
+
+    bool IRInterpreter::dispatch_binary_op(IRPrimValue lhs, IRPrimValue rhs, const std::string& identifier) {
+        auto* dispatch_operator_identifier = runtime.push_string_pool_if_not_exists(identifier);
+
+        // by default, the converted lhs must be a gc object
+        auto* lhs_object = lhs.get_inner_value<GCObject*>();
+
+        if (lhs_object->storage.fields.find(dispatch_operator_identifier) != lhs_object->storage.fields.end()) {
+            push_op_stack(rhs);
+            push_op_stack(lhs);
+            push_op_stack(lhs_object->storage.fields[dispatch_operator_identifier]);
+
+            return handle_function_invocation(IRCallParam{2});
+        } else if (rhs.is_gc_object()) {
+            // if the lhs does not have a dispatched operator, try to see if the rhs has one
+
+            auto* rhs_object = rhs.get_inner_value<GCObject*>();
+            if (rhs_object->storage.fields.find(dispatch_operator_identifier) != rhs_object->storage.fields.end()) {
+                push_op_stack(lhs);
+                push_op_stack(rhs);
+                push_op_stack(rhs_object->storage.fields[dispatch_operator_identifier]);
+
+                return handle_function_invocation(IRCallParam{2});
+            }
+        }
+        throw IRInterpreterException("Cannot find operator '" + dispatch_operator_identifier->contained_string() + "'");
+    }
+
+    bool IRInterpreter::handle_binary_op(IRInstruction::InstructionType op) {
         auto rhs_variant = pop_op_stack();
         auto lhs_variant = pop_op_stack();
         // the left node is visited first and entered the stack first,
         // so the right node is the top of the stack
 
-        handle_binary_op(op, lhs_variant, rhs_variant);
+        return handle_binary_op(op, lhs_variant, rhs_variant);
     }
 
-    void IRInterpreter::handle_unary_op(IRInstruction::InstructionType op) {
+    bool IRInterpreter::handle_unary_op(IRInstruction::InstructionType op) {
         auto rhs_variant = pop_op_stack();
 
-        handle_unary_op(op, rhs_variant);
+        return handle_unary_op(op, rhs_variant);
     }
 
-    void IRInterpreter::handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs) {
+#define __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP(_op) \
+    if (dynamically_dispatchable) {                              \
+        return dispatch_binary_op(                               \
+                dispatchable_pair.value()[0],                    \
+                dispatchable_pair.value()[1],                    \
+                _op);                                            \
+    }
+
+    bool IRInterpreter::handle_binary_op(IRInstruction::InstructionType op, IRPrimValue lhs, IRPrimValue rhs) {
+        auto dispatchable_pair = is_binary_op_dynamically_dispatchable(lhs, rhs);
+        bool dynamically_dispatchable = dispatchable_pair.has_value();
+
         switch (op) {
             case IRInstruction::InstructionType::ADD:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opAdd");
                 push_op_stack(detail::prim_value_add(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::SUB:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opSub");
                 push_op_stack(detail::prim_value_sub(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::MUL:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opMul");
                 push_op_stack(detail::prim_value_mul(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::DIV:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opDiv");
                 push_op_stack(detail::prim_value_div(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::MOD:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opModulo");
                 push_op_stack(detail::prim_value_mod(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::AND:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opBitwiseAnd");
                 push_op_stack(detail::prim_value_band(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::LOGICAL_AND: {
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opLogicalAnd");
                 push_op_stack(detail::prim_value_land(lhs, rhs));
                 break;
             }
             case IRInstruction::InstructionType::OR:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opBitwiseOr");
                 push_op_stack(detail::prim_value_bor(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::LOGICAL_OR:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opLogicalOr");
                 push_op_stack(detail::prim_value_lor(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::XOR:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opXor");
                 push_op_stack(detail::prim_value_bxor(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::SHL:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opShiftLeft");
                 push_op_stack(detail::prim_value_shl(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::SHR:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opShiftRight");
                 push_op_stack(detail::prim_value_shr(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_EQ:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opCompareEqual");
                 push_op_stack(detail::prim_value_eq(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_NE:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opCompareNotEqual");
                 push_op_stack(detail::prim_value_neq(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_LT:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opCompareLessThan");
                 push_op_stack(detail::prim_value_lt(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_LE:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opCompareLessThanOrEqual");
                 push_op_stack(detail::prim_value_lte(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_GT:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opCompareGreaterThan");
                 push_op_stack(detail::prim_value_gt(lhs, rhs));
                 break;
             case IRInstruction::InstructionType::CMP_GE:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_BINARY_OP("opCompareGreaterThanOrEqual");
                 push_op_stack(detail::prim_value_gte(lhs, rhs));
                 break;
             default:
                 throw IRInterpreterException("Invalid instruction type");
-                return;
         }
+        return false;
     }
 
-    void IRInterpreter::handle_unary_op(IRInstruction::InstructionType op, IRPrimValue rhs) {
+    bool IRInterpreter::dispatch_unary_op(IRPrimValue value, const std::string& identifier) {
+        auto* dispatch_operator_identifier = runtime.push_string_pool_if_not_exists(identifier);
+
+        auto* object = value.get_inner_value<GCObject*>();
+        if (object->storage.fields.find(dispatch_operator_identifier) != object->storage.fields.end()) {
+            push_op_stack(value);
+            push_op_stack(object->storage.fields[dispatch_operator_identifier]);
+
+            return handle_function_invocation(IRCallParam{1});
+        }
+        throw IRInterpreterException("Cannot find unary operator '" + dispatch_operator_identifier->contained_string() + "'");
+    }
+
+#define __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_UNARY_OP(_op) \
+    if (dynamically_dispatchable) {                             \
+        return dispatch_unary_op(rhs, _op);                     \
+    }
+
+    bool IRInterpreter::handle_unary_op(IRInstruction::InstructionType op, IRPrimValue rhs) {
+        bool dynamically_dispatchable = rhs.is_gc_object();
+
         switch (op) {
             case IRInstruction::InstructionType::NEGATE:
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_UNARY_OP("opNegate");
                 push_op_stack(detail::prim_value_neg(rhs));
                 break;
             case IRInstruction::InstructionType::NOT: {
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_UNARY_OP("opBitwiseNot");
                 push_op_stack(detail::prim_value_bnot(rhs));
                 break;
             }
             case IRInstruction::InstructionType::LOGICAL_NOT: {
+                __LUAXC_IR_INTERPRETER_UTILS_TRY_DISPATCH_UNARY_OP("opLogicalNot");
                 push_op_stack(detail::prim_value_lnot(rhs));
                 break;
             }
             default:
                 throw IRInterpreterException("Invalid instruction type");
         }
+        return false;
     }
 
     void IRInterpreter::declare_identifier(StringObject* identifier) {

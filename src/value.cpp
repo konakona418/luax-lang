@@ -17,7 +17,7 @@ namespace luaxc {
                                   [](Bool l, Float r) -> PrimValue { return PrimValue::from_bool(static_cast<Float>(l) OP r); }, \
                                   [](Float l, Bool r) -> PrimValue { return PrimValue::from_bool(l OP static_cast<Float>(r)); }, \
                                                                                                                                  \
-                                  [](NullObject, NullObject) -> PrimValue { return PrimValue::from_bool(true); },                \
+                                  /*[](NullObject, NullObject) -> PrimValue { return PrimValue::from_bool(true); },*/            \
                                                                                                                                  \
                                   [](auto&&, auto&&) -> PrimValue {                                                              \
                                       LUAXC_GC_THROW_ERROR("No available overloaded function for " #NAME);                       \
