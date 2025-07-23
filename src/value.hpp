@@ -41,6 +41,7 @@ namespace luaxc {
         Object,
         Module,
         Type,
+        Rule,
         Null,
         Unit,
         Unknown
@@ -55,6 +56,7 @@ namespace luaxc {
     class TypeObject;
     class PrimValue;
     class StringObject;
+    class RuleObject;
     class ModuleObject;
 
     class GCObject {
@@ -221,6 +223,7 @@ namespace luaxc {
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(unit, "Unit")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(null, "Null")
         LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(type, "Type")
+        LUAXC_GC_VALUE_DECLARE_STATIC_TYPE_INFO(rule, "Rule")
 
         static std::vector<std::pair<std::string, TypeObject*>> get_all_static_type_info() {
             return {
@@ -234,7 +237,9 @@ namespace luaxc {
                     {"Object", gc_object()},
                     {"Unit", unit()},
                     {"Null", null()},
-                    {"Type", type()}};
+                    {"Type", type()},
+                    {"Rule", rule()},
+            };
         }
 
         void add_field(StringObject* name, TypeField field) { fields.emplace(name, field); }
@@ -327,8 +332,10 @@ namespace luaxc {
 
         bool is_gc_object() const {
             static std::unordered_set<ValueType> types = {
-                    ValueType::Type, ValueType::String, ValueType::Function,
-                    ValueType::Array, ValueType::Object, ValueType::Module};
+                    ValueType::Type, ValueType::Rule,
+                    ValueType::String, ValueType::Function,
+                    ValueType::Array, ValueType::Object,
+                    ValueType::Module};
 
             return types.find(type) != types.end();
         }
@@ -526,6 +533,48 @@ namespace luaxc {
         size_t size;
 
         TypeObject* element_type_info;
+    };
+
+    class RuleObject : public GCObject {
+    public:
+        std::vector<GCObject*> get_referenced_objects() const override {
+            std::vector<GCObject*> referenced_objects;
+
+            for (auto& [identifier, constraint]: constraints) {
+                referenced_objects.push_back(identifier);
+                referenced_objects.push_back(constraint);
+            }
+
+            return referenced_objects;
+        }
+
+        size_t get_object_size() const override { return sizeof(RuleObject); }
+
+        std::string to_string() const override { return "[rule object]"; }
+
+        RuleObject() = default;
+
+        void add_constraint(StringObject* identifier, FunctionObject* constraint) {
+            constraints.emplace(identifier, constraint);
+        }
+
+        std::optional<FunctionObject*> query(StringObject* identifier) const {
+            if (auto it = constraints.find(identifier); it != constraints.end()) {
+                return it->second;
+            }
+            return std::nullopt;
+        }
+
+        std::vector<FunctionObject*> get_constraints() const {
+            std::vector<FunctionObject*> constraints;
+            for (auto& [identifier, constraint]: this->constraints) {
+                constraints.push_back(constraint);
+            }
+            return constraints;
+        }
+
+    private:
+        std::unordered_map<StringObject*, FunctionObject*> constraints;
     };
 
     namespace detail {

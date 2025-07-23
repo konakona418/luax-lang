@@ -345,6 +345,10 @@ namespace luaxc {
                 generate_initializer_list_expression(static_cast<const InitializerListExpressionNode*>(node), byte_code);
                 break;
             }
+            case ExpressionNode::ExpressionType::RuleExpr: {
+                generate_rule_expression(static_cast<const RuleExpressionNode*>(node), byte_code);
+                break;
+            }
             default:
                 throw IRGeneratorException("Unsupported expression type");
         }
@@ -558,6 +562,44 @@ namespace luaxc {
                         expression->get_parameters().size(),
                         false,
                         true}));
+    }
+
+    void IRGenerator::generate_rule_expression(const RuleExpressionNode* expression, ByteCode& byte_code) {
+        auto* rule_block = static_cast<BlockNode*>(expression->get_rule_block().get());
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::BEGIN_LOCAL_DERIVED,
+                              {std::monostate()}));
+
+        for (auto& s: rule_block->get_statements()) {
+            auto stmt = static_cast<StatementNode*>(s.get());
+            if (stmt->get_statement_type() == StatementNode::StatementType::ConstraintDeclStmt) {
+                auto constraint = static_cast<ConstraintStatementNode*>(stmt);
+                auto constraint_name = static_cast<IdentifierNode*>(constraint->get_constraint_identifier().get())->get_name();
+
+                generate_expression(static_cast<ExpressionNode*>(constraint->get_constraint_expr().get()), byte_code);
+
+                auto* cached_string = runtime.push_string_pool_if_not_exists(constraint_name);
+
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::DECLARE_IDENTIFIER,
+                        IRDeclareIdentifierParam{cached_string}));
+
+                byte_code.push_back(IRInstruction(
+                        IRInstruction::InstructionType::STORE_IDENTIFIER,
+                        IRStoreIdentifierParam{cached_string}));
+            } else {
+                throw IRGeneratorException("Only constraint declaration is supported in rule body");
+            }
+        }
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::MAKE_RULE,
+                              {std::monostate()}));
+
+        byte_code.push_back(
+                IRInstruction(IRInstruction::InstructionType::END_LOCAL,
+                              {std::monostate()}));
     }
 
     void IRGenerator::generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code) {
@@ -1454,6 +1496,11 @@ namespace luaxc {
                     break;
                 }
 
+                case IRInstruction::InstructionType::MAKE_RULE: {
+                    handle_make_rule();
+                    break;
+                }
+
                 case IRInstruction::InstructionType::MAKE_OBJECT: {
                     handle_make_object(std::get<IRMakeObjectParam>(instruction.param));
                     break;
@@ -1588,6 +1635,23 @@ namespace luaxc {
         }
 
         push_op_stack(IRPrimValue(ValueType::Type, static_cast<GCObject*>(type_info)));
+    }
+
+    void IRInterpreter::handle_make_rule() {
+        auto guard = runtime.gc_guard();
+
+        RuleObject* rule = runtime.gc_allocate<RuleObject>();
+
+        for (auto& [name, value]: current_stack_frame().variables) {
+            if (value.get_type() == ValueType::Function) {
+                auto* fn = static_cast<FunctionObject*>(value.get_inner_value<GCObject*>());
+                if (fn->is_method_function()) {
+                    rule->add_constraint(name, fn);
+                }
+            }
+        }
+
+        push_op_stack(IRPrimValue(ValueType::Rule, static_cast<GCObject*>(rule)));
     }
 
     bool IRInterpreter::handle_static_method_invocation(const PrimValue& value, StringObject* name) {

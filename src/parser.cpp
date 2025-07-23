@@ -165,6 +165,9 @@ namespace luaxc {
             case TokenType::KEYWORD_RETURN:
                 parsed = parse_return_statement();
                 break;
+            case TokenType::KEYWORD_CONSTRAINT:
+                parsed = parse_constraint_expression();
+                break;
             default:
                 parsed = parse_expression();
                 break;
@@ -897,6 +900,10 @@ namespace luaxc {
             }
             case (TokenType::KEYWORD_FUNC): {
                 node = parse_closure_expression();
+                break;
+            }
+            case (TokenType::KEYWORD_RULE): {
+                node = parse_rule_expression();
                 break;
             }
             default:

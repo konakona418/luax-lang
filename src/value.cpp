@@ -253,6 +253,8 @@ namespace luaxc {
                 return TypeObject::function();
             case ValueType::Type:
                 return TypeObject::type();
+            case ValueType::Rule:
+                return TypeObject::rule();
             case ValueType::Object:
                 return TypeObject::gc_object();
             default:

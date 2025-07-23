@@ -146,6 +146,7 @@ namespace luaxc {
 
             MAKE_STRING,
             MAKE_FUNC,
+            MAKE_RULE,
 
             MAKE_MODULE,      // make a module from an exported object
             MAKE_MODULE_LOCAL,// make a module from a local object combinator
@@ -259,6 +260,8 @@ namespace luaxc {
         void generate_module_access_expression(const ExpressionNode* expression, ByteCode& byte_code);
 
         void generate_closure_expression(const ClosureExpressionNode* expression, ByteCode& byte_code);
+
+        void generate_rule_expression(const RuleExpressionNode* expression, ByteCode& byte_code);
 
         void generate_numeric_literal(const NumericLiteralNode* statement, ByteCode& byte_code);
 
@@ -429,6 +432,8 @@ namespace luaxc {
         bool handle_relative_jump(IRInstruction::InstructionType op, IRJumpRelParam param);
 
         void handle_type_creation();
+
+        void handle_make_rule();
 
         void handle_member_load(IRLoadMemberParam param);
 
