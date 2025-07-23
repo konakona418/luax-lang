@@ -1,0 +1,48 @@
+let typing = use "std/typing";
+
+func Range(TIterable) {
+
+    let _RangeT = type {
+        field _iterable = TIterable;
+        field _size = typing::Int;
+
+        func from(iterable) {
+            let range = _RangeT {};
+            range._iterable = iterable;
+            range._size = iterable.size();
+            return range;
+        }
+
+        method opIndexAt(self, idx) {
+            return self._iterable[idx];
+        }
+
+        method opIndexAssign(self, idx, value) {
+            self._iterable[idx] = value;
+        }
+
+        method iter(self, fn) {
+            for (let i = 0; i < self._size; i += 1) {
+                fn(self._iterable[i]);
+            }
+            return self;
+        }
+
+        method map(self, fn) {
+            for (let i = 0; i < self._size; i += 1) {
+                self._iterable[i] = fn(self._iterable[i]);
+            }
+            return self;
+        }
+
+        method reduce(self, init, fn) {
+            let accumulator = init;
+            for (let i = 0; i < self._size; i += 1) {
+                accumulator = fn(accumulator, self._iterable[i]);
+            }
+            return accumulator;
+        }
+    };
+
+    return _RangeT;
+};

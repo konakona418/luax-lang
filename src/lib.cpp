@@ -116,11 +116,39 @@ namespace luaxc {
                 }
             }
 
+            // regist the array prototype
+            auto* array_type_info = runtime.get_type_info("Array");
+
+            for (auto [name, _]: array_type_info->get_fields()) {
+                array->storage.fields[name] = PrimValue::null();
+            }
+
+            for (auto [name, fn]: array_type_info->get_methods()) {
+                array->storage.fields[name] = PrimValue(ValueType::Function, fn);
+            }
+
             return PrimValue(ValueType::Array, (GCObject*){array});
         });
         runtime.gc_regist_no_collect(array_type);
         auto* array_identifier = runtime.push_string_pool_if_not_exists("__builtin_typings_array_of");
         result.emplace_back(array_identifier, PrimValue(ValueType::Function, array_type));
+
+        FunctionObject* array_method_size = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> PrimValue {
+            if (args.size() != 1) {
+                throw IRInterpreterException("This method must be performed on an array object");
+            }
+
+            if (args[0].get_type() != ValueType::Array) {
+                throw IRInterpreterException("The argument self is not an array object");
+            }
+
+            return PrimValue::from_i64(static_cast<ArrayObject*>(args[0].get_inner_value<GCObject*>())->get_size());
+        });
+        runtime.gc_regist_no_collect(array_method_size);
+        auto* array_method_size_identifier = runtime.push_string_pool_if_not_exists("size");
+        auto* array_type_info = runtime.get_type_info("Array");
+        array_type_info->add_method(array_method_size_identifier, array_method_size);
+        array_type_info->add_field(array_method_size_identifier, TypeObject::TypeField{TypeObject::function()});
 
         return result;
     }
