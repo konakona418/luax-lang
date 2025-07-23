@@ -1725,7 +1725,12 @@ namespace luaxc {
                 push_op_stack(object);
                 push_op_stack(gc_object->storage.fields[op_index_at]);
 
-                jumped = handle_function_invocation(IRCallParam{3});
+                // todo: fix this
+                // usually this override does not return a value
+                // so a unit type value is pushed onto the stack
+                // however this unit value is not properly discarded
+
+                jumped = handle_function_invocation(IRCallParam{3, true});
 
                 return jumped;
             }
@@ -1876,6 +1881,12 @@ namespace luaxc {
             }
             auto ret = fn->call_native(args);
             push_op_stack(ret);
+
+            // force discarding the return value
+            if (param.force_pop_return_value) {
+                pop_op_stack();
+            }
+
             return false;
         } else {
             size_t arg_size = fn->get_arity();
@@ -1889,7 +1900,7 @@ namespace luaxc {
             }
 
             load_context(fn->get_context());
-            push_stack_frame();
+            push_stack_frame(false, param.force_pop_return_value);
             size_t jump_target =
                     runtime.resolve_function_offset(
                             fn->get_module_id(),
@@ -2278,7 +2289,7 @@ namespace luaxc {
         return ctx;
     }
 
-    void IRInterpreter::push_stack_frame(bool allow_propagation) {
+    void IRInterpreter::push_stack_frame(bool allow_propagation, bool force_pop_return_value) {
 
 #ifdef LUAXC_RUNTIME_STACK_OVERFLOW_PROTECTION_ENABLED
         if (stack_frames.size() >= LUAXC_RUNTIME_MAX_STACK_SIZE) {
@@ -2287,12 +2298,19 @@ namespace luaxc {
 #endif
 
         size_t return_addr = pc + 1;
-        stack_frames.emplace_back(return_addr, allow_propagation);
+        stack_frames.emplace_back(return_addr, allow_propagation, force_pop_return_value);
     }
 
     void IRInterpreter::pop_stack_frame() {
+        auto& frame = stack_frames.back();
+
         // set the value of all the pending StackFrameRefs
-        stack_frames.back().notify_return();
+        frame.notify_return();
+
+        // pop the return value, if requested
+        if (frame.force_pop_return_value) {
+            stack.pop_back();
+        }
 
         stack_frames.pop_back();
     }

@@ -125,6 +125,7 @@ namespace luaxc {
         std::unordered_map<StringObject*, PrimValue> variables;
         size_t return_addr;
         bool allow_upward_propagation = false;
+        bool force_pop_return_value = false;
 
         std::vector<std::shared_ptr<StackFrameRef>> pending_refs;
 
@@ -133,9 +134,10 @@ namespace luaxc {
         void notify_return();
 
         explicit StackFrame(size_t return_addr) : return_addr(return_addr) {};
-        StackFrame(size_t return_addr, bool allow_propagation)
+        StackFrame(size_t return_addr, bool allow_propagation, bool force_pop_return_value = false)
             : return_addr(return_addr),
-              allow_upward_propagation(allow_propagation) {};
+              allow_upward_propagation(allow_propagation),
+              force_pop_return_value(force_pop_return_value) {};
     };
 
     struct StackFrameRef {

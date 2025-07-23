@@ -77,6 +77,13 @@ namespace luaxc {
 
     struct IRCallParam {
         size_t arguments_count;
+        bool force_pop_return_value = false;
+        // this is a hack for some dispatched assigment operations.
+        // e.g. index member access expression.
+        // by default, such assignment expression won't return a value;
+        // however, in some cases, when this operation is dispatched to a user-defined function,
+        // an object is returned. but this return value will not be properly discarded by default.
+        // so we need to manually discard it.
     };
 
     struct IRMakeModuleParam {
@@ -369,7 +376,7 @@ namespace luaxc {
 
         PrimValue& op_stack_top() { return stack.back(); }
 
-        void push_stack_frame(bool allow_propagation = false);
+        void push_stack_frame(bool allow_propagation = false, bool force_pop_return_value = false);
 
         void pop_stack_frame();
 
