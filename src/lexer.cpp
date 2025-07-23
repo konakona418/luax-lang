@@ -370,7 +370,8 @@ namespace luaxc {
                 "break", "continue",
                 "return", "use", "mod",
                 "type", "method", "field",
-                "true", "false", "null"};
+                "true", "false", "null",
+                "rule", "constraint"};
         return keywords.find(candidate) != keywords.end();
     }
 
@@ -382,6 +383,7 @@ namespace luaxc {
             case 'c':
                 if (candidate == "const") return TokenType::KEYWORD_CONST;
                 if (candidate == "continue") return TokenType::KEYWORD_CONTINUE;
+                if (candidate == "constraint") return TokenType::KEYWORD_CONSTRAINT;
                 break;
             case 'd':
                 return TokenType::KEYWORD_DO;
@@ -411,6 +413,7 @@ namespace luaxc {
                 break;
             case 'r':
                 if (candidate == "return") return TokenType::KEYWORD_RETURN;
+                if (candidate == "rule") return TokenType::KEYWORD_RULE;
                 break;
             case 't':
                 if (candidate == "type") return TokenType::KEYWORD_TYPE;

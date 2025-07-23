@@ -37,6 +37,7 @@ namespace luaxc {
             InModuleDeclarationScope,
             InInitializerListScope,
             InFunctionOrMethodScope,
+            InRuleDeclarationScope,
             // todo: add when needed
         };
 
@@ -152,6 +153,10 @@ namespace luaxc {
         std::unique_ptr<AstNode> parse_initializer_list_expression(std::unique_ptr<AstNode> type_expr);
 
         std::unique_ptr<AstNode> parse_closure_expression();
+
+        std::unique_ptr<AstNode> parse_rule_expression();
+
+        std::unique_ptr<AstNode> parse_constraint_expression();
 
         std::unique_ptr<AstNode> parse_primary();
 

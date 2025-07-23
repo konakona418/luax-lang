@@ -792,6 +792,31 @@ namespace luaxc {
         return std::make_unique<ModuleAccessExpressionNode>(std::move(initial_expr), std::move(identifier));
     }
 
+    std::unique_ptr<AstNode> Parser::parse_rule_expression() {
+        consume(TokenType::KEYWORD_RULE, "Expected 'rule'");
+
+        enter_scope(ParserState::InRuleDeclarationScope);
+        auto block = parse_block_statement();
+        exit_scope();
+
+        return std::make_unique<RuleExpressionNode>(std::move(block));
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_constraint_expression() {
+        if (!is_in_scope(ParserState::InRuleDeclarationScope)) {
+            LUAXC_PARSER_THROW_ERROR("Constraint expression can only be used inside rule declaration");
+        }
+        consume(TokenType::KEYWORD_CONSTRAINT, "Expected 'constraint'");
+        auto identifier = parse_identifier();
+
+        consume(TokenType::ASSIGN, "Expected '='");
+        auto expr = parse_simple_expression();
+        consume(TokenType::SEMICOLON, "Expected ';'");
+
+        return std::make_unique<ConstraintStatementNode>(
+                std::move(identifier), std::move(expr));
+    }
+
     std::unique_ptr<AstNode> Parser::parse_primary() {
         std::unique_ptr<AstNode> node;
         switch (current_token.type) {

@@ -79,6 +79,8 @@ namespace luaxc {
         KEYWORD_NULL,
         KEYWORD_TRUE,
         KEYWORD_FALSE,
+        KEYWORD_RULE,
+        KEYWORD_CONSTRAINT,
 
         L_PARENTHESIS,// symbol: ()
         R_PARENTHESIS,

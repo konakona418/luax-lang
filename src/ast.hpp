@@ -54,6 +54,7 @@ namespace luaxc {
             ContinueStmt,
             FunctionDeclarationStmt,
             ReturnStmt,
+            ConstraintDeclStmt,
         };
 
         explicit StatementNode(StatementType statement_type)
@@ -85,6 +86,7 @@ namespace luaxc {
             MemberAccessExpr,
             ModuleAccessExpr,
             InitializerListExpr,
+            RuleExpr,
         };
 
         ExpressionNode(ExpressionType expression_type)
@@ -576,6 +578,34 @@ namespace luaxc {
     private:
         std::vector<std::unique_ptr<AstNode>> parameters;
         std::unique_ptr<AstNode> body;
+    };
+
+    class RuleExpressionNode : public ExpressionNode {
+    public:
+        explicit RuleExpressionNode(std::unique_ptr<AstNode> rule_block)
+            : ExpressionNode(ExpressionType::RuleExpr),
+              rule_block(std::move(rule_block)) {}
+
+        const std::unique_ptr<AstNode>& get_rule_block() const { return rule_block; }
+
+    private:
+        std::unique_ptr<AstNode> rule_block;
+    };
+
+    class ConstraintStatementNode : public StatementNode {
+    public:
+        ConstraintStatementNode(std::unique_ptr<AstNode> identifier, std::unique_ptr<AstNode> constraint_expr)
+            : StatementNode(StatementType::ConstraintDeclStmt),
+              constraint_identifier(std::move(identifier)),
+              constraint_expr(std::move(constraint_expr)) {}
+
+        const std::unique_ptr<AstNode>& get_constraint_identifier() const { return constraint_identifier; }
+
+        const std::unique_ptr<AstNode>& get_constraint_expr() const { return constraint_expr; }
+
+    private:
+        std::unique_ptr<AstNode> constraint_identifier;
+        std::unique_ptr<AstNode> constraint_expr;
     };
 
 }// namespace luaxc
