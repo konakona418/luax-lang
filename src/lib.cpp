@@ -237,6 +237,30 @@ namespace luaxc {
         auto* get_constraints_identifier = runtime.push_string_pool_if_not_exists("__builtin_constraints_get_constraints");
         result.emplace_back(get_constraints_identifier, PrimValue(ValueType::Function, get_constraints));
 
-        return result;
+#define __LUAXC_LIB_DEFINE_HAS_WHAT(what)                                                                                     \
+    {                                                                                                                         \
+        FunctionObject* _fn = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> IRPrimValue { \
+            if (args.size() != 2) {                                                                                           \
+                throw IRInterpreterException("Invalid arg size");                                                             \
+            }                                                                                                                 \
+            if (args[0].get_type() != ValueType::Type || !args[1].is_string()) {                                              \
+                throw IRInterpreterException("Invalid arg type");                                                             \
+            }                                                                                                                 \
+            auto* type_object = static_cast<TypeObject*>(args[0].get_inner_value<GCObject*>());                               \
+            auto* method_name = static_cast<StringObject*>(args[1].get_inner_value<GCObject*>());                             \
+            return PrimValue::from_bool(type_object->has_##what(method_name));                                                \
+        });                                                                                                                   \
+        runtime.gc_regist_no_collect(_fn);                                                                                    \
+        auto* _identifier = runtime.push_string_pool_if_not_exists("__builtin_constraints_has_" #what);                       \
+        result.emplace_back(_identifier, PrimValue(ValueType::Function, _fn));                                                \
     }
+
+        __LUAXC_LIB_DEFINE_HAS_WHAT(method);
+        __LUAXC_LIB_DEFINE_HAS_WHAT(static_method);
+        __LUAXC_LIB_DEFINE_HAS_WHAT(field);
+
+#undef __LUAXC_LIB_DEFINE_HAS_WHAT
+
+        return result;
+    }// namespace luaxc
 }// namespace luaxc

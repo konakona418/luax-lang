@@ -13,3 +13,25 @@ func satisfy(typeInfo, ruleInfo) {
 
     return isSatisfied;
 }
+
+func __builtin_constraints_has_method();
+func __builtin_constraints_has_static_method();
+func __builtin_constraints_has_field();
+
+func hasMethod(identifier) {
+    return func(T) {
+        return __builtin_constraints_has_method(T, identifier);
+    };
+}
+
+func hasStaticMethod(identifier) {
+    return func(T) {
+        return __builtin_constraints_has_static_method(T, identifier);
+    };
+}
+
+func hasField(identifier) {
+    return func(T) {
+        return __builtin_constraints_has_field(T, identifier);
+    };
+}

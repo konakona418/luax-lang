@@ -99,6 +99,15 @@ namespace luaxc {
             std::free(this->data);
         }
 
+        bool operator==(const BasicStringObject<Encoding>& other) const {
+            if (length != other.length) return false;
+            return std::memcmp(this->data, other.data, length) == 0;
+        }
+
+        bool operator!=(const BasicStringObject<Encoding>& other) const {
+            return !(*this == other);
+        }
+
         const Encoding* c_str() const { return static_cast<const char*>(data); }
 
         std::string contained_string() const { return std::basic_string<Encoding>(data, length); }
@@ -246,7 +255,12 @@ namespace luaxc {
 
         TypeField get_field(StringObject* name) { return fields.at(name); }
 
-        bool has_field(StringObject* name) { return fields.find(name) != fields.end(); }
+        bool has_field(StringObject* name) {
+            for (auto& field: fields) {
+                if (*field.first == *name) return true;
+            }
+            return false;
+        }
 
         void add_method(StringObject* name, FunctionObject* fn) { member_funcs.emplace(name, fn); }
 
@@ -260,9 +274,19 @@ namespace luaxc {
 
         const std::unordered_map<StringObject*, FunctionObject*>& get_methods() const { return member_funcs; }
 
-        bool has_method(StringObject* name) { return member_funcs.find(name) != member_funcs.end(); }
+        bool has_method(StringObject* name) {
+            for (auto& func: member_funcs) {
+                if (*func.first == *name) return true;
+            }
+            return false;
+        }
 
-        bool has_static_method(StringObject* name) { return static_funcs.find(name) != static_funcs.end(); }
+        bool has_static_method(StringObject* name) {
+            for (auto& func: static_funcs) {
+                if (*func.first == *name) return true;
+            }
+            return false;
+        }
 
         static TypeObject* create(const std::string& type_name) { return new TypeObject(type_name); }
 
