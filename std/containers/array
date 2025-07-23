@@ -31,6 +31,14 @@ func SizedArray(TData) {
         method set(self, idx, value) {
             self._data[idx] = value;
         }
+
+        method opIndexAt(self, index) {
+            return self._data[index];
+        }
+
+        method opIndexAssign(self, index, value) {
+            self._data[index] = value;
+        }
     };
 
     return _SizedArrayT;

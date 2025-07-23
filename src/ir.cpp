@@ -1492,11 +1492,11 @@ namespace luaxc {
                 }
 
                 case IRInstruction::InstructionType::LOAD_INDEXOF: {
-                    handle_index_load();
+                    jumped = handle_index_load();
                     break;
                 }
                 case IRInstruction::InstructionType::STORE_INDEXOF: {
-                    handle_index_store();
+                    jumped = handle_index_store();
                     break;
                 }
 
@@ -1646,57 +1646,94 @@ namespace luaxc {
         object_ptr->storage.fields[name] = value;
     }
 
-    void IRInterpreter::handle_index_load() {
-        auto index = pop_op_stack();
+    bool IRInterpreter::handle_index_load() {
+        bool jumped = false;
 
-        if (index.get_type() != ValueType::Int) {
-            throw IRInterpreterException("Non-integer index value is not supported");
-        }
+        auto index = pop_op_stack();
 
         size_t index_value = index.get_inner_value<Int>();
 
         auto object = pop_op_stack();
 
-        if (object.get_type() != ValueType::Array) {
-            throw IRInterpreterException("Use index for member access is not supported for non-array type");
+        if (object.get_type() == ValueType::Array) {
+            if (index.get_type() != ValueType::Int) {
+                throw IRInterpreterException("Non-integer index value is not supported for arrays");
+            }
+
+            auto* array = static_cast<ArrayObject*>(object.get_inner_value<GCObject*>());
+
+            if (index_value >= array->get_size()) {
+                throw IRInterpreterException("Index out of bounds");
+            }
+
+            push_op_stack(array->get_element(index_value));
+
+            return jumped;
+        } else if (object.get_type() == ValueType::Object) {
+            auto* gc_object = object.get_inner_value<GCObject*>();
+            auto* op_index_at = runtime.push_string_pool_if_not_exists("opIndexAt");
+
+            if (gc_object->storage.fields.find(op_index_at) != gc_object->storage.fields.end()) {
+                push_op_stack(index);
+                push_op_stack(object);
+                push_op_stack(gc_object->storage.fields[op_index_at]);
+
+                handle_function_invocation(IRCallParam{2});
+
+                jumped = true;
+                return jumped;
+            }
         }
 
-        auto* array = static_cast<ArrayObject*>(object.get_inner_value<GCObject*>());
-
-        if (index_value >= array->get_size()) {
-            throw IRInterpreterException("Index out of bounds");
-        }
-
-        push_op_stack(array->get_element(index_value));
+        throw IRInterpreterException("The object is neither an array nor an object with 'opIndexAt' method");
     }
 
-    void IRInterpreter::handle_index_store() {
-        auto index = pop_op_stack();
+    bool IRInterpreter::handle_index_store() {
+        bool jumped = false;
 
-        if (index.get_type() != ValueType::Int) {
-            throw IRInterpreterException("Non-integer index value is not supported");
-        }
-        size_t index_value = index.get_inner_value<Int>();
+        auto index = pop_op_stack();
 
         auto value = pop_op_stack();
 
         auto object = pop_op_stack();
 
-        if (object.get_type() != ValueType::Array) {
-            throw IRInterpreterException("Use index for member access is not supported for non-array type");
+        if (object.get_type() == ValueType::Array) {
+            if (index.get_type() != ValueType::Int) {
+                throw IRInterpreterException("Non-integer index value is not supported for arrays");
+            }
+            size_t index_value = index.get_inner_value<Int>();
+
+            auto* array = static_cast<ArrayObject*>(object.get_inner_value<GCObject*>());
+
+            if (index_value >= array->get_size()) {
+                throw IRInterpreterException("Index out of bounds");
+            }
+
+            if (value.get_type_info() != array->get_element_type()) {
+                throw IRInterpreterException("R-value of assignment does not correspond with the array element type");
+            }
+
+            array->get_element_ref(index_value) = value;
+
+            return jumped;
+        } else if (object.get_type() == ValueType::Object) {
+            auto* gc_object = object.get_inner_value<GCObject*>();
+            auto* op_index_at = runtime.push_string_pool_if_not_exists("opIndexAssign");
+
+            if (gc_object->storage.fields.find(op_index_at) != gc_object->storage.fields.end()) {
+                push_op_stack(value);
+                push_op_stack(index);
+                push_op_stack(object);
+                push_op_stack(gc_object->storage.fields[op_index_at]);
+
+                handle_function_invocation(IRCallParam{3});
+
+                jumped = true;
+                return jumped;
+            }
         }
 
-        auto* array = static_cast<ArrayObject*>(object.get_inner_value<GCObject*>());
-
-        if (index_value >= array->get_size()) {
-            throw IRInterpreterException("Index out of bounds");
-        }
-
-        if (value.get_type_info() != array->get_element_type()) {
-            throw IRInterpreterException("R-value of assignment does not correspond with the array element type");
-        }
-
-        array->get_element_ref(index_value) = value;
+        throw IRInterpreterException("The object is neither an array nor an object with 'opIndexAssign' method");
     }
 
     void IRInterpreter::handle_module_load(IRLoadModuleParam param) {

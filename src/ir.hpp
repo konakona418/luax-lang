@@ -421,9 +421,9 @@ namespace luaxc {
 
         void handle_member_store(IRStoreMemberParam param);
 
-        void handle_index_load();
+        bool handle_index_load();
 
-        void handle_index_store();
+        bool handle_index_store();
 
         void handle_module_load(IRLoadModuleParam param);
 

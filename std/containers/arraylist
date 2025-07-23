@@ -66,6 +66,14 @@ func ArrayList(TData) {
                 self._data = newData;
             }
         }
+
+        method opIndexAt(self, index) {
+            return self._data[index];
+        }
+
+        method opIndexAssign(self, index, value) {
+            self._data[index] = value;
+        }
     };
 
     return _ArrayListT;
