@@ -55,9 +55,34 @@ namespace luaxc {
     class FunctionObject;
     class TypeObject;
     class PrimValue;
-    class StringObject;
     class RuleObject;
     class ModuleObject;
+
+    template<typename Encoding>
+    class BasicStringObject;
+
+    using StringObject = BasicStringObject<char>;
+
+    template<typename Encoding>
+    struct BasicStringObjectPtrHash {
+        size_t operator()(BasicStringObject<Encoding>* string) const {
+            return std::hash<std::basic_string<Encoding>>{}(string->contained_string());
+        }
+    };
+
+    using StringObjectPtrHash = BasicStringObjectPtrHash<char>;
+
+    template<typename Encoding>
+    struct BasicStringObjectPtrCompareEq {
+        bool operator()(BasicStringObject<Encoding>* lhs, BasicStringObject<Encoding>* rhs) const {
+            return lhs->contained_string() == rhs->contained_string();
+        }
+    };
+
+    using StringObjectPtrCompareEq = BasicStringObjectPtrCompareEq<char>;
+
+    template<typename T>
+    using StringObjectKeyMap = std::unordered_map<StringObject*, T, StringObjectPtrHash, StringObjectPtrCompareEq>;
 
     class GCObject {
     public:
@@ -74,7 +99,7 @@ namespace luaxc {
         virtual size_t get_object_size() const;
 
         struct {
-            std::unordered_map<StringObject*, PrimValue> fields;
+            StringObjectKeyMap<PrimValue> fields;
         } storage;
     };
 
@@ -127,13 +152,10 @@ namespace luaxc {
         size_t length;
     };
 
-    class StringObject : public BasicStringObject<char> {
-    };
-
     struct StackFrameRef;
 
     struct StackFrame {
-        std::unordered_map<StringObject*, PrimValue> variables;
+        StringObjectKeyMap<PrimValue> variables;
         size_t return_addr;
         bool allow_upward_propagation = false;
         bool force_pop_return_value = false;
@@ -255,12 +277,7 @@ namespace luaxc {
 
         TypeField get_field(StringObject* name) { return fields.at(name); }
 
-        bool has_field(StringObject* name) {
-            for (auto& field: fields) {
-                if (*field.first == *name) return true;
-            }
-            return false;
-        }
+        bool has_field(StringObject* name) { return fields.find(name) != fields.end(); }
 
         void add_method(StringObject* name, FunctionObject* fn) { member_funcs.emplace(name, fn); }
 
@@ -270,23 +287,13 @@ namespace luaxc {
 
         FunctionObject* get_static_method(StringObject* name) { return static_funcs.at(name); }
 
-        const std::unordered_map<StringObject*, TypeField>& get_fields() const { return fields; }
+        const StringObjectKeyMap<TypeField>& get_fields() const { return fields; }
 
-        const std::unordered_map<StringObject*, FunctionObject*>& get_methods() const { return member_funcs; }
+        const StringObjectKeyMap<FunctionObject*>& get_methods() const { return member_funcs; }
 
-        bool has_method(StringObject* name) {
-            for (auto& func: member_funcs) {
-                if (*func.first == *name) return true;
-            }
-            return false;
-        }
+        bool has_method(StringObject* name) { return member_funcs.find(name) != member_funcs.end(); }
 
-        bool has_static_method(StringObject* name) {
-            for (auto& func: static_funcs) {
-                if (*func.first == *name) return true;
-            }
-            return false;
-        }
+        bool has_static_method(StringObject* name) { return static_funcs.find(name) != static_funcs.end(); }
 
         static TypeObject* create(const std::string& type_name) { return new TypeObject(type_name); }
 
@@ -296,9 +303,9 @@ namespace luaxc {
 
     private:
         std::string type_name;
-        std::unordered_map<StringObject*, TypeField> fields;
-        std::unordered_map<StringObject*, FunctionObject*> member_funcs;
-        std::unordered_map<StringObject*, FunctionObject*> static_funcs;
+        StringObjectKeyMap<TypeField> fields;
+        StringObjectKeyMap<FunctionObject*> member_funcs;
+        StringObjectKeyMap<FunctionObject*> static_funcs;
     };
 
     class PrimValue {
@@ -598,7 +605,7 @@ namespace luaxc {
         }
 
     private:
-        std::unordered_map<StringObject*, FunctionObject*> constraints;
+        StringObjectKeyMap<FunctionObject*> constraints;
     };
 
     namespace detail {
