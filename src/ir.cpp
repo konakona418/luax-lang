@@ -1721,21 +1721,7 @@ namespace luaxc {
 
         auto object = pop_op_stack();
 
-        if (object.get_type() == ValueType::Array) {
-            if (index.get_type() != ValueType::Int) {
-                throw IRInterpreterException("Non-integer index value is not supported for arrays");
-            }
-
-            auto* array = static_cast<ArrayObject*>(object.get_inner_value<GCObject*>());
-
-            if (index_value >= array->get_size()) {
-                throw IRInterpreterException("Index out of bounds");
-            }
-
-            push_op_stack(array->get_element(index_value));
-
-            return jumped;
-        } else if (object.get_type() == ValueType::Object) {
+        if (object.is_gc_object()) {
             auto* gc_object = object.get_inner_value<GCObject*>();
             auto* op_index_at = runtime.push_string_pool_if_not_exists("opIndexAt");
 
@@ -1762,26 +1748,7 @@ namespace luaxc {
 
         auto object = pop_op_stack();
 
-        if (object.get_type() == ValueType::Array) {
-            if (index.get_type() != ValueType::Int) {
-                throw IRInterpreterException("Non-integer index value is not supported for arrays");
-            }
-            size_t index_value = index.get_inner_value<Int>();
-
-            auto* array = static_cast<ArrayObject*>(object.get_inner_value<GCObject*>());
-
-            if (index_value >= array->get_size()) {
-                throw IRInterpreterException("Index out of bounds");
-            }
-
-            if (value.get_type_info() != array->get_element_type()) {
-                throw IRInterpreterException("R-value of assignment does not correspond with the array element type");
-            }
-
-            array->get_element_ref(index_value) = value;
-
-            return jumped;
-        } else if (object.get_type() == ValueType::Object) {
+        if (object.is_gc_object()) {
             auto* gc_object = object.get_inner_value<GCObject*>();
             auto* op_index_at = runtime.push_string_pool_if_not_exists("opIndexAssign");
 
@@ -1790,11 +1757,6 @@ namespace luaxc {
                 push_op_stack(index);
                 push_op_stack(object);
                 push_op_stack(gc_object->storage.fields[op_index_at]);
-
-                // todo: fix this
-                // usually this override does not return a value
-                // so a unit type value is pushed onto the stack
-                // however this unit value is not properly discarded
 
                 jumped = handle_function_invocation(IRCallParam{3, true});
 

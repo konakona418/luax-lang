@@ -167,6 +167,68 @@ namespace luaxc {
         array_type_info->add_method(array_method_size_identifier, array_method_size);
         array_type_info->add_field(array_method_size_identifier, TypeObject::TypeField{TypeObject::function()});
 
+        FunctionObject* array_method_op_index_at = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> PrimValue {
+            if (args.size() != 2) {
+                throw IRInterpreterException("Invalid args");
+            }
+
+            if (args[0].get_type() != ValueType::Array) {
+                throw IRInterpreterException("The argument self is not an array object");
+            }
+
+            auto* array = static_cast<ArrayObject*>(args[0].get_inner_value<GCObject*>());
+
+            if (args[1].get_type() != ValueType::Int) {
+                throw IRInterpreterException("The argument index is not an int");
+            }
+
+            auto idx = args[1].get_inner_value<Int>();
+
+            if (idx < 0 || idx >= array->get_size()) {
+                LUAXC_GC_THROW_ERROR_EXPR("Index out of bounds");
+            }
+
+            return array->get_element(idx);
+        });
+        runtime.gc_regist_no_collect(array_method_op_index_at);
+        auto* array_method_index_at_identifier = runtime.push_string_pool_if_not_exists("opIndexAt");
+        array_type_info->add_method(array_method_index_at_identifier, array_method_op_index_at);
+        array_type_info->add_field(array_method_index_at_identifier, TypeObject::TypeField{TypeObject::function()});
+
+        FunctionObject* array_method_op_index_assign = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> PrimValue {
+            if (args.size() != 3) {
+                throw IRInterpreterException("Invalid args size");
+            }
+
+            if (args[0].get_type() != ValueType::Array) {
+                throw IRInterpreterException("The argument self is not an array object");
+            }
+
+            auto* array = static_cast<ArrayObject*>(args[0].get_inner_value<GCObject*>());
+
+            if (args[1].get_type() != ValueType::Int) {
+                throw IRInterpreterException("The argument index is not an int");
+            }
+
+            if (args[2].get_type_info() != array->get_element_type()) {
+                throw IRInterpreterException("The argument value is not the same type as the array element type");
+            }
+
+            auto idx = args[1].get_inner_value<Int>();
+
+            if (idx < 0 || idx >= array->get_size()) {
+                LUAXC_GC_THROW_ERROR_EXPR("Index out of bounds");
+            }
+
+            array->get_element_ref(idx) = args[2];
+
+            return PrimValue::unit();
+        });
+        runtime.gc_regist_no_collect(array_method_op_index_assign);
+        auto* array_method_index_assign_identifier = runtime.push_string_pool_if_not_exists("opIndexAssign");
+        array_type_info->add_method(array_method_index_assign_identifier, array_method_op_index_assign);
+        array_type_info->add_field(array_method_index_assign_identifier, TypeObject::TypeField{TypeObject::function()});
+
         return result;
     }
 
