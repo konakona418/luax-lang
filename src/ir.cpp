@@ -289,6 +289,10 @@ namespace luaxc {
                 generate_member_access(node, byte_code);
                 break;
             }
+            case ExpressionNode::ExpressionType::ImplicitReceiver: {
+                generate_implicit_receiver(byte_code);
+                break;
+            }
             case ExpressionNode::ExpressionType::NumericLiteral: {
                 generate_numeric_literal(static_cast<const NumericLiteralNode*>(node), byte_code);
                 break;
@@ -828,6 +832,14 @@ namespace luaxc {
                     IRInstruction::InstructionType::STORE_INDEXOF,
                     {std::monostate()}));
         }
+    }
+
+    void IRGenerator::generate_implicit_receiver(ByteCode& byte_code) {
+        auto* implicit_receiver = runtime.push_string_pool_if_not_exists("self");
+
+        byte_code.push_back(IRInstruction(
+                IRInstruction::InstructionType::LOAD_IDENTIFIER,
+                IRLoadIdentifierParam{implicit_receiver}));
     }
 
     std::optional<size_t> IRGenerator::is_module_present(const std::string& module_name) {

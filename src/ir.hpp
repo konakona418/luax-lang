@@ -289,6 +289,8 @@ namespace luaxc {
 
         void generate_member_access(const ExpressionNode* expression, ByteCode& byte_code);
 
+        void generate_implicit_receiver(ByteCode& byte_code);
+
         void generate_initializer_list_expression(const InitializerListExpressionNode* expression, ByteCode& byte_code);
 
         void generate_if_statement(const IfNode* statement, ByteCode& byte_code);

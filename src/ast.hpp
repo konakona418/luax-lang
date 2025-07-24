@@ -87,6 +87,7 @@ namespace luaxc {
             ModuleAccessExpr,
             InitializerListExpr,
             RuleExpr,
+            ImplicitReceiver,
         };
 
         ExpressionNode(ExpressionType expression_type)
@@ -606,6 +607,12 @@ namespace luaxc {
     private:
         std::unique_ptr<AstNode> constraint_identifier;
         std::unique_ptr<AstNode> constraint_expr;
+    };
+
+    class ImplicitReceiverExpressionNode : public ExpressionNode {
+    public:
+        ImplicitReceiverExpressionNode()
+            : ExpressionNode(ExpressionType::ImplicitReceiver) {}
     };
 
 }// namespace luaxc

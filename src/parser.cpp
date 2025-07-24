@@ -863,6 +863,14 @@ namespace luaxc {
                 }
                 break;
             }
+            case (TokenType::DOT): {
+                if (is_in_scope_no_propagation(ParserState::InFunctionOrMethodScope)) {
+                    // implicit receiver syntax
+                    node = parse_member_access_or_method_invoke_expression(
+                            std::make_unique<ImplicitReceiverExpressionNode>());
+                }
+                break;
+            }
             case (TokenType::STRING_LITERAL): {
                 auto& str = current_token.value;
                 // remove the prefix and postfix quotation marks.

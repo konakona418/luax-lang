@@ -18,7 +18,10 @@ let MyType = type {
     method sum(self) {
         // it does not matter to use self or other names.
         // but it must contains at least one param to receive the instance.
+        // IMPORTANT: however, to use the implicit receiver grammar,
+        // the param must be named "self"
         return self.a + self.b;
+        // return .a + .b; // implicit receiver
     }
 
     method opAdd(self, other) {
@@ -40,7 +43,8 @@ io::println((obj + MyType::new(3, 4)).sum());
 func Vector2(TData) {
     // you must declare this _Vector2T.
     // otherwise, the type closure (yes it is a closure) will not be able
-    // to capture something referencing to the type itself.
+    // to capture something referencing to the type to be generated itself.
+    // in this case, it's _Vector2T.
     let _Vector2T = type {
         field x = TData;
         field y = TData;
