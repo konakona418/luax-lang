@@ -581,7 +581,7 @@ namespace luaxc {
             std::string cwd;
         };
 
-        const RuntimeContext& get_runtime_context() const { return runtime_ctx; }
+        RuntimeContext& get_runtime_context() { return runtime_ctx; }
 
         void set_gc_heap_size(size_t size) { gc.set_max_heap_size(size); }
 
