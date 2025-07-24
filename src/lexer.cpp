@@ -350,6 +350,9 @@ namespace luaxc {
             case '~':
                 advance();
                 return Token{TokenType::BITWISE_NOT, "~"};
+            case '@':
+                advance();
+                return Token{TokenType::AT, "@"};
             default:
                 if (current_char() == '\0') {
                     return Token{TokenType::TERMINATOR, ""};

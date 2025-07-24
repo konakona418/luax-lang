@@ -692,7 +692,8 @@ namespace luaxc {
 
         auto identifier = parse_identifier();
 
-        if (current_token.type == TokenType::L_PARENTHESIS) {
+        if (current_token.type == TokenType::L_PARENTHESIS ||
+            current_token.type == TokenType::AT) {// trailing closure expression
             return parse_method_invocation_expression(std::move(initial_expr), std::move(identifier));
         }
 
@@ -702,17 +703,26 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_method_invocation_expression(std::unique_ptr<AstNode> initial_expr, std::unique_ptr<AstNode> method_identifier) {
-        consume(TokenType::L_PARENTHESIS, "Expected '(' after method identifier");
         std::vector<std::unique_ptr<AstNode>> arguments;
 
-        while (current_token.type != TokenType::R_PARENTHESIS) {
-            arguments.push_back(parse_simple_expression());
-            if (current_token.type == TokenType::COMMA) {
-                consume(TokenType::COMMA, "Expected ',' after argument");
+        if (current_token.type != TokenType::AT) {
+            consume(TokenType::L_PARENTHESIS, "Expected '(' after method identifier");
+
+            while (current_token.type != TokenType::R_PARENTHESIS) {
+                arguments.push_back(parse_simple_expression());
+                if (current_token.type == TokenType::COMMA) {
+                    consume(TokenType::COMMA, "Expected ',' after argument");
+                }
             }
+
+            consume(TokenType::R_PARENTHESIS, "Expected ')' ending method invocation");
         }
 
-        consume(TokenType::R_PARENTHESIS, "Expected ')' ending method invocation");
+        if (current_token.type == TokenType::AT) {
+            auto trailing_closure = parse_trailing_closure_expression();
+
+            arguments.push_back(std::move(trailing_closure));
+        }
 
         return std::make_unique<MethodInvocationExpressionNode>(
                 std::move(initial_expr),
@@ -749,6 +759,21 @@ namespace luaxc {
         return std::make_unique<InitializerListExpressionNode>(std::move(type_expr), std::move(block));
     }
 
+    std::unique_ptr<AstNode> Parser::parse_trailing_closure_expression() {
+        consume(TokenType::AT, "Expected '@' before trailing closure");
+        std::unique_ptr<AstNode> trailing_closure;
+
+        if (current_token.type == TokenType::KEYWORD_FUNC) {
+            trailing_closure = parse_closure_expression();
+        } else if (current_token.type == TokenType::L_CURLY_BRACKET) {
+            trailing_closure = parse_simple_closure_expression();
+        } else {
+            LUAXC_PARSER_THROW_ERROR("Not a valid trailing closure")
+        }
+
+        return trailing_closure;
+    }
+
     std::unique_ptr<AstNode> Parser::parse_closure_expression() {
         consume(TokenType::KEYWORD_FUNC, "Expected 'func'");
         consume(TokenType::L_PARENTHESIS, "Expected '(' in closure expression");
@@ -771,6 +796,23 @@ namespace luaxc {
         }
 
         consume(TokenType::R_PARENTHESIS, "Expected ')' enclosing parameters");
+
+        consume_type_annotation(TypeAnnotationType::Return);
+
+        auto body = parse_block_statement();
+
+        exit_scope();
+
+        return std::make_unique<ClosureExpressionNode>(std::move(parameters), std::move(body));
+    }
+
+    std::unique_ptr<AstNode> Parser::parse_simple_closure_expression() {
+        std::vector<std::unique_ptr<AstNode>> parameters;
+
+        enter_scope(ParserState::InFunctionOrMethodScope);
+
+        parameters.push_back(std::make_unique<IdentifierNode>("self"));
+        declare_identifier("self");
 
         consume_type_annotation(TypeAnnotationType::Return);
 
@@ -919,7 +961,8 @@ namespace luaxc {
         }
 
         while (true) {
-            if (current_token.type == TokenType::L_PARENTHESIS) {
+            if (current_token.type == TokenType::L_PARENTHESIS ||
+                current_token.type == TokenType::AT) {// trailing closure expression
                 // potential function invocation
                 node = parse_function_invocation_statement(std::move(node));
             } else if (current_token.type == TokenType::DOT) {
@@ -945,17 +988,27 @@ namespace luaxc {
     }
 
     std::unique_ptr<AstNode> Parser::parse_function_invocation_statement(std::unique_ptr<AstNode> function_identifier) {
-        consume(TokenType::L_PARENTHESIS, "Expected '(' after function identifier");
         std::vector<std::unique_ptr<AstNode>> arguments;
 
-        while (current_token.type != TokenType::R_PARENTHESIS) {
-            arguments.push_back(parse_simple_expression());
-            if (current_token.type == TokenType::COMMA) {
-                consume(TokenType::COMMA, "Expected ',' after argument");
+        if (current_token.type != TokenType::AT) {
+            consume(TokenType::L_PARENTHESIS, "Expected '(' after function identifier");
+
+            while (current_token.type != TokenType::R_PARENTHESIS) {
+                arguments.push_back(parse_simple_expression());
+                if (current_token.type == TokenType::COMMA) {
+                    consume(TokenType::COMMA, "Expected ',' after argument");
+                }
             }
+
+            consume(TokenType::R_PARENTHESIS, "Expected ')' ending function invocation");
         }
 
-        consume(TokenType::R_PARENTHESIS, "Expected ')' ending function invocation");
+        if (current_token.type == TokenType::AT) {
+            // trailing closure
+            auto trailing_closure = parse_trailing_closure_expression();
+
+            arguments.push_back(std::move(trailing_closure));
+        }
 
         return std::make_unique<FunctionInvocationExpressionNode>(
                 std::move(function_identifier), std::move(arguments));

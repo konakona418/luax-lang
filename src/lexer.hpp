@@ -43,6 +43,8 @@ namespace luaxc {
         BITWISE_XOR,// symbol: ^
         BITWISE_NOT,// symbol: ~
 
+        AT,// symbol: @
+
         EQUAL,              // symbol: ==
         NOT_EQUAL,          // symbol: !=
         LESS_THAN_EQUAL,    // symbol: <=
