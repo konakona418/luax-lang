@@ -21,7 +21,16 @@ let MyType = type {
         // IMPORTANT: however, to use the implicit receiver grammar,
         // the param must be named "self"
         return self.a + self.b;
-        // return .a + .b; // implicit receiver
+        // return .a + .b; 
+        // implicit receiver
+        // 'self' prefix is inferred.
+        // IMPORTANT: note that .x and x is not equivalent!
+        // the reason behind this is that, x is a variable in the type declaration context.
+        // which is a type Type object, as you specify with field identifier = Type;
+        // while .x is a field accessor for the instance.
+        // this is the same with methods. though it's possible to invoke the method,
+        // however, the self argument is not inferred and passed,
+        // which may cause some confusion.
     }
 
     method opAdd(self, other) {

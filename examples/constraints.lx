@@ -1,0 +1,54 @@
+let io = use "std/io";
+let typing = use "std/typing";
+let constraints = use "std/constraints";
+let panicking = use "std/panicking";
+
+// a **constraint** is something that performs checks on a certain type.
+// a **rule** is a set of constraints.
+
+// in my implementation, a constraint is a function that takes a type and returns a boolean.
+// so it's sort of a predicate.
+// by composing such predicates, we can build more complex constraints.
+
+let MyType = type { 
+    field x = typing::Int;
+
+    func new(x) {
+        return MyType{x = x};
+    }
+
+    method getX(self) {
+        return .x;
+    }
+};
+
+let testRule = rule {
+    constraint x = constraints::hasField("x");
+    constraint new = constraints::hasStaticMethod("new");
+    constraint getX = constraints::hasMethod("getX");
+};
+
+// hasField, hasStaticMethod, hasMethod are functions 
+// that takes an identifier and returns a constraint
+
+let falseRule = rule {
+    constraint x = func (T) { return false; };
+};
+
+// this is a rule that always fails
+
+let derivedRule = rule {
+    constraint testRule = constraints::apply(testRule);
+    constraint falseRule = constraints::not(falseRule);
+};
+
+// apply is a function that takes a constraint and returns a constraint
+// not is a function that takes a constraint and returns its opposite constraint
+
+let myInstance = MyType::new(5);
+
+// use constraints::satisfy to check if a constraint is satisfied
+// this just returns true or false, and does not throw an error
+// you can use panicking module to handle errors
+io::println(constraints::satisfy(MyType, testRule));
+io::println(constraints::satisfy(typing::typeOf(myInstance), derivedRule));
