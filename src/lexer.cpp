@@ -27,15 +27,16 @@ namespace luaxc {
     }
 
     void Lexer::advance() {
+        if (current_char() == '\n') {
+            set_statistics_next_line();
+        } else {
+            statistics.column++;
+        }
         pos++;
-        statistics.column++;
     }
 
     void Lexer::skip_whitespace() {
         while (LUAXC_LEXER_IS_WHITESPACE(current_char())) {
-            if (current_char() == '\n') {
-                set_statistics_next_line();
-            }
             advance();
         }
     }
@@ -47,7 +48,6 @@ namespace luaxc {
             }
             if (current_char() == '\n') {
                 advance();
-                set_statistics_next_line();
             }
         } else if (current_char() == '/' && peek() == '*') {
             advance();
@@ -59,9 +59,6 @@ namespace luaxc {
                 advance();
             }
 
-            if (current_char() == '\n') {
-                set_statistics_next_line();
-            }
             advance();
             advance();
         }
@@ -447,6 +444,8 @@ namespace luaxc {
     }
 
     Token Lexer::next() {
+        last_cached_statistics = statistics;
+
         auto token = get_next_token();
         if (token.type == TokenType::INVALID) {
             throw error::LexerError("Invalid token", statistics.line, statistics.column);

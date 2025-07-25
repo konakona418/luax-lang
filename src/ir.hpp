@@ -203,7 +203,7 @@ namespace luaxc {
 
         ByteCode generate();
 
-        void inject_module_compiler(std::function<std::unique_ptr<AstNode>(const std::string&)> fn) { this->fn_compile_module = fn; }
+        void inject_module_compiler(std::function<std::unique_ptr<AstNode>(const std::string&, const std::string&)> fn) { this->fn_compile_module = fn; }
 
     private:
         struct WhileLoopGenerationContext {
@@ -227,7 +227,7 @@ namespace luaxc {
 
         std::vector<size_t> compiling_module_base_offsets;
 
-        std::function<std::unique_ptr<AstNode>(const std::string&)> fn_compile_module = nullptr;
+        std::function<std::unique_ptr<AstNode>(const std::string&, const std::string&)> fn_compile_module = nullptr;
 
         std::optional<size_t> is_module_present(const std::string& module_name);
 
@@ -496,7 +496,7 @@ namespace luaxc {
         ~IRRuntime() = default;
 
         std::unique_ptr<AstNode> generate(
-                const std::string& input,
+                const std::string& input, const std::string& filename,
                 Parser::ParserState init_state = Parser::ParserState::Start);
 
         void compile(const std::string& input);

@@ -12,6 +12,12 @@ namespace luaxc {
         Stmt,
     };
 
+    struct DebugInfo {
+        size_t line;
+        size_t column;
+        std::string filename;
+    };
+
     class AstNode {
     public:
         virtual ~AstNode() = default;

@@ -448,7 +448,7 @@ namespace luaxc {
             throw IRGeneratorException("Module '" + module_name_str + "' not found");
         }
 
-        auto module_ast = fn_compile_module(module_content);
+        auto module_ast = fn_compile_module(module_content, module_name_str);
 
         ByteCode module_byte_code;
 
@@ -2197,20 +2197,20 @@ namespace luaxc {
         return has_identifier(runtime.push_string_pool_if_not_exists(identifier));
     }
 
-    std::unique_ptr<AstNode> IRRuntime::generate(const std::string& input, Parser::ParserState init_state) {
-        auto lexer = Lexer(input);
+    std::unique_ptr<AstNode> IRRuntime::generate(const std::string& input, const std::string& filename, Parser::ParserState init_state) {
+        auto lexer = Lexer(input, filename);
         auto parser = Parser(lexer);
 
         return parser.parse_program(init_state);
     }
 
     void IRRuntime::compile(const std::string& input) {
-        auto program = generate(input);
+        auto program = generate(input, "<main>");
 
         generator = std::make_unique<IRGenerator>(*this, std::move(program));
         generator->inject_module_compiler(
-                [this](const std::string& name) {
-                    return generate(name, Parser::ParserState::InModuleDeclarationScope);
+                [this](const std::string& input, const std::string& filename) {
+                    return generate(input, filename, Parser::ParserState::InModuleDeclarationScope);
                 });
 
         interpreter = std::make_unique<IRInterpreter>(*this);

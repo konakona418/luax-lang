@@ -117,35 +117,49 @@ namespace luaxc {
     public:
         Lexer() : input(""), pos(0), len(0) {}
 
-        Lexer(std::string input) : input(input), pos(0), len(input.size()) {
+        Lexer(std::string input, const std::string& filename) : input(input), pos(0), len(input.size()) {
             statistics.line = 1;
             statistics.column = 1;
+            statistics.filename = filename;
+
+            last_cached_statistics = statistics;
         }
 
         std::vector<Token> lex();
 
         Token next();
 
-        void set_input(std::string input) {
+        void set_input(std::string input, const std::string& filename) {
             this->input = input;
             this->pos = 0;
             this->len = input.size();
 
             statistics.line = 1;
             statistics.column = 1;
+            statistics.filename = filename;
+
+            last_cached_statistics = statistics;
         }
 
         std::pair<size_t, size_t> get_line_and_column() const { return {statistics.line, statistics.column}; }
+
+        std::string get_filename() const { return statistics.filename; }
+
+        struct Statistics {
+            size_t line;
+            size_t column;
+            std::string filename;
+        };
+
+        Statistics get_cached_statistics() const { return last_cached_statistics; }
 
     private:
         std::string input;
         size_t pos;
         size_t len;
 
-        struct {
-            size_t line;
-            size_t column;
-        } statistics;
+        Statistics statistics;
+        Statistics last_cached_statistics;
 
         void set_statistics_next_line();
 

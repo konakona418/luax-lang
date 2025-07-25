@@ -15,10 +15,12 @@ namespace luaxc {
             std::string message;
             std::size_t line;
             std::size_t column;
+            std::string filename;
 
-            ParserError(std::string message, size_t line, size_t column) : line(line), column(column) {
+            ParserError(std::string message, size_t line, size_t column, std::string filename)
+                : line(line), column(column), filename(filename) {
                 std::stringstream ss;
-                ss << "ParserError: " << message << " at line " << line << ", column " << column;
+                ss << "ParserError: " << message << " at line " << line << ", column " << column << " of file " << filename;
                 this->message = ss.str();
             }
 

@@ -1,10 +1,10 @@
 #include "parser.hpp"
 #include "ast.hpp"
 
-#define LUAXC_PARSER_THROW_ERROR(message)                                                 \
-    do {                                                                                  \
-        auto line_and_column = lexer.get_line_and_column();                               \
-        throw error::ParserError(message, line_and_column.first, line_and_column.second); \
+#define LUAXC_PARSER_THROW_ERROR(message)                                                                 \
+    do {                                                                                                  \
+        auto cached_stats = lexer.get_cached_statistics();                                                \
+        throw error::ParserError(message, cached_stats.line, cached_stats.column, cached_stats.filename); \
     } while (0);
 
 #define LUAXC_PARSER_THROW_NOT_IMPLEMENTED(feature) LUAXC_PARSER_THROW_ERROR("Not implemented feature: " #feature)
