@@ -74,6 +74,19 @@ io::println(MyType::new @ {
 // this.x and this.y. 
 // note that in this case 'this' cannot be inferred thus cannot be omitted.
 
+io::println(MyType::new @ {
+    .x = 5;
+    .y = 10;
+}.op @me {
+    io::println(me.y)
+    return 5;
+});
+
+// by writing out expressions like '@me', you can explicitly specify an alias for the receiver,
+// but now, you must explicitly write out the alias, like in the above example 'me.y'
+// however, one case you cannot use alias like this is when you explicitly declared the function params,
+// like @ func(...) { ... }. in this case, you must specify the alias in the function signature.
+
 // principles of context capture:
 // 1. a method, no matter static or instance, will capture the context of the type it belongs to.
 // 2. type scope and module scope is penetratable in caputuring.
