@@ -763,10 +763,20 @@ namespace luaxc {
         consume(TokenType::AT, "Expected '@' before trailing closure");
         std::unique_ptr<AstNode> trailing_closure;
 
+        std::unique_ptr<AstNode> implicit_receiver_alias = nullptr;
+        if (current_token.type == TokenType::IDENTIFIER) {
+            implicit_receiver_alias = parse_identifier();
+        }
+
         if (current_token.type == TokenType::KEYWORD_FUNC) {
+            if (implicit_receiver_alias) {
+                LUAXC_PARSER_THROW_ERROR(
+                        "Implicit receiver alias cannot be used with closures "
+                        "whose parameters has been explicitly declared")
+            }
             trailing_closure = parse_closure_expression();
         } else if (current_token.type == TokenType::L_CURLY_BRACKET) {
-            trailing_closure = parse_simple_closure_expression();
+            trailing_closure = parse_simple_closure_expression(std::move(implicit_receiver_alias));
         } else {
             LUAXC_PARSER_THROW_ERROR("Not a valid trailing closure")
         }
@@ -806,13 +816,18 @@ namespace luaxc {
         return std::make_unique<ClosureExpressionNode>(std::move(parameters), std::move(body));
     }
 
-    std::unique_ptr<AstNode> Parser::parse_simple_closure_expression() {
+    std::unique_ptr<AstNode> Parser::parse_simple_closure_expression(std::unique_ptr<AstNode> receiver_alias) {
         std::vector<std::unique_ptr<AstNode>> parameters;
 
         enter_scope(ParserState::InFunctionOrMethodScope);
 
-        parameters.push_back(std::make_unique<IdentifierNode>("self"));
-        declare_identifier("self");
+        if (receiver_alias != nullptr) {
+            declare_identifier(static_cast<IdentifierNode*>(receiver_alias.get())->get_name());
+            parameters.push_back(std::move(receiver_alias));
+        } else {
+            parameters.push_back(std::make_unique<IdentifierNode>("self"));
+            declare_identifier("self");
+        }
 
         consume_type_annotation(TypeAnnotationType::Return);
 

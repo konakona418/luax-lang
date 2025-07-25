@@ -53,6 +53,21 @@ private:
 };
 
 int main(int argc, char** argv) {
+#ifdef LUAXC_COMPILER_DEBUG
+
+    luaxc::IRRuntime runtime;
+
+    std::string input_file = "test.lx";
+    std::fstream input_file_stream(input_file);
+    std::string input_file_contents = std::string(std::istreambuf_iterator<char>(input_file_stream),
+                                                  std::istreambuf_iterator<char>());
+    input_file_stream.close();
+
+    runtime.compile(input_file_contents);
+
+    runtime.run();
+
+#else
     ArgParser parser(argc, argv);
     parser.parse();
 
@@ -78,6 +93,7 @@ int main(int argc, char** argv) {
     }
 
     runtime.run();
+#endif
 
     return 0;
 }
