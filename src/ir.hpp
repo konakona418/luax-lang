@@ -574,6 +574,8 @@ namespace luaxc {
 
         std::optional<size_t> has_module(StringObject* module_name);
 
+        void init_type_info(GCObject* object, const std::string& type_name);
+
         ImportedModule& get_module(size_t id) { return module_manager.modules[id]; };
 
         struct RuntimeContext {

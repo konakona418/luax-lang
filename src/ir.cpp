@@ -212,6 +212,8 @@ namespace luaxc {
             string_obj = get_string_from_pool(str);
         } else {
             string_obj = static_cast<StringObject*>(StringObject::from_string(str));
+            init_type_info(string_obj, "String");
+
             gc_regist_no_collect(string_obj);
             push_string_to_pool(str, string_obj);
         }
@@ -1791,6 +1793,8 @@ namespace luaxc {
 
         StringObject* string_object = new StringObject(
                 *static_cast<StringObject*>(string_literal_ref.get_inner_value<GCObject*>()));
+        runtime.init_type_info(string_object, "String");
+
         runtime.gc_regist(string_object);
 
         auto value = IRPrimValue(ValueType::String, (GCObject*){string_object});
@@ -2305,6 +2309,9 @@ namespace luaxc {
         auto constraints_fn = luaxc::constraints().load(runtime);
         native_funtions.insert(native_funtions.end(), constraints_fn.begin(), constraints_fn.end());
 
+        auto strings_fn = luaxc::strings().load(runtime);
+        native_funtions.insert(native_funtions.end(), strings_fn.begin(), strings_fn.end());
+
         for (auto [name, fn]: native_funtions) {
             store_value_in_global_scope(name, fn);
         }
@@ -2435,6 +2442,18 @@ namespace luaxc {
 
     void IRInterpreter::store_value_in_global_scope(StringObject* identifier, IRPrimValue value) {
         global_stack_frame().variables[identifier] = value;
+    }
+
+    void IRRuntime::init_type_info(GCObject* object, const std::string& type_name) {
+        TypeObject* type = get_type_info(type_name);
+
+        for (auto [name, _]: type->get_fields()) {
+            object->storage.fields[name] = PrimValue::null();
+        }
+
+        for (auto [name, fn]: type->get_methods()) {
+            object->storage.fields[name] = PrimValue(ValueType::Function, fn);
+        }
     }
 
     void IRRuntime::init_builtin_type_info() {

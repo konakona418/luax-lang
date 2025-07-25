@@ -4,17 +4,6 @@
 
 namespace luaxc {
 
-    void init_type_info(GCObject* object, TypeObject* type) {
-        for (auto [name, _]: type->get_fields()) {
-            object->storage.fields[name] = PrimValue::null();
-        }
-
-        for (auto [name, fn]: type->get_methods()) {
-            object->storage.fields[name] = PrimValue(ValueType::Function, fn);
-        }
-    }
-
-
 #define __LUAXC_EXTRACT_STRING_FROM_PRIM_VALUE(_prim_value) \
     (static_cast<StringObject*>(static_cast<GCObject*>(_prim_value.get_inner_value<GCObject*>()))->contained_string())
 
@@ -90,6 +79,8 @@ namespace luaxc {
         __LUAXC_MAKE_TYPEING_TYPE("Null", "__builtin_typings_none_type")
         __LUAXC_MAKE_TYPEING_TYPE("Type", "__builtin_typings_type_type")
 
+#undef __LUAXC_MAKE_TYPEING_TYPE
+
         FunctionObject* type_of = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> PrimValue {
             if (args.size() != 1) {
                 throw IRInterpreterException("Invalid arg size");
@@ -140,9 +131,7 @@ namespace luaxc {
             }
 
             // regist the array prototype
-            auto* array_type_info = runtime.get_type_info("Array");
-
-            init_type_info(array, array_type_info);
+            runtime.init_type_info(array, "Array");
 
             return PrimValue(ValueType::Array, (GCObject*){array});
         });
@@ -291,7 +280,7 @@ namespace luaxc {
             }
 
             // init type info
-            init_type_info(array, runtime.get_type_info("Array"));
+            runtime.init_type_info(array, "Array");
 
             return PrimValue(ValueType::Array, (GCObject*){array});
         });
@@ -324,5 +313,160 @@ namespace luaxc {
 #undef __LUAXC_LIB_DEFINE_HAS_WHAT
 
         return result;
-    }// namespace luaxc
+    }
+
+    Functions Strings::load(IRRuntime& runtime) {
+        Functions result;
+
+        auto* string_type_info = runtime.get_type_info("String");
+
+#define __LUAXC_EXTRACT_STRING_OBJECT(value) (static_cast<StringObject*>(value.get_inner_value<GCObject*>()))
+#define __LUAXC_DECLARE_STRING_MEMBER_FUNCTION(op_name, op)                                                                        \
+    {                                                                                                                              \
+        FunctionObject* _op = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> IRPrimValue {      \
+            if (args.size() != 2) {                                                                                                \
+                throw IRInterpreterException("Invalid arg size, reqires at least 2 strings to perform string operation " op_name); \
+            }                                                                                                                      \
+                                                                                                                                   \
+            auto lhs = args[0];                                                                                                    \
+            auto rhs = args[1];                                                                                                    \
+                                                                                                                                   \
+            if (!lhs.is_string() || !rhs.is_string()) {                                                                            \
+                throw IRInterpreterException("Invalid arg type, reqires strings");                                                 \
+            }                                                                                                                      \
+                                                                                                                                   \
+            auto* lhs_str = __LUAXC_EXTRACT_STRING_OBJECT(lhs);                                                                    \
+            auto* rhs_str = __LUAXC_EXTRACT_STRING_OBJECT(rhs);                                                                    \
+                                                                                                                                   \
+            return PrimValue::from_bool(*lhs_str op * rhs_str);                                                                    \
+        });                                                                                                                        \
+        runtime.gc_regist_no_collect(_op);                                                                                         \
+        auto* _identifier = runtime.push_string_pool_if_not_exists(op_name);                                                       \
+        string_type_info->add_field(_identifier, {TypeObject::function()});                                                        \
+        string_type_info->add_method(_identifier, _op);                                                                            \
+    }
+
+        __LUAXC_DECLARE_STRING_MEMBER_FUNCTION("opCompareEqual", ==);
+        __LUAXC_DECLARE_STRING_MEMBER_FUNCTION("opCompareNotEqual", !=);
+
+#undef __LUAXC_DECLARE_STRING_MEMBER_FUNCTION
+
+        FunctionObject* string_op_add = FunctionObject ::create_native_function([&runtime](std ::vector<PrimValue> args) -> IRPrimValue {
+            auto guard = runtime.gc_guard();
+
+            if (args.size() != 2) {
+                throw IRInterpreterException(
+                        "Invalid arg size, reqires at least 2 strings to perform string operation opAdd");
+            }
+
+            auto lhs = args[0];
+            auto rhs = args[1];
+
+            if (!lhs.is_string() || !rhs.is_string()) {
+                throw IRInterpreterException("Invalid arg type, reqires strings");
+            }
+
+            auto* lhs_str = (static_cast<StringObject*>(lhs.get_inner_value<GCObject*>()));
+            auto* rhs_str = (static_cast<StringObject*>(rhs.get_inner_value<GCObject*>()));
+
+            auto* result = *lhs_str + *rhs_str;
+            runtime.gc_regist(result);
+
+            runtime.init_type_info(result, "String");
+
+            return PrimValue(ValueType::String, (GCObject*){result});
+        });
+        runtime.gc_regist_no_collect(string_op_add);
+        auto* string_op_add_identifier = runtime.push_string_pool_if_not_exists("opAdd");
+        string_type_info->add_field(string_op_add_identifier, {TypeObject ::function()});
+        string_type_info->add_method(string_op_add_identifier, string_op_add);
+
+        FunctionObject* string_op_index_at = FunctionObject ::create_native_function([&runtime](std ::vector<PrimValue> args) -> IRPrimValue {
+            if (args.size() != 2) {
+                throw IRInterpreterException("Invalid args");
+            }
+
+            if (args[0].get_type() != ValueType::String) {
+                throw IRInterpreterException("The argument self is not an array object");
+            }
+
+            auto* string = __LUAXC_EXTRACT_STRING_OBJECT(args[0]);
+
+            if (args[1].get_type() != ValueType::Int) {
+                throw IRInterpreterException("The argument index is not an int");
+            }
+
+            auto idx = args[1].get_inner_value<Int>();
+
+            if (idx < 0 || idx >= string->get_length()) {
+                LUAXC_GC_THROW_ERROR_EXPR("Index out of bounds");
+            }
+
+            return PrimValue::from_string(std::string(1, string->c_str()[idx]));
+        });
+        runtime.gc_regist_no_collect(string_op_index_at);
+        auto* string_op_index_at_identifier = runtime.push_string_pool_if_not_exists("opIndexAt");
+        string_type_info->add_field(string_op_index_at_identifier, {TypeObject::function()});
+        string_type_info->add_method(string_op_index_at_identifier, string_op_index_at);
+
+        FunctionObject* string_op_index_assign = FunctionObject ::create_native_function([&runtime](std ::vector<PrimValue> args) -> IRPrimValue {
+            if (args.size() != 3) {
+                throw IRInterpreterException("Invalid args");
+            }
+
+            if (args[0].get_type() != ValueType::String) {
+                throw IRInterpreterException("The argument self is not an array object");
+            }
+
+            auto* string = __LUAXC_EXTRACT_STRING_OBJECT(args[0]);
+
+            if (args[1].get_type() != ValueType::Int) {
+                throw IRInterpreterException("The argument index is not an int");
+            }
+
+            auto idx = args[1].get_inner_value<Int>();
+
+            if (idx < 0 || idx >= string->get_length()) {
+                LUAXC_GC_THROW_ERROR_EXPR("Index out of bounds");
+            }
+
+            if (!args[2].is_string()) {
+                LUAXC_GC_THROW_ERROR_EXPR("The argument replacement is not a string");
+            }
+
+            auto* replacement = __LUAXC_EXTRACT_STRING_OBJECT(args[2]);
+
+            if (replacement->get_length() > 1) {
+                LUAXC_GC_THROW_ERROR_EXPR("The argument replacement is not a single character");
+            }
+
+            string->get_data()[idx] = replacement->c_str()[0];
+
+            return PrimValue::unit();
+        });
+        runtime.gc_regist_no_collect(string_op_index_assign);
+        auto* string_op_index_assign_identifier = runtime.push_string_pool_if_not_exists("opIndexAssign");
+        string_type_info->add_field(string_op_index_assign_identifier, {TypeObject::function()});
+        string_type_info->add_method(string_op_index_assign_identifier, string_op_index_assign);
+
+        FunctionObject* string_op_size = FunctionObject ::create_native_function([&runtime](std ::vector<PrimValue> args) -> IRPrimValue {
+            auto guard = runtime.gc_guard();
+
+            if (args.size() != 1) {
+                throw IRInterpreterException("Invalid arguments count");
+            }
+
+            if (!args[0].is_string()) {
+                throw IRInterpreterException("Invalid arguments type");
+            }
+
+            return PrimValue::from_i64(__LUAXC_EXTRACT_STRING_OBJECT(args[0])->get_length());
+        });
+        runtime.gc_regist_no_collect(string_op_size);
+        auto* string_op_size_identifier = runtime.push_string_pool_if_not_exists("size");
+        string_type_info->add_field(string_op_size_identifier, {TypeObject::function()});
+        string_type_info->add_method(string_op_size_identifier, string_op_size);
+
+        return result;
+    }
 }// namespace luaxc

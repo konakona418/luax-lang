@@ -110,12 +110,17 @@ namespace luaxc {
             length = str.length();// no null terminator.
             this->data = static_cast<Encoding*>(std::malloc(sizeof(Encoding) * (length + 1)));
             std::memcpy(this->data, str.data(), length + 1);
+
+            this->data[length] = Encoding(0);
         }
 
         BasicStringObject<Encoding> operator=(const BasicStringObject<Encoding>& other) {
             length = other.length;
             this->data = static_cast<Encoding*>(std::malloc(sizeof(Encoding) * (length + 1)));
             std::memcpy(this->data, other.data, length + 1);
+
+            this->data[length] = Encoding(0);
+
             return *this;
         }
 
@@ -133,9 +138,21 @@ namespace luaxc {
             return !(*this == other);
         }
 
+        BasicStringObject<Encoding>* operator+(const BasicStringObject<Encoding>& other) const {
+            auto* output = new BasicStringObject<Encoding>;
+            output->length = this->length + other.length;
+
+            output->data = new Encoding[output->length + 1];
+            std::memcpy(output->data, this->data, this->length);
+            std::memcpy(output->data + this->length, other.data, other.length);
+            output->data[output->length] = Encoding(0);
+
+            return output;
+        }
+
         const Encoding* c_str() const { return static_cast<const char*>(data); }
 
-        std::string contained_string() const { return std::basic_string<Encoding>(data, length); }
+        std::string contained_string() const { return std::basic_string<Encoding>(data, length + 1); }
 
         static BasicStringObject<Encoding>* from_string(const std::basic_string<Encoding>& str) {
             return new BasicStringObject<Encoding>(str);
@@ -145,11 +162,17 @@ namespace luaxc {
             return std::string(c_str());
         }
 
+        size_t get_length() const { return this->length; }
+
+        Encoding* get_data() { return this->data; }
+
         size_t get_object_size() const override { return sizeof(BasicStringObject<Encoding>) + length * sizeof(Encoding); }
 
     private:
-        Encoding* data;
-        size_t length;
+        BasicStringObject() = default;
+
+        Encoding* data = nullptr;
+        size_t length = 0;
     };
 
     struct StackFrameRef;
@@ -290,6 +313,8 @@ namespace luaxc {
         const StringObjectKeyMap<TypeField>& get_fields() const { return fields; }
 
         const StringObjectKeyMap<FunctionObject*>& get_methods() const { return member_funcs; }
+
+        const StringObjectKeyMap<FunctionObject*>& get_static_methods() const { return static_funcs; }
 
         bool has_method(StringObject* name) { return member_funcs.find(name) != member_funcs.end(); }
 
