@@ -437,9 +437,9 @@ namespace luaxc {
 
         void handle_make_rule();
 
-        void handle_member_load(IRLoadMemberParam param);
+        bool handle_member_load(IRLoadMemberParam param);
 
-        void handle_member_store(IRStoreMemberParam param);
+        bool handle_member_store(IRStoreMemberParam param);
 
         bool handle_index_load();
 

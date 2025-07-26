@@ -1544,11 +1544,11 @@ namespace luaxc {
                 }
 
                 case IRInstruction::InstructionType::LOAD_MEMBER: {
-                    handle_member_load(std::get<IRLoadMemberParam>(instruction.param));
+                    jumped = handle_member_load(std::get<IRLoadMemberParam>(instruction.param));
                     break;
                 }
                 case IRInstruction::InstructionType::STORE_MEMBER: {
-                    handle_member_store(std::get<IRStoreMemberParam>(instruction.param));
+                    jumped = handle_member_store(std::get<IRStoreMemberParam>(instruction.param));
                     break;
                 }
 
@@ -1681,7 +1681,7 @@ namespace luaxc {
         return false;
     }
 
-    void IRInterpreter::handle_member_load(IRLoadMemberParam param) {
+    bool IRInterpreter::handle_member_load(IRLoadMemberParam param) {
         auto name = param.identifier;
         auto object = pop_op_stack();
 
@@ -1691,21 +1691,35 @@ namespace luaxc {
 
         if (object.get_type() == ValueType::Type) {
             if (handle_static_method_invocation(object, name)) {
-                return;
+                return false;
             }
         }
 
         auto* object_ptr = object.get_inner_value<GCObject*>();
 
         if (object_ptr->storage.fields.find(name) == object_ptr->storage.fields.end()) {
-            std::string name_str = name->to_string();
-            throw IRInterpreterException("Object does not contain such field: " + name_str);
+            auto* op_member_load = runtime.push_string_pool_if_not_exists("opMemberLoad");
+
+            if (object_ptr->storage.fields.find(op_member_load) == object_ptr->storage.fields.end()) {
+                std::string name_str = name->to_string();
+                throw IRInterpreterException("Object does not contain such field: " + name_str);
+            }
+
+            push_op_stack(PrimValue(ValueType::String, (GCObject*){name}));
+            push_op_stack(object);
+            push_op_stack(object_ptr->storage.fields[op_member_load]);
+
+            bool jumped = handle_function_invocation(IRCallParam{2});
+
+            return jumped;
         }
 
         push_op_stack(object_ptr->storage.fields[name]);
+
+        return false;
     }
 
-    void IRInterpreter::handle_member_store(IRStoreMemberParam param) {
+    bool IRInterpreter::handle_member_store(IRStoreMemberParam param) {
         auto name = param.identifier;
         auto value = pop_op_stack();
         auto object = pop_op_stack();
@@ -1717,8 +1731,21 @@ namespace luaxc {
         auto* object_ptr = object.get_inner_value<GCObject*>();
 
         if (object_ptr->storage.fields.find(name) == object_ptr->storage.fields.end()) {
-            std::string name_str = name->to_string();
-            throw IRInterpreterException("Object does not contain such field: " + name_str);
+            auto* op_member_store = runtime.push_string_pool_if_not_exists("opMemberStore");
+
+            if (object_ptr->storage.fields.find(op_member_store) == object_ptr->storage.fields.end()) {
+                std::string name_str = name->to_string();
+                throw IRInterpreterException("Object does not contain such field: " + name_str);
+            }
+
+            push_op_stack(value);
+            push_op_stack(PrimValue(ValueType::String, (GCObject*){name}));
+            push_op_stack(object);
+            push_op_stack(object_ptr->storage.fields[op_member_store]);
+
+            bool jumped = handle_function_invocation(IRCallParam{3, true});
+
+            return jumped;
         } else {
             // force the type of the value to the desired member type
             // as sometimes the member type can be 'Any'
@@ -1726,6 +1753,8 @@ namespace luaxc {
         }
 
         object_ptr->storage.fields[name] = value;
+
+        return false;
     }
 
     bool IRInterpreter::handle_index_load() {
