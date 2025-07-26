@@ -1,0 +1,19 @@
+let panicking = use "std/panicking";
+
+func assert(cond) {
+    if (!cond) {
+        panicking::panic("assertion failed");
+    }
+}
+
+func eq(x, y) {
+    panicking::panicIf("assetion failed") @ func() {
+        return x != y;
+    };
+}
+
+func neq(x, y) {
+    panicking::panicIf("assertion failed") @ func() {
+        return x == y;
+    };
+}

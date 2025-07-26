@@ -1642,6 +1642,8 @@ namespace luaxc {
             }
         }
 
+        runtime.init_type_info(type_info, "Type");
+
         // set the context of the functions
         auto* ctx = freeze_context();
         for (auto* fn: functions) {

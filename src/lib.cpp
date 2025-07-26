@@ -81,6 +81,43 @@ namespace luaxc {
 
 #undef __LUAXC_MAKE_TYPEING_TYPE
 
+#define __LUAXC_EXTRACT_TYPE_OBJECT(_value) (static_cast<TypeObject*>(_value.get_inner_value<GCObject*>()))
+#define __LUAXC_DECLARE_TYPE_MEMBER_FUNCTION(op_name, op)                                                                          \
+    {                                                                                                                              \
+        FunctionObject* _op = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> IRPrimValue {      \
+            if (args.size() != 2) {                                                                                                \
+                throw IRInterpreterException("Invalid arg size, reqires at least 2 strings to perform string operation " op_name); \
+            }                                                                                                                      \
+                                                                                                                                   \
+            auto lhs = args[0];                                                                                                    \
+            auto rhs = args[1];                                                                                                    \
+                                                                                                                                   \
+            if (lhs.get_type() != ValueType::Type || rhs.get_type() != ValueType::Type) {                                          \
+                throw IRInterpreterException("Invalid arg type, reqires strings");                                                 \
+            }                                                                                                                      \
+                                                                                                                                   \
+            auto* lhs_type = __LUAXC_EXTRACT_TYPE_OBJECT(lhs);                                                                     \
+            auto* rhs_type = __LUAXC_EXTRACT_TYPE_OBJECT(rhs);                                                                     \
+                                                                                                                                   \
+            return PrimValue::from_bool(lhs_type op rhs_type);                                                                     \
+        });                                                                                                                        \
+        runtime.gc_regist_no_collect(_op);                                                                                         \
+        auto* _identifier = runtime.push_string_pool_if_not_exists(op_name);                                                       \
+        type_type_info->add_field(_identifier, {TypeObject::function()});                                                          \
+        type_type_info->add_method(_identifier, _op);                                                                              \
+    }
+
+        auto* type_type_info = runtime.get_type_info("Type");
+        __LUAXC_DECLARE_TYPE_MEMBER_FUNCTION("opCompareEqual", ==);
+        __LUAXC_DECLARE_TYPE_MEMBER_FUNCTION("opCompareNotEqual", !=);
+
+        for (auto& [_, type_object]: TypeObject::get_all_static_type_info()) {
+            runtime.init_type_info(type_object, "Type");
+        }
+
+#undef __LUAXC_DECLARE_TYPE_MEMBER_FUNCTION
+#undef __LUAXC_EXTRACT_TYPE_OBJECT
+
         FunctionObject* type_of = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> PrimValue {
             if (args.size() != 1) {
                 throw IRInterpreterException("Invalid arg size");
