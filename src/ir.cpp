@@ -1957,6 +1957,12 @@ namespace luaxc {
                 dynamic_cast<FunctionObject*>(fn_obj.get_inner_value<GCObject*>());
 
         if (fn->is_native_function()) {
+            // we need to add a guard here
+            // as the native function may allocate memory
+            // this may trigger a garbage collection
+            // which is not what we want
+            auto guard = runtime.gc_guard();
+
             // only non-native functions generate RET command
             // so we don't push a stack frame here,
             // for no one will be responsible for popping it.

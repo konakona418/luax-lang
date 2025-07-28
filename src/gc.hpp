@@ -13,6 +13,7 @@ namespace luaxc {
         public:
             GCGuard(GarbageCollector* gc) {
                 this->gc = gc;
+                gc->increase_guard_semaphore();
 
                 was_gc_enabled = gc->is_gc_enabled();
                 gc->set_gc_enabled(false);
@@ -20,6 +21,7 @@ namespace luaxc {
 
             ~GCGuard() {
                 gc->set_gc_enabled(was_gc_enabled);
+                gc->decrease_guard_semaphore();
             }
 
         private:
@@ -83,12 +85,23 @@ namespace luaxc {
 
         size_t get_max_heap_size() const { return config.max_heap_size; }
 
+        void increase_guard_semaphore() { ++guard_semaphore; }
+
+        void decrease_guard_semaphore() {
+            --guard_semaphore;
+
+            if (guard_semaphore == 0 && should_run_gc()) {
+                collect();
+            }
+        }
+
     private:
         std::unordered_set<GCObject*> gc_objects;
         std::vector<PrimValue>* op_stack = nullptr;
         std::list<StackFrame>* stack_frame = nullptr;
 
         bool enabled = false;
+        size_t guard_semaphore = 0;
 
         struct {
             size_t alloc_count = 0;
