@@ -37,7 +37,12 @@ namespace luaxc {
                 break;
             }
 
-            addline(line);
+            try {
+                addline(line);
+            } catch (const error::ReplEnvException& e) {
+                std::cout << __LUAXC_REPL_COLORS_RED << "Error: " << e.message << __LUAXC_REPL_COLORS_RESET << std::endl;
+                continue;
+            }
 
             if (can_execute()) {
                 input_count++;
@@ -75,7 +80,7 @@ namespace luaxc {
 
     void ReplEnv::remove_one_bracket(char right) {
         if (bracket_stack.empty()) {
-            LUAXC_GC_THROW_ERROR("Unmatched right bracket");
+            LUAXC_REPL_THROW_ERROR("Unmatched right bracket");
         }
 
         char left = bracket_stack.top();
@@ -86,7 +91,7 @@ namespace luaxc {
         } else if (left == '[' && right == ']') {
             bracket_stack.pop();
         } else {
-            LUAXC_GC_THROW_ERROR("Unmatched bracket");
+            LUAXC_REPL_THROW_ERROR("Unmatched bracket");
         }
     }
 
