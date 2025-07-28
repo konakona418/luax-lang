@@ -65,9 +65,14 @@ namespace luaxc {
         void regist_no_collect(GCObject* object) {
             object->no_collect = true;
             gc_objects.insert(object);
+            //statistics.bytes_allocated += object->get_object_size();
         }
 
         void regist(GCObject* object) {
+            if (statistics.bytes_allocated > config.max_heap_size) {
+                throw std::runtime_error("Heap memory overflow");
+            }
+
             gc_objects.insert(object);
             statistics.alloc_count++;
             statistics.bytes_allocated += object->get_object_size();

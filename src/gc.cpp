@@ -81,8 +81,10 @@ namespace luaxc {
             if (!object->marked && !object->no_collect) {
                 to_sweep.insert(object);
 
+                auto object_size = object->get_object_size();
+                assert(statistics.bytes_allocated >= object_size);
                 // !!
-                statistics.bytes_allocated -= object->get_object_size();
+                statistics.bytes_allocated -= object_size;
             }
         }
 

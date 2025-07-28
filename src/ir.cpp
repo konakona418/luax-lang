@@ -1626,7 +1626,7 @@ namespace luaxc {
     void IRInterpreter::handle_type_creation() {
         auto guard = runtime.gc_guard();
 
-        TypeObject* type_info = runtime.gc_allocate<TypeObject>();
+        TypeObject* type_info = new TypeObject();
 
         std::vector<FunctionObject*> functions;
 
@@ -1660,13 +1660,15 @@ namespace luaxc {
             fn->set_context(ctx);
         }
 
+        runtime.gc_regist(type_info);
+
         push_op_stack(IRPrimValue(ValueType::Type, static_cast<GCObject*>(type_info)));
     }
 
     void IRInterpreter::handle_make_rule() {
         auto guard = runtime.gc_guard();
 
-        RuleObject* rule = runtime.gc_allocate<RuleObject>();
+        RuleObject* rule = new RuleObject();
 
         for (auto& [name, value]: current_stack_frame().variables) {
             if (value.get_type() == ValueType::Function) {
@@ -1678,6 +1680,8 @@ namespace luaxc {
                         name->contained_string() + " is not a valid function");
             }
         }
+
+        runtime.gc_regist(rule);
 
         push_op_stack(IRPrimValue(ValueType::Rule, static_cast<GCObject*>(rule)));
     }
@@ -1880,7 +1884,7 @@ namespace luaxc {
         auto* type_info = static_cast<TypeObject*>(type.get_inner_value<GCObject*>());
 
         auto& fields = param.fields;
-        auto* gc_object = runtime.gc_allocate<GCObject>();
+        auto* gc_object = new GCObject();
 
         bool validation_enabled = type_info != TypeObject::any();
 
@@ -1904,6 +1908,8 @@ namespace luaxc {
         auto value = PrimValue(ValueType::Object, (GCObject*){gc_object});
         value.set_type_info(type_info);
 
+        runtime.gc_regist(gc_object);
+
         push_op_stack(value);
     }
 
@@ -1917,7 +1923,7 @@ namespace luaxc {
     GCObject* IRInterpreter::handle_make_module_local() {
         auto guard = runtime.gc_guard();
 
-        auto* gc_object = runtime.gc_allocate<GCObject>();
+        auto* gc_object = new GCObject();
 
         std::vector<FunctionObject*> functions;
         for (auto& [name, value]: current_stack_frame().variables) {
@@ -1935,6 +1941,8 @@ namespace luaxc {
 
         auto value = PrimValue(ValueType::Module, (GCObject*){gc_object});
         value.set_type_info(TypeObject::any());
+
+        runtime.gc_regist(gc_object);
 
         push_op_stack(value);
 
@@ -2409,7 +2417,7 @@ namespace luaxc {
     FrozenContextObject* IRInterpreter::freeze_context() {
         auto guard = runtime.gc_guard();
 
-        auto* ctx = runtime.gc_allocate<FrozenContextObject>();
+        auto* ctx = new FrozenContextObject();
 
         std::deque<SharedStackFrameRef> frozen;
 
@@ -2425,6 +2433,9 @@ namespace luaxc {
         // frozen.push_front(global_stack_frame());
 
         ctx->set_stack_frame(std::vector(frozen.begin(), frozen.end()));
+
+        runtime.gc_regist(ctx);
+
         return ctx;
     }
 
