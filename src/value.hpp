@@ -44,6 +44,7 @@ namespace luaxc {
         Rule,
         Null,
         Unit,
+        Never,
         Unknown
     };
 
@@ -372,9 +373,13 @@ namespace luaxc {
 
         static PrimValue unit() { return PrimValue(ValueType::Unit, UnitObject()); }
 
+        static PrimValue never() { return PrimValue(ValueType::Never, std::monostate()); }
+
         bool is_null() const { return type == ValueType::Null; }
 
         bool is_unit() const { return type == ValueType::Unit; }
+
+        bool is_never() const { return type == ValueType::Never; }
 
         bool is_int() const { return type == ValueType::Int; }
 

@@ -291,6 +291,34 @@ namespace luaxc {
         auto* runtime_abort_identifier = runtime.push_string_pool_if_not_exists("__builtin_runtime_abort");
         result.emplace_back(runtime_abort_identifier, PrimValue(ValueType::Function, runtime_abort));
 
+        FunctionObject* runtime_invoke = FunctionObject::create_native_function([&runtime](std::vector<PrimValue> args) -> PrimValue {
+            if (args.size() < 1) {
+                throw IRInterpreterException("Invalid arg size");
+            }
+
+            if (args[0].get_type() != ValueType::Function) {
+                throw IRInterpreterException("Invalid arg type");
+            }
+
+            auto* fn = static_cast<FunctionObject*>(args[0].get_inner_value<GCObject*>());
+            auto args_to_pass = args.size() > 1
+                                        ? std::vector<PrimValue>(args.begin() + 1, args.end())
+                                        : std::vector<PrimValue>{};
+
+            // add an -1 offset, as the program counter is incremented after the call
+            runtime.invoke_function(fn, args_to_pass,
+                                    false, -1);
+
+            // returns a never value
+            // as this is a buitlin function,
+            // and returning unit will not be consumed on time
+            // causing unexpected behaviour
+            return PrimValue::never();
+        });
+        runtime.gc_regist_no_collect(runtime_invoke);
+        auto* runtime_invoke_identifier = runtime.push_string_pool_if_not_exists("__builtin_runtime_invoke");
+        result.emplace_back(runtime_invoke_identifier, PrimValue(ValueType::Function, runtime_invoke));
+
         return result;
     }
 

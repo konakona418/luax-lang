@@ -318,6 +318,8 @@ namespace luaxc {
 
     class IRInterpreter {
     public:
+        friend IRRuntime;
+
         explicit IRInterpreter(IRRuntime& runtime);
         ~IRInterpreter();
 
@@ -358,6 +360,12 @@ namespace luaxc {
         std::vector<PrimValue>* get_op_stack_ptr() { return &stack; }
 
         std::list<StackFrame>* get_stack_frames_ptr() { return &stack_frames; };
+
+        void set_program_counter(size_t pc) { this->pc = pc; }
+
+        size_t get_program_counter() const { return pc; }
+
+        bool running() const { return pc < byte_code.size(); }
 
     private:
         ByteCode byte_code;
@@ -588,6 +596,9 @@ namespace luaxc {
         void set_gc_heap_size(size_t size) { gc.set_max_heap_size(size); }
 
         size_t get_gc_heap_size() const { return gc.get_max_heap_size(); }
+
+        void invoke_function(FunctionObject* function, std::vector<PrimValue> args,
+                             bool force_discard_return_value, ssize_t jump_offset = 0);
 
     private:
         struct {

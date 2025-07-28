@@ -1955,11 +1955,10 @@ namespace luaxc {
                 args[i] = pop_op_stack();
             }
             auto ret = fn->call_native(args);
-            push_op_stack(ret);
 
             // force discarding the return value
-            if (param.force_pop_return_value) {
-                pop_op_stack();
+            if (!param.force_pop_return_value && !ret.is_never()) {
+                push_op_stack(ret);
             }
 
             return false;
@@ -2485,6 +2484,41 @@ namespace luaxc {
         for (auto [name, fn]: type->get_methods()) {
             object->storage.fields[name] = PrimValue(ValueType::Function, fn);
         }
+    }
+
+    void IRRuntime::invoke_function(FunctionObject* function, std::vector<PrimValue> args, bool force_discard_return_value, ssize_t jump_offset) {
+        if (function->is_native_function()) {
+            auto ret = function->call_native(args);
+            if (!force_discard_return_value && !ret.is_never()) {
+                interpreter->push_op_stack(ret);
+            }
+            return;
+        }
+
+        if (!interpreter->running()) {
+            throw IRInterpreterException("Interpreter is not running");
+        }
+
+        if (function->get_arity() != args.size()) {
+            throw IRInterpreterException("Invalid number of arguments passed to function");
+        }
+
+        for (auto it = args.rbegin(); it != args.rend(); ++it) {
+            interpreter->push_op_stack(*it);
+        }
+
+        interpreter->load_context(function->get_context());
+        interpreter->push_stack_frame();
+
+        size_t jump_target =
+                resolve_function_offset(
+                        function->get_module_id(),
+                        function->get_begin_offset()) +
+                jump_offset;
+
+        interpreter->set_program_counter(jump_target);
+
+        return;
     }
 
     void IRRuntime::init_builtin_type_info() {

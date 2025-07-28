@@ -1,5 +1,7 @@
 func __builtin_runtime_gc_collect();
 func __builtin_runtime_abort();
+func __builtin_runtime_invoke();
 
 let collectGarbage = __builtin_runtime_gc_collect;
 let abort = __builtin_runtime_abort;
+let invoke = __builtin_runtime_invoke;
