@@ -55,6 +55,12 @@ namespace luaxc {
             current_token = lexer.next();
         }
 
+        struct ParserConfig {
+            bool enable_undefined_identifier_check = true;
+        };
+
+        ParserConfig& get_config() { return config; }
+
     private:
         struct ParserStackFrame {
             ParserState state;
@@ -65,6 +71,8 @@ namespace luaxc {
 
         Lexer& lexer;
         Token current_token;
+
+        ParserConfig config;
 
         std::vector<ParserStackFrame> scopes;
 

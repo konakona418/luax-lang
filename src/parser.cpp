@@ -897,7 +897,8 @@ namespace luaxc {
 
                 auto name = static_cast<IdentifierNode*>(node.get())->get_name();
                 if (!is_identifier_declared(name) &&
-                    !is_in_scope(ParserState::InInitializerListScope)) {
+                    !is_in_scope(ParserState::InInitializerListScope) &&
+                    config.enable_undefined_identifier_check) {
                     LUAXC_PARSER_THROW_ERROR("Identifier not declared: '" + name + "'")
                 }
 

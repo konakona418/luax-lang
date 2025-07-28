@@ -203,6 +203,8 @@ namespace luaxc {
 
         ByteCode generate();
 
+        ByteCode generate_block(std::unique_ptr<AstNode> ast_node);
+
         void inject_module_compiler(std::function<std::unique_ptr<AstNode>(const std::string&, const std::string&)> fn) { this->fn_compile_module = fn; }
 
     private:
@@ -480,6 +482,11 @@ namespace luaxc {
 
     class IRRuntime {
     public:
+        struct {
+            // for repl environments
+            std::function<void(PrimValue)> pop_stack_handler = nullptr;
+        } handlers;
+
         IRRuntime() {
             init_builtin_type_info();
             resolve_runtime_ctx();
@@ -510,6 +517,8 @@ namespace luaxc {
         void compile(const std::string& input);
 
         void run();
+
+        void eval(const std::string& input);
 
         void abort(const std::string& reason) { throw std::runtime_error("Runtime aborted: " + reason); }
 

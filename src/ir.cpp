@@ -205,6 +205,12 @@ namespace luaxc {
         return byte_code;
     }
 
+    ByteCode IRGenerator::generate_block(std::unique_ptr<AstNode> ast_node) {
+        ByteCode byte_code;
+        generate_program_or_block(ast_node.get(), byte_code);
+        return byte_code;
+    }
+
     StringObject* IRRuntime::push_string_pool_if_not_exists(const std::string& str) {
         StringObject* string_obj;
 
@@ -1430,6 +1436,10 @@ namespace luaxc {
                 }
 
                 case IRInstruction::InstructionType::POP_STACK: {
+                    if (auto& handler = runtime.handlers.pop_stack_handler) {
+                        handler(op_stack_top());
+                    }
+
                     pop_op_stack();
                     break;
                 }
@@ -2264,6 +2274,49 @@ namespace luaxc {
 
         interpreter->set_byte_code(byte_code);
         interpreter->run();
+    }
+
+    void IRRuntime::eval(const std::string& input) {
+        auto lexer = Lexer(input, "<evaluated>");
+        auto parser = Parser(lexer);
+        parser.get_config().enable_undefined_identifier_check = false;
+
+        auto program = parser.parse_program();
+        ByteCode generated;
+
+        if (generator == nullptr) {
+            generator = std::make_unique<IRGenerator>(*this, std::move(program));
+            generator->inject_module_compiler(
+                    [this](const std::string& input, const std::string& filename) {
+                        return generate(input, filename, Parser::ParserState::InModuleDeclarationScope);
+                    });
+
+            generated = generator->generate();
+        } else {
+            generated = generator->generate_block(std::move(program));
+        }
+
+        if (interpreter == nullptr) {
+            interpreter = std::make_unique<IRInterpreter>(*this);
+        }
+
+        gc.init(interpreter->get_op_stack_ptr(),
+                interpreter->get_stack_frames_ptr());
+
+        gc.set_gc_enabled(true);
+
+        auto cached = this->byte_code;
+        byte_code.insert(this->byte_code.end(), generated.begin(), generated.end());
+
+        interpreter->set_byte_code(byte_code);
+
+        try {
+            interpreter->run();
+        } catch (IRInterpreterException& e) {
+            this->byte_code = cached;
+            interpreter->set_byte_code(cached);
+            throw e;
+        }
     }
 
     std::string IRRuntime::find_file_and_read(const std::string& module_path) {
