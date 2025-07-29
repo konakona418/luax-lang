@@ -14,7 +14,7 @@ namespace luaxc {
             }
 
             if (value.is_string()) {
-                writeline(static_cast<StringObject*>(value.get_inner_value<GCObject*>())->contained_string());
+                writeline("\"" + static_cast<StringObject*>(value.get_inner_value<GCObject*>())->contained_string() + "\"");
                 return;
             }
 
@@ -73,6 +73,8 @@ namespace luaxc {
 
                     runtime.get_interpreter().set_byte_code(e.cached_interpreter_code);
                     runtime.get_interpreter().load_snapshot(e.cached_interpreter_state);
+                } catch (const std::exception& e) {
+                    __LUAXC_REPL_PRINT_ERR("Error: " << e.what())
                 }
                 buffer.clear();
             }
@@ -142,11 +144,15 @@ namespace luaxc {
                 break;
             }
 
-            std::cout << "   " << "Frame #" << i << ":" << std::endl;
+            std::cout << "   " << "Frame #" << i
+                      << ", with return addr at " << it->return_addr << ":" << std::endl;
+
+            bool is_builtin_variables_present = false;
             for (auto& var: it->variables) {
                 auto name = var.first->contained_string();
 
                 if (name.find("__builtin_") != std::string::npos) {
+                    is_builtin_variables_present = true;
                     continue;
                 }
 
@@ -155,6 +161,10 @@ namespace luaxc {
 
             if (it->variables.empty()) {
                 std::cout << "      " << "| <empty>" << std::endl;
+            }
+
+            if (is_builtin_variables_present) {
+                std::cout << "      " << "| ....<builtins not displayed>" << std::endl;
             }
 
             i++;

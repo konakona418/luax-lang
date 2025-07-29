@@ -571,7 +571,7 @@ namespace luaxc {
             std::stringstream ss;
             ss << "[";
             for (size_t i = 0; i < size; i++) {
-                ss << data[i].to_string();
+                ss << data[i].to_string() << (i != size - 1 ? ", " : "");
             }
             ss << "]";
             return ss.str();
