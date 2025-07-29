@@ -100,6 +100,22 @@ namespace luaxc {
             }
         }
 
+        struct DumpedStats {
+            size_t heap_size = 0;
+            size_t max_heap_size = 0;
+
+            size_t object_count = 0;
+
+            bool running = false;
+        };
+
+        DumpedStats dump_stats() const {
+            return {statistics.bytes_allocated,
+                    config.max_heap_size,
+                    gc_objects.size(),
+                    enabled};
+        }
+
     private:
         std::unordered_set<GCObject*> gc_objects;
         std::vector<PrimValue>* op_stack = nullptr;

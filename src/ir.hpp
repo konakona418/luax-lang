@@ -203,9 +203,13 @@ namespace luaxc {
 
         ByteCode generate();
 
-        ByteCode generate_block(std::unique_ptr<AstNode> ast_node);
+        void generate_block(std::unique_ptr<AstNode> ast_node, ByteCode& existing_byte_code);
 
         void inject_module_compiler(std::function<std::unique_ptr<AstNode>(const std::string&, const std::string&)> fn) { this->fn_compile_module = fn; }
+
+        StringObject* begin_module_compilation(const std::string& module_name, size_t base_offset);
+
+        size_t end_module_compilation();
 
     private:
         struct WhileLoopGenerationContext {
@@ -234,10 +238,6 @@ namespace luaxc {
         std::optional<size_t> is_module_present(const std::string& module_name);
 
         size_t aggregate_compiling_module_base_offsets();
-
-        StringObject* begin_module_compilation(const std::string& module_name, size_t base_offset);
-
-        size_t end_module_compilation();
 
         size_t get_current_compiling_module_id();
 
@@ -368,6 +368,24 @@ namespace luaxc {
         size_t get_program_counter() const { return pc; }
 
         bool running() const { return pc < byte_code.size(); }
+
+        struct Snapshot {
+            size_t pc;
+            std::list<StackFrame> stack_frames;
+            std::vector<IRPrimValue> stack;
+            std::vector<FrozenContextObject*> context_stack;
+        };
+
+        Snapshot take_snapshot() const {
+            return Snapshot{pc, stack_frames, stack, context_stack};
+        }
+
+        void load_snapshot(Snapshot snapshot) {
+            pc = snapshot.pc;
+            stack_frames = std::move(snapshot.stack_frames);
+            stack = std::move(snapshot.stack);
+            context_stack = std::move(snapshot.context_stack);
+        }
 
     private:
         ByteCode byte_code;
@@ -518,12 +536,36 @@ namespace luaxc {
 
         void run();
 
+        class EvaluationException : public std::exception {
+        public:
+            std::string message;
+            ByteCode cached_interpreter_code;
+            IRInterpreter::Snapshot cached_interpreter_state;
+
+            EvaluationException(std::exception& inner_exception,
+                                ByteCode cached_interpreter_code,
+                                IRInterpreter::Snapshot cached_interpreter_state)
+                : message(inner_exception.what()),
+                  cached_interpreter_code(std::move(cached_interpreter_code)),
+                  cached_interpreter_state(std::move(cached_interpreter_state)) {}
+
+            const char* what() const noexcept override { return message.c_str(); }
+        };
+
         void eval(const std::string& input);
 
         void abort(const std::string& reason) { throw std::runtime_error("Runtime aborted: " + reason); }
 
         IRInterpreter& get_interpreter() {
             return *this->interpreter.get();
+        }
+
+        IRGenerator& get_generator() {
+            return *this->generator.get();
+        }
+
+        GarbageCollector& get_gc() {
+            return this->gc;
         }
 
         GarbageCollector::GCGuard gc_guard() {
@@ -605,6 +647,10 @@ namespace luaxc {
         void set_gc_heap_size(size_t size) { gc.set_max_heap_size(size); }
 
         size_t get_gc_heap_size() const { return gc.get_max_heap_size(); }
+
+        bool is_interpreter_present() const { return interpreter != nullptr; }
+
+        bool is_generator_present() const { return generator != nullptr; }
 
         void invoke_function(FunctionObject* function, std::vector<PrimValue> args,
                              bool force_discard_return_value, ssize_t jump_offset = 0);

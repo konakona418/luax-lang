@@ -105,10 +105,13 @@ int main(int argc, char** argv) {
 
         if (parser.output.dump_bytecode) {
             auto byte_code = luaxc::dump_bytecode(runtime.get_byte_code());
-            std::string dump_file_name = input_file + ".dump";
+            std::string dump_file_name = parser.output.dump_bytecode_file + ".dump";
             std::ofstream dump_file(dump_file_name);
             dump_file << byte_code;
             dump_file.close();
+
+            std::cout << "Dumped bytecode to " << dump_file_name << std::endl;
+            return 0;
         }
 
         runtime.run();

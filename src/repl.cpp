@@ -1,6 +1,9 @@
 #include "repl.hpp"
 
+#include <iomanip>
 #include <iostream>
+
+#define __LUAXC_REPL_PRINT_ERR(message) std::cout << __LUAXC_REPL_COLORS_RED << message << __LUAXC_REPL_COLORS_RESET << std::endl;
 
 namespace luaxc {
 
@@ -19,9 +22,19 @@ namespace luaxc {
         };
     }
 
+    ReplEnv::~ReplEnv() {
+        if (!runtime.is_generator_present()) {
+            return;
+        }
+
+        assert(runtime.get_generator().end_module_compilation() == 0);
+    }
+
     void ReplEnv::run() {
-        std::cout << "LuaX REPL " << LUAXC_REPL_ENV_VERSION << std::endl;
-        std::cout << "Type '/quit' to quit" << std::endl;
+        write_rainbow_line("LuaX REPL " + std::string(LUAXC_REPL_ENV_VERSION));
+
+        std::cout << "Type " << __LUAXC_REPL_COLORS_MAGENTA << "'/quit'" << __LUAXC_REPL_COLORS_RESET << " to quit;" << std::endl;
+        std::cout << "Type " << __LUAXC_REPL_COLORS_MAGENTA << "'/help'" << __LUAXC_REPL_COLORS_RESET << " for help." << std::endl;
 
         std::string line;
         while (true) {
@@ -37,10 +50,15 @@ namespace luaxc {
                 break;
             }
 
+            if (line.front() == '/') {
+                dispatch_internal_command(line);
+                continue;
+            }
+
             try {
                 addline(line);
             } catch (const error::ReplEnvException& e) {
-                std::cout << __LUAXC_REPL_COLORS_RED << "Error: " << e.message << __LUAXC_REPL_COLORS_RESET << std::endl;
+                __LUAXC_REPL_PRINT_ERR("Error: " << e.message)
                 continue;
             }
 
@@ -49,12 +67,127 @@ namespace luaxc {
 
                 try {
                     runtime.eval(buffer);
-                } catch (const std::exception& e) {
-                    std::cout << __LUAXC_REPL_COLORS_RED << "Error: " << e.what() << __LUAXC_REPL_COLORS_RESET << std::endl;
+                } catch (const IRRuntime::EvaluationException& e) {
+                    __LUAXC_REPL_PRINT_ERR("Error: " << e.what() << "; Stack dumped.")
+                    show_stack_info();
+
+                    runtime.get_interpreter().set_byte_code(e.cached_interpreter_code);
+                    runtime.get_interpreter().load_snapshot(e.cached_interpreter_state);
                 }
                 buffer.clear();
             }
         }
+    }
+
+    void ReplEnv::dispatch_internal_command(const std::string& line) {
+        if (line == "/help") {
+            show_help_message();
+            return;
+        }
+
+        if (line == "/stack") {
+            show_stack_info();
+            return;
+        }
+
+        if (line == "/bytecode") {
+            show_byte_code();
+            return;
+        }
+
+        if (line == "/gcstats") {
+            show_gc_info();
+            return;
+        }
+
+        __LUAXC_REPL_PRINT_ERR("Unknown command: " << line);
+    }
+
+    void ReplEnv::show_help_message() {
+        std::cout << "LuaXC REPL Help" << std::endl;
+        std::cout << "  /help - Show this help message" << std::endl;
+        std::cout << "  /stack - Show current stack frames" << std::endl;
+        std::cout << "  /bytecode - Show current bytecode" << std::endl;
+        std::cout << "  /gcstats - Show current garbage collector stats" << std::endl;
+    }
+
+    void ReplEnv::show_stack_info() {
+        constexpr size_t max_stack_trace_depth = 16;
+
+        if (!runtime.is_interpreter_present()) {
+            __LUAXC_REPL_PRINT_ERR("Interpreter not present")
+            return;
+        }
+
+        std::cout << "Stack Info:" << std::endl;
+        std::cout << "-- Operand Stack (from most recent to last):" << std::endl;
+
+        auto* op_stack = runtime.get_interpreter().get_op_stack_ptr();
+        size_t i = 0;
+        for (auto it = op_stack->rbegin(); it != op_stack->rend(); ++it) {
+            std::cout << "   " << i << ": " << it->to_string() << std::endl;
+            i++;
+        }
+
+        if (op_stack->empty()) {
+            std::cout << "   <empty>" << std::endl;
+        }
+
+        std::cout << "-- Stack Frame (from most recent to last):" << std::endl;
+        auto* stack_frames = runtime.get_interpreter().get_stack_frames_ptr();
+        i = 0;
+        for (auto it = stack_frames->rbegin(); it != stack_frames->rend(); ++it) {
+            if (i > max_stack_trace_depth) {
+                std::cout << "   ....<" << stack_frames->size() - max_stack_trace_depth << " frames truncated>" << std::endl;
+                break;
+            }
+
+            std::cout << "   " << "Frame #" << i << ":" << std::endl;
+            for (auto& var: it->variables) {
+                auto name = var.first->contained_string();
+
+                if (name.find("__builtin_") != std::string::npos) {
+                    continue;
+                }
+
+                std::cout << "      " << "| " << name << " = " << var.second.to_string() << std::endl;
+            }
+
+            if (it->variables.empty()) {
+                std::cout << "      " << "| <empty>" << std::endl;
+            }
+
+            i++;
+        }
+    }
+
+    void ReplEnv::show_byte_code() {
+        std::cout << dump_bytecode(runtime.get_byte_code()) << std::endl;
+    }
+
+    std::string ReplEnv::cvt_bytes_to_string(size_t bytes) {
+        std::stringstream ss;
+        if (bytes < 1024) {
+            ss << bytes << " B";
+        } else if (bytes < 1024 * 1024) {
+            ss << std::fixed << std::setprecision(2) << (bytes / 1024.0) << " KB";
+        } else {
+            ss << std::fixed << std::setprecision(2) << (bytes / (1024.0 * 1024.0)) << " MB";
+        }
+        return ss.str();
+    }
+
+    void ReplEnv::show_gc_info() {
+        auto stats = runtime.get_gc().dump_stats();
+
+        std::cout << "GC Stats:" << std::endl
+                  << (stats.running
+                              ? (__LUAXC_REPL_COLORS_GREEN "Running")
+                              : (__LUAXC_REPL_COLORS_RED "Stopped"))
+                  << __LUAXC_REPL_COLORS_RESET << std::endl
+                  << "--  Max Heap Size: " << cvt_bytes_to_string(stats.max_heap_size) << std::endl
+                  << "--  Heap Size: " << cvt_bytes_to_string(stats.heap_size) << std::endl
+                  << "--  Objects: " << stats.object_count << std::endl;
     }
 
     void ReplEnv::addline(const std::string& line) {
@@ -112,6 +245,19 @@ namespace luaxc {
 
     void ReplEnv::writeline(const std::string& line) {
         std::cout << __LUAXC_REPL_COLORS_GREEN << "Out[" << output_count++ << "]: " << __LUAXC_REPL_COLORS_RESET << line << std::endl;
+    }
+
+    void ReplEnv::write_rainbow_line(const std::string& line) {
+        for (size_t i = 0; i < line.size(); ++i) {
+            double frequency = 0.3;
+            int r = static_cast<int>(std::sin(frequency * i + 0) * 127 + 128);
+            int g = static_cast<int>(std::sin(frequency * i + 2) * 127 + 128);
+            int b = static_cast<int>(std::sin(frequency * i + 4) * 127 + 128);
+
+            std::printf("\033[38;2;%d;%d;%dm%c", r, g, b, line[i]);
+        }
+
+        std::cout << __LUAXC_REPL_COLORS_RESET << std::endl;
     }
 
     std::string ReplEnv::trim(const std::string& str) {

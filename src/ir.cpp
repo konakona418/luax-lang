@@ -205,10 +205,8 @@ namespace luaxc {
         return byte_code;
     }
 
-    ByteCode IRGenerator::generate_block(std::unique_ptr<AstNode> ast_node) {
-        ByteCode byte_code;
-        generate_program_or_block(ast_node.get(), byte_code);
-        return byte_code;
+    void IRGenerator::generate_block(std::unique_ptr<AstNode> ast_node, ByteCode& existing_byte_code) {
+        generate_program_or_block(ast_node.get(), existing_byte_code);
     }
 
     StringObject* IRRuntime::push_string_pool_if_not_exists(const std::string& str) {
@@ -2290,25 +2288,26 @@ namespace luaxc {
         interpreter->run();
     }
 
+    // !! this is, and should only be used for repl environments
     void IRRuntime::eval(const std::string& input) {
         auto lexer = Lexer(input, "<evaluated>");
         auto parser = Parser(lexer);
         parser.get_config().enable_undefined_identifier_check = false;
 
         auto program = parser.parse_program();
-        ByteCode generated;
 
         if (generator == nullptr) {
-            generator = std::make_unique<IRGenerator>(*this, std::move(program));
+            generator = std::make_unique<IRGenerator>(*this, nullptr);
             generator->inject_module_compiler(
                     [this](const std::string& input, const std::string& filename) {
                         return generate(input, filename, Parser::ParserState::InModuleDeclarationScope);
                     });
 
-            generated = generator->generate();
-        } else {
-            generated = generator->generate_block(std::move(program));
+            generator->begin_module_compilation("<main>", 0);
         }
+
+        auto cached = this->byte_code;
+        generator->generate_block(std::move(program), this->byte_code);
 
         if (interpreter == nullptr) {
             interpreter = std::make_unique<IRInterpreter>(*this);
@@ -2319,17 +2318,17 @@ namespace luaxc {
 
         gc.set_gc_enabled(true);
 
-        auto cached = this->byte_code;
-        byte_code.insert(this->byte_code.end(), generated.begin(), generated.end());
+        auto snapshot = interpreter->take_snapshot();
 
-        interpreter->set_byte_code(byte_code);
+        interpreter->set_byte_code(this->byte_code);
 
         try {
             interpreter->run();
         } catch (IRInterpreterException& e) {
             this->byte_code = cached;
-            interpreter->set_byte_code(cached);
-            throw e;
+            //interpreter->set_byte_code(cached);
+            //interpreter->load_snapshot(snapshot);
+            throw EvaluationException(e, cached, snapshot);
         }
     }
 

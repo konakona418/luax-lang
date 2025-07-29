@@ -14,7 +14,9 @@
 #define __LUAXC_REPL_COLORS_GREEN "\033[32m"
 #define __LUAXC_REPL_COLORS_YELLOW "\033[33m"
 #define __LUAXC_REPL_COLORS_BLUE "\033[34m"
+#define __LUAXC_REPL_COLORS_MAGENTA "\033[35m"
 #define __LUAXC_REPL_COLORS_CYAN "\033[36m"
+
 
 namespace luaxc {
     namespace error {
@@ -35,7 +37,11 @@ namespace luaxc {
     public:
         ReplEnv();
 
+        ~ReplEnv();
+
         void run();
+
+        void dispatch_internal_command(const std::string& line);
 
         void addline(const std::string& line);
 
@@ -49,6 +55,8 @@ namespace luaxc {
 
         void writeline(const std::string& line);
 
+        void write_rainbow_line(const std::string& line);
+
     private:
         std::stack<char> bracket_stack;
         std::string buffer;
@@ -59,5 +67,15 @@ namespace luaxc {
         size_t output_count = 0;
 
         std::string trim(const std::string& str);
+
+        std::string cvt_bytes_to_string(size_t bytes);
+
+        void show_help_message();
+
+        void show_stack_info();
+
+        void show_byte_code();
+
+        void show_gc_info();
     };
 }// namespace luaxc
