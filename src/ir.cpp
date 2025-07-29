@@ -1835,6 +1835,8 @@ namespace luaxc {
                 *static_cast<StringObject*>(string_literal_ref.get_inner_value<GCObject*>()));
         runtime.init_type_info(string_object, "String");
 
+        string_object->no_collect = false;
+
         runtime.gc_regist(string_object);
 
         auto value = IRPrimValue(ValueType::String, (GCObject*){string_object});
@@ -1937,7 +1939,8 @@ namespace luaxc {
         auto value = PrimValue(ValueType::Module, (GCObject*){gc_object});
         value.set_type_info(TypeObject::any());
 
-        runtime.gc_regist(gc_object);
+        // we need module registry to persist.
+        runtime.gc_regist_no_collect(gc_object);
 
         push_op_stack(value);
 
