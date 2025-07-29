@@ -1773,9 +1773,6 @@ namespace luaxc {
         bool jumped = false;
 
         auto index = pop_op_stack();
-
-        size_t index_value = index.get_inner_value<Int>();
-
         auto object = pop_op_stack();
 
         if (object.is_gc_object()) {
@@ -2324,7 +2321,7 @@ namespace luaxc {
 
         try {
             interpreter->run();
-        } catch (IRInterpreterException& e) {
+        } catch (std::exception& e) {
             this->byte_code = cached;
             //interpreter->set_byte_code(cached);
             //interpreter->load_snapshot(snapshot);

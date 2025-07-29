@@ -201,7 +201,16 @@ namespace luaxc {
     }
 
     void ReplEnv::addline(const std::string& line) {
+        bool is_in_string = false;
         for (auto& c: line) {
+            if (c == '"') {
+                is_in_string = !is_in_string;
+            }
+
+            if (is_in_string) {
+                continue;
+            }
+
             if (__LUAXC_REPL_IS_LEFT_BRACKET(c)) {
                 add_one_bracket(c);
             } else if (__LUAXC_REPL_IS_RIGHT_BRACKET(c)) {
